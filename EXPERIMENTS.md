@@ -490,7 +490,7 @@ E3b 中"需要第三个格子才能分离"的判断由此兑现 —— C 就是�
 3. 重新设计 adaptive trigger —— 围绕 allocation pressure，而非 occupancy ∧ novelty。
 4. 接 functional probes —— `register_probes` 需要调用点，否则 `compact_probe` 永远惰性。
 
-> 第 2、3 项已被阶段方案（`PLAN_NATIVE_CARRIER.md`）取代：真正的长期方法是
+> 第 2、3 项已被 carrier-residual 阶段方案取代：真正的长期方法是
 > carrier-residual functional compactor，而不是修 append/additive 二选一。
 > 代码保留在上表中，但不再作为主线推进。
 
