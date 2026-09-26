@@ -1,0 +1,128 @@
+# PRLM-C smoke test.
+#
+# Same write path, trigger and compaction as prlmc_8b.yaml; only the output
+# directory and compact_probe differ. compact_probe is off because
+# register_probes has no call site in the benchmark path, so the flag is inert
+# here and would only mislead.
+#
+# Run on factconsolidation_sh_32k: 83 chunks at chunk_size 400. The working
+# capacity is 12800 - 512 = 12288 slots, i.e. 48 blocks of 256, so the pool is
+# full by chunk 48 and the remaining writes must be served by compaction rather
+# than eviction. That is the specific behaviour the recent trigger fix changed,
+# and the reason this dataset is used instead of the smaller 6k variant (16
+# chunks) which never fills the pool.
+# PRLM-C (Protected Residual Latent Memory with Capacity-aware Consolidation)
+# as a MemoryAgentBench method.
+#
+# The agent name must contain the lowercase substring "prlmc" and must not
+# contain "rag": AgentWrapper._is_agent_type does substring matching and the rag
+# branch would otherwise claim the call.
+agent_name: prlmc_agent
+
+# Backbone. The checkpoint is used frozen; PRLM-C manages the memory pool only.
+model_path: /share/latent/MemoryLLM-8B
+dtype: float16
+device: cuda:0
+
+# MemoryLLM was trained at max_length 512 and injection truncates to it, so a
+# chunk longer than this loses its tail. Run with --chunk_size_ablation 400: the
+# benchmark prepends a ~60-token memorize template before this sees the chunk.
+inject_max_tokens: 512
+max_new_tokens: 32
+
+# Read by AgentWrapper.__init__. The pool replaces the sliding context window, so
+# input_length_limit is large; buffer_length must stay present because
+# AgentWrapper subtracts it.
+model: prlmc-8b
+temperature: 0.0
+input_length_limit: 10000000
+buffer_length: 200
+output_dir: ./outputs/prlmc-smoke
+
+# ---------------------------------------------------------------------------
+# PRLM-C configuration.
+#
+# ablation_mode selects the section 5.1 control arm and supplies that arm's
+# defining values; the keys below override individual fields on top of it.
+# Implemented arms: B5, B6, B7, B8, OURS. See methods/prlmc/baselines.py for the
+# guarantee table, and set structural_ablation to run a section 5.3 one-mechanism
+# probe (e.g. projection_soft, trigger_periodic, no_anchor).
+#
+# Thresholds are placeholders, not tuned values. The design note requires every
+# threshold to be chosen on a dev split (sections 3.3 and 5.2).
+# ---------------------------------------------------------------------------
+ablation_mode: OURS
+
+prlmc:
+  # --- slot layout -------------------------------------------------------
+  # k_anchor is a whole number of memory blocks (256 tokens each). Anchor slots
+  # are read-only: compaction never touches them.
+  k_anchor: 512
+  anchor_source: first_chunk   # first_chunk | explicit | none
+  # anchor_text: "..."         # required when anchor_source=explicit
+
+  # --- residual writing --------------------------------------------------
+  write_mode: append
+  gate_mode: novelty           # ones | novelty | learned
+  address_threshold: 0.85
+
+  # --- Subspace projection ----------------------------------------------
+  # Kept "none" by default. The note makes hard projection an open ablation
+  # rather than a fixed component: task-relevant new knowledge can share
+  # directions with the Anchor, and freezing those costs plasticity.
+  projection: none             # none | hard | soft
+  projection_lambdas: 0.5
+  projection_rank: 128
+
+  # --- novelty -----------------------------------------------------------
+  novelty_ema_beta: 0.9
+  basis_max_rank: 256
+  basis_energy: 0.95
+
+  # --- capacity trigger --------------------------------------------------
+  # tau_k: occupancy. The pool terminates exactly at capacity, so after the first
+  #   fill this condition is true on every write. It is effectively "is the pool
+  #   full", not a graded signal; kept because the note requires it, and because
+  #   `tau_k_exit` is what makes the hysteresis meaningful while filling.
+  # tau_n: novelty EMA. Calibrated from the observation run (500 writes over 2 dev
+  #   episodes, factconsolidation_sh_64k + icl_nlu): novelty ranged 0.8802-1.0
+  #   with p10 0.8844, p50 0.8942. The previous 0.50 was below the entire observed
+  #   range, so the condition was true on 500/500 writes, i.e. no signal at all.
+  #   0.885 sits at roughly p25 and restores discrimination. `tau_n_exit` must
+  #   stay <= tau_n.
+  tau_k: 0.80
+  tau_n: 0.885
+  tau_k_exit: 0.60
+  tau_n_exit: 0.880
+  trigger_consecutive: 5
+  trigger: occupancy_novelty_rank
+  rank_eta: 0.95
+  # Reporting-only budget for r_eff/r_max. The note keeps it separate from K_max
+  # and treats the ratio as auxiliary. The observation run measured intrinsic
+  # ranks well above 256 (energy_rank p50 427, max 600), so ratios above 1 here
+  # are a reporting artifact, not a veto.
+  rank_max: 256
+
+  # --- compaction --------------------------------------------------------
+  compact_mode: svd_tokens     # none | svd_tokens | weighted_svd_tokens | learned
+  compact_ratio: 0.5
+  compact_period: 10
+  compact_min_slots: 256
+  compact_probe: false
+
+  # --- importance weights (section 3.4) ---------------------------------
+  importance_weights:
+    goal: 1.0
+    reuse: 0.5
+    recency: 0.5
+    confidence: 0.5
+    surprise: 0.5
+    emphasis: 1.0
+
+  # --- runtime -----------------------------------------------------------
+  # seed is unset by default. The published MemoryLLM evicts with an unseeded
+  # torch.randperm; PRLM-C's placement is deterministic given the gate and
+  # trigger, but torch RNG still affects the backbone's own sampling paths.
+  # Set it to make a run bit-reproducible.
+  # seed: 42
+  verbose: true

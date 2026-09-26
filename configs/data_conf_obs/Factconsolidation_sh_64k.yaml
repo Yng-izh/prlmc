@@ -1,0 +1,19 @@
+# Observation split: single-hop fact consolidation at 64k, 169 chunks at 400.
+#
+# This is the conflict-resolution size that most exceeds the 12800-slot working
+# capacity, so it is the split that shows what the pool does when it fills:
+# compaction is off in this run, so placement falls through to eviction. The
+# occupancy and rank trajectory it produces is what `tau_k` should be set from.
+dataset: Conflict_Resolution
+chunk_size: 4096
+debug: false
+seed: 42
+context_max_length: 65536
+sub_dataset: factconsolidation_sh_64k
+generation_max_length: 10
+test_files: ''
+demo_files: ''
+use_chat_template: true
+max_test_samples: 1
+shots: 0
+tag: null
