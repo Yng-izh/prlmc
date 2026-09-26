@@ -42,6 +42,8 @@ def _coerce(value: Any, name: str) -> Any:
         return float(value)
     if name == "importance_weights":
         return {str(k): float(v) for k, v in dict(value or {}).items()}
+    if name == "select_weights":
+        return {str(k): float(v) for k, v in dict(value or {}).items()}
     if name in _STR_FIELDS:
         return str(value)
     return value
@@ -53,7 +55,7 @@ _INT_FIELDS = frozenset({
 })
 _FLOAT_FIELDS = frozenset({
     "address_threshold", "novelty_ema_beta", "basis_energy", "novelty_eps",
-    "tau_k", "tau_n", "tau_k_exit", "tau_n_exit",
+    "tau_k", "tau_n", "tau_k_exit", "tau_n_exit", "tau_alloc",
     "rank_eta", "compact_ratio",
 })
 _BOOL_FIELDS = frozenset({"compact_probe", "verbose"})
@@ -101,6 +103,11 @@ class PRLMCConfig:
     basis_max_rank: int = 256
     basis_energy: float = 0.95
     novelty_eps: float = 1e-8
+    # Below this novelty the candidate is judged explainable by the existing
+    # working subspace, so it updates an addressed block instead of allocating
+    # new slots. This is what makes `used` mean "how much independent content is
+    # stored" rather than "how many writes happened".
+    tau_alloc: float = 0.5
 
     # ---- Anchor projection ablation (section 3.2) -------------------------
     projection: str = "none"  # none | hard | soft
@@ -119,8 +126,21 @@ class PRLMCConfig:
 
     # ---- compaction (section 3.4) -----------------------------------------
     trigger: str = "occupancy_novelty_rank"
-    compact_mode: str = "svd_tokens"  # none | svd_tokens | weighted_svd_tokens | learned
+    # none | recent_blocks | select_blocks | svd_tokens | weighted_svd_tokens |
+    # learned | carrier_residual
+    # `recent_blocks` and `select_blocks` are native block selection: they copy
+    # whole 256-slot blocks the reader already produced and never synthesise a
+    # vector. `svd_tokens` is retained only as a failed baseline.
+    compact_mode: str = "svd_tokens"
     compact_ratio: float = 0.5
+    # Weights of the `select_blocks` score. Recency-led by default; see
+    # consolidate._DEFAULT_SELECT_WEIGHTS for why.
+    select_weights: Dict[str, float] = field(default_factory=lambda: {
+        "importance": 0.4,
+        "recency": 0.3,
+        "goal": 0.2,
+        "diversity": 0.1,
+    })
     compact_period: int = 10
     compact_min_slots: int = 256
     # Diagnostic probes are evaluated on a copy of the state, never on the live
@@ -151,7 +171,15 @@ class PRLMCConfig:
             raise ValueError(f"unknown gate_mode: {self.gate_mode}")
         if self.projection not in ("none", "hard", "soft"):
             raise ValueError(f"unknown projection: {self.projection}")
-        if self.compact_mode not in ("none", "svd_tokens", "weighted_svd_tokens", "learned"):
+        if self.compact_mode not in (
+            "none",
+            "recent_blocks",
+            "select_blocks",
+            "svd_tokens",
+            "weighted_svd_tokens",
+            "learned",
+            "carrier_residual",
+        ):
             raise ValueError(f"unknown compact_mode: {self.compact_mode}")
         if self.anchor_source not in ("first_chunk", "explicit", "none"):
             raise ValueError(f"unknown anchor_source: {self.anchor_source}")

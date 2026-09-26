@@ -58,7 +58,11 @@ from methods.prlmc.capacity import (
     occupancy_ratio,
 )
 from methods.prlmc.config import PRLMCConfig
-from methods.prlmc.consolidate import build_compactor
+from methods.prlmc.consolidate import (
+    build_compactor,
+    recent_block_compact,
+    select_block_compact,
+)
 from methods.prlmc.importance import ImportanceTracker
 from methods.prlmc.subspace import (
     AnchorProjection,
@@ -81,6 +85,14 @@ _BASIS_MAX_ROWS = 1024
 # Slot-copy granularity for the left shift and the free-space tiling. Bounds the
 # transient buffer to this many slots per layer.
 _COPY_CHUNK = 512
+
+# The layer every geometric quantity is computed in: the basis, the rank
+# spectrum, the goal direction, the novelty candidate and the block addresses.
+# One fixed layer rather than an average across layers, because a basis fitted to
+# layer 0 and a candidate averaged over all 32 layers live in different spaces and
+# their cosine has no stable meaning. Keeping the choice explicit in one constant
+# is what makes it checkable.
+_REFERENCE_LAYER = 0
 
 
 class SlotLayout:
@@ -134,17 +146,45 @@ class SlotLayout:
         }
 
 
-def summarise_block(delta: torch.Tensor) -> torch.Tensor:
+def summarise_block(delta: torch.Tensor, layer: int = 0) -> torch.Tensor:
     """Reduce a [L, n, d] delta block to one [d] candidate representation.
 
-    Used only for the novelty proxy. Averaging over layers and tokens is coarse
-    by construction; the note calls rho a proxy and requires it to allocate
-    capacity rather than judge value, so a coarse summary is acceptable here and
-    a precise one would not change the decisions it is allowed to drive.
+    Used only for the novelty proxy and for block addressing. Averaging over
+    tokens is coarse by construction; the note calls rho a proxy and requires it
+    to allocate capacity rather than judge value, so a coarse summary is
+    acceptable here and a precise one would not change the decisions it is
+    allowed to drive.
+
+    `layer` fixes which layer the summary comes from, and it defaults to the
+    layer `_refresh_basis` and `_spectrum` already use. Averaging across layers
+    as well (the previous behaviour) mixed two different things: the candidate
+    then lived in a layer-averaged space while the basis it was scored against
+    was estimated from layer 0 alone. The cosine and the novelty therefore had no
+    stable geometric meaning, which is what made a three-decimal threshold like
+    0.885 meaningless.
     """
     if delta.dim() == 4:
         delta = delta[0]
-    return delta.mean(dim=1).mean(dim=0)
+    if delta.dim() == 3:
+        delta = delta[layer]
+    return delta.mean(dim=0)
+
+
+def fit_width(block: torch.Tensor, width: int) -> torch.Tensor:
+    """Resize a [L, n, d] block to exactly `width` slots along dim 1.
+
+    In-place addressed updates add a delta into an existing block, and the two
+    widths need not agree: an injection block is at most `num_tokens` wide but a
+    chunk shorter than that yields a narrower delta. Truncation and tiling keep
+    the update defined instead of raising on a shape mismatch mid-episode.
+    """
+    n = block.shape[1]
+    if n == width:
+        return block
+    if n > width:
+        return block[:, :width, :]
+    reps = (width + n - 1) // n
+    return block.repeat(1, reps, 1)[:, :width, :]
 
 
 class ProtectedResidualMemory:
@@ -183,6 +223,11 @@ class ProtectedResidualMemory:
         self.importance = ImportanceTracker(config.importance_weights)
         self.trigger = CompactTrigger(config)
         self.compactor = build_compactor(config, self.hidden)
+        # Native block width for the selectors. The manager owns the true width
+        # (`model.num_tokens`); the config carries a copy so that
+        # `build_compactor` can bind it without importing the model.
+        self.compactor_block = self.block  # native block width, for the selectors
+        self.select_weights = dict(config.select_weights or {})
 
         self.basis: Optional[torch.Tensor] = None
         self.basis_mean: Optional[torch.Tensor] = None
@@ -195,7 +240,9 @@ class ProtectedResidualMemory:
         self.skipped_chunks = 0
         self.write_count = 0
         self.peak_used = 0
-        self._headroom_handled = False
+        # True when the most recent write requested more slots than the remaining
+        # budget and `_place` had to compact or evict before it could be placed.
+        self.made_room_for_write = False
         self.anchor_info: Dict[str, Any] = {}
 
     # -- helpers ------------------------------------------------------------
@@ -235,7 +282,7 @@ class ProtectedResidualMemory:
         self.skipped_chunks = 0
         self.write_count = 0
         self.peak_used = 0
-        self._headroom_handled = False
+        self.made_room_for_write = False
         self.last_snapshot = CapacitySnapshot(budget_slots=self.layout.working_capacity)
         self.importance = ImportanceTracker(self.cfg.importance_weights)
 
@@ -325,7 +372,7 @@ class ProtectedResidualMemory:
             self._memory[:, self.layout.anchor_slice(), :] = tiled.to(self.dtype)
 
         self.anchor_slots = tiled.detach().clone()
-        self.goal_direction = summarise_block(tiled).detach()
+        self.goal_direction = summarise_block(tiled, layer=_REFERENCE_LAYER).detach()
         self.model.initialized.fill_(1)
 
         self._tile_free_region()
@@ -384,7 +431,22 @@ class ProtectedResidualMemory:
     # -- write path ---------------------------------------------------------
 
     def write(self, text: str, max_tokens: int = 512) -> Dict[str, Any]:
-        """One write: novelty -> gate -> project -> place -> observe capacity.
+        """One write: novelty -> allocate-or-address -> gate -> place -> observe.
+
+        Section 3.2 gives the novelty proxy three bands, and only the middle one
+        allocates:
+
+            rho low        -> the candidate lies inside the subspace the working
+                              memory already spans, so it updates an addressed
+                              block and consumes no new slots.
+            rho high + room-> allocate new residual slots.
+            rho high + full-> allocate and let the capacity trigger consolidate.
+
+        The previous version ignored the first band entirely: every write was
+        appended, so `used` tracked the number of writes rather than the amount of
+        independent content. That is what produced two anti-correlated curves --
+        occupancy rising on every write while novelty fell as the subspace grew --
+        and made `tau_k AND tau_n` structurally unreachable.
 
         Returns a record for the run log. `dropped` is set when the chunk is
         below the 16-token injection floor, in which case the pool is untouched.
@@ -396,7 +458,7 @@ class ProtectedResidualMemory:
             return {"dropped": True, "raw_tokens": raw_tokens, "reason": "below_min_inject"}
 
         truncated = raw_tokens > max_tokens
-        self._headroom_handled = False
+        self.made_room_for_write = False
         started = time.time()
         block = self._encode(text, max_tokens)
         encode_seconds = time.time() - started
@@ -404,8 +466,13 @@ class ProtectedResidualMemory:
             self.skipped_chunks += 1
             return {"dropped": True, "raw_tokens": raw_tokens, "reason": "encode_failed"}
 
-        candidate = summarise_block(block)
-        novelty = feature_novelty(candidate, self.basis, eps=self.cfg.novelty_eps)
+        candidate = summarise_block(block, layer=_REFERENCE_LAYER)
+        # The basis is estimated from centred activations, so the candidate has
+        # to be centred with the same mean before it is scored. Without this the
+        # novelty carried a constant offset that had nothing to do with the
+        # subspace, and the threshold had no stable meaning across episodes.
+        scored = candidate - self.basis_mean if self.basis_mean is not None else candidate
+        novelty = feature_novelty(scored, self.basis, eps=self.cfg.novelty_eps)
         novelty_value = self.novelty.update(novelty)
 
         delta = block
@@ -416,7 +483,55 @@ class ProtectedResidualMemory:
             gate_value = float(gate)
             delta = delta * gate
 
-        evicted = self._place(delta)
+        # Both routes into an existing block require an admission decision: the
+        # candidate must be one the current memory can already explain, and the
+        # block it would join must actually match it. Novelty alone only says the
+        # representation is inside the spanned subspace; the address check says
+        # *which* stored content it is a correction of, which is the distinction
+        # the note draws between a fact update and a new fact.
+        addressed = self.cfg.write_mode == "additive"
+        allocated = True
+        target = None
+        if addressed:
+            target, similarity = self._address(candidate)
+            # The *instantaneous* rho, not the EMA: the note defines the
+            # allocation band on this write's candidate. Feeding the EMA here
+            # would let one unusual write decide the placement of the next
+            # several, and would silently couple `tau_alloc` to
+            # `novelty_ema_beta`. The EMA is a trigger signal only.
+            explained = float(novelty) < self.cfg.tau_alloc
+            matched = similarity >= self.cfg.address_threshold
+            if target is not None and (explained or matched):
+                allocated = False
+
+        # Capacity is decided *before* placement, not after it.
+        #
+        # The previous ordering ran `_place` first and asked the trigger
+        # afterwards. `_place` frees room itself whenever the block would not
+        # fit, and a write can only exceed capacity by needing room, so by the
+        # time the trigger looked at the snapshot the over-capacity condition
+        # had always been resolved. Every compaction in the smoke run was
+        # therefore `reason: headroom` and the configured trigger fired 0 times
+        # in 82 writes -- it was unreachable by construction, not by tuning.
+        #
+        # Asking first gives the trigger the state it is defined on (the pool
+        # about to be over capacity) and demotes `_place`'s own compaction to the
+        # fallback it is meant to be: only reached if the trigger chose not to act
+        # and the block still does not fit.
+        requested = int(block.shape[1]) if allocated else 0
+        pre = self._snapshot(
+            allocated_new_slots=requested,
+            # The note's immediate branch: the write would exceed the working
+            # capacity, so it must compact now rather than wait for a threshold.
+            # An addressed update consumes nothing and can never be over budget.
+            over_budget=bool(
+                requested > 0
+                and self.used + requested > self.layout.working_capacity
+            ),
+        )
+        compacted, report, trigger_reason = self._maybe_compact(pre)
+
+        evicted = self._place(delta, allocated=allocated, target=target)
         # Tracked here rather than derived from `history`, because the drains
         # that feed the stats file empty that buffer and would make the peak read
         # as whatever happened to survive the last drain.
@@ -426,7 +541,14 @@ class ProtectedResidualMemory:
         self.model.initialized.fill_(1)
 
         self._refresh_basis()
-        compacted, report = self._observe_capacity()
+        # Re-observed after placement: the record has to describe the state the
+        # next write will see, which is the post-placement pool. The spectrum is
+        # suppressed here because this snapshot drives no decision; it only fills
+        # the reported rank fields, which the pre-placement snapshot already set
+        # from the same pool minus one block.
+        self._snapshot(
+            allocated_new_slots=requested, over_budget=False, carry=pre
+        )
 
         record = {
             "dropped": False,
@@ -436,6 +558,11 @@ class ProtectedResidualMemory:
             "novelty": float(novelty_value),
             "gate": gate_value,
             "encode_seconds": encode_seconds,
+            "allocated": allocated,
+            "addressed_block": target,
+            "made_room_for_write": bool(self.made_room_for_write),
+            "over_budget_request": bool(pre.over_budget),
+            "trigger_reason": trigger_reason,
             "used_slots": self.used,
             "n_consolidated": self.n_consolidated,
             "evicted_blocks": evicted,
@@ -482,31 +609,27 @@ class ProtectedResidualMemory:
             )
         raise ValueError(f"unknown gate_mode: {self.cfg.gate_mode}")
 
-    def _place(self, delta: torch.Tensor) -> int:
+    def _place(self, delta: torch.Tensor, allocated: bool = True, target: Optional[int] = None) -> int:
         """Place one block, returning the number of blocks lost to eviction.
 
-        Two write regimes, matching the control arms:
+        Three write regimes, matching the control arms:
 
         * `full_rewrite` / `anchor_rewrite` (B5, B6) discard the previous working
           state and keep only the current block. That is what "rewrite the whole
           state every step" means, and it is the baseline PRLM-C must beat.
-        * `ours` (B7, B8, Ours) appends, keeping the working state, and relies on
-          compaction to make room.
+        * `write_mode: append` (the ablation) always allocates a new block.
+        * `write_mode: additive` (the design) allocates when the candidate is
+          novel and otherwise merges it into an addressed block, which consumes
+          no new slots.
 
         Appending shifts existing content left by one block so the new block lands
         at the very end; injection conditions on the trailing block, and the
-        backbone's own update appends there too.
+        backbone's own update appends there too. An addressed update is moved to
+        the same trailing position for the same reason, and the addressed block's
+        old slot range is closed up, so `used` is unchanged.
         """
-        need = delta.shape[1]
-        if need <= 0:
-            return 0
-        if need > self.layout.working_capacity:
-            raise ValueError(
-                "a single block of %d slots does not fit the working capacity of %d"
-                % (need, self.layout.working_capacity)
-            )
-
         if self.cfg.mode in ("full_rewrite", "anchor_rewrite"):
+            need = delta.shape[1]
             with torch.no_grad():
                 self._memory[:, self.total - need : self.total, :] = delta.to(self.dtype)
             self.used = need
@@ -518,17 +641,38 @@ class ProtectedResidualMemory:
             # report the arm's whole premise as a failure of compaction.
             return 0
 
+        if not allocated:
+            if target is None:
+                raise ValueError("an addressed write requires a target block")
+            self._merge_into_block(target, delta)
+            return 0
+
+        need = delta.shape[1]
+        if need <= 0:
+            return 0
+        if need > self.layout.working_capacity:
+            raise ValueError(
+                "a single block of %d slots does not fit the working capacity of %d"
+                % (need, self.layout.working_capacity)
+            )
+
         evicted = 0
         while self.used + need > self.layout.working_capacity:
             freed = self.compact(reason="headroom")
             if freed <= 0:
                 self._evict_oldest(need)
                 evicted += 1
-        # This write made its own room, so the capacity branch in
-        # `_observe_capacity` must not fire a second compaction for the same
-        # write: after placement `used == working_capacity` exactly, which the
-        # `>=` test in `over_budget` would otherwise read as over budget.
-        self._headroom_handled = True
+            # A compaction happened, so the hysteresis latch must be cleared here
+            # too. The trigger is asked before placement, so a run that reaches
+            # this loop is one the trigger declined to act on; leaving `armed` set
+            # would carry an armed latch across a compaction the trigger did not
+            # authorize, and the exit thresholds would then apply to a pool the
+            # latch no longer describes.
+            self.trigger.on_compacted()
+            # Recorded so a run can be audited for *why* the fallback ran: it
+            # only sets when placement had to free room after the trigger had
+            # already been asked and declined.
+            self.made_room_for_write = True
 
         self._shift_left(need)
         with torch.no_grad():
@@ -536,6 +680,50 @@ class ProtectedResidualMemory:
         self.used += need
         self.newest_width = need
         return evicted
+
+    def _merge_into_block(self, target: int, delta: torch.Tensor) -> None:
+        """Fold `delta` into block `target` and move the result to the tail.
+
+        `used` is unchanged: this write consumed no new capacity. The merged
+        block lands in the trailing slot range because injection conditions on
+        the trailing block, and a merge that left the newest content in the
+        middle would make the next injection read a stale block. Closing the gap
+        left by the old position is what keeps the distinct suffix contiguous.
+        """
+        used = self.used
+        block = self.block
+        width = min(block, used - target * block)
+        if width <= 0:
+            return
+
+        start = self.total - used
+        position = start + target * block
+
+        with torch.no_grad():
+            existing = self._memory[:, position : position + width, :].detach().to(torch.float32)
+            addition = fit_width(delta, width).detach().to(torch.float32)
+            merged = (existing + addition).to(self.dtype)
+
+            # Close the gap: [position + width, end) moves left by `width`. Done
+            # front-to-back in bounded chunks because the regions overlap.
+            end = self.total
+            done = 0
+            while position + width + done < end:
+                take = min(_COPY_CHUNK, end - position - width - done)
+                chunk = self._memory[
+                    :, position + width + done : position + width + done + take, :
+                ].clone()
+                self._memory[:, position + done : position + done + take, :] = chunk
+                done += take
+
+            self._memory[:, self.total - width : self.total, :] = merged
+
+        if position < start + self.n_consolidated:
+            # The block was part of the consolidated region and has just been
+            # rewritten, so its content is no longer verified-stable: it leaves
+            # S and rejoins R at the tail.
+            self.n_consolidated = max(0, self.n_consolidated - width)
+        self.newest_width = width
 
     def _shift_left(self, need: int) -> None:
         """Move the distinct suffix left by `need` slots, preserving order.
@@ -620,7 +808,7 @@ class ProtectedResidualMemory:
             self.basis = None
             self.basis_mean = None
             return
-        activations = self._distinct()[0]
+        activations = self._distinct()[_REFERENCE_LAYER]
         basis, mean, _ = estimate_basis(
             activations,
             max_rank=min(self.cfg.basis_max_rank, self.used),
@@ -631,22 +819,75 @@ class ProtectedResidualMemory:
         self.basis = basis
         self.basis_mean = mean
 
-    def _observe_capacity(self):
-        """Compute the capacity signals and apply the trigger rule.
+    def _address(self, candidate: torch.Tensor) -> Tuple[Optional[int], float]:
+        """Return the existing block whose content is closest to `candidate`.
 
-        The rank spectrum is only computed when the occupancy condition is
-        already satisfied, or when the trigger is periodic. A spectrum is never
+        The note's write path needs a way to say *which* stored content a new
+        candidate is a correction of, because "inside the spanned subspace" only
+        says the candidate is not new, not what it updates. Blocks are the
+        addressing unit: a block is what one injection produced and what the
+        reader consumes, so a slot-level address would be finer than anything the
+        memory can act on.
+
+        Returns `(block_index, cosine)`, or `(None, 0.0)` when nothing has been
+        written yet or the pool holds no whole block.
+        """
+        used = self.used
+        n_blocks = used // self.block
+        if n_blocks <= 0:
+            return None, 0.0
+
+        reference = candidate.detach().to(torch.float32)
+        reference = reference / (reference.norm() + 1e-8)
+
+        with torch.no_grad():
+            region = self._distinct()[_REFERENCE_LAYER][: n_blocks * self.block]
+            summaries = region.detach().to(torch.float32).reshape(n_blocks, self.block, -1)
+            summaries = summaries.mean(dim=1)
+            summaries = summaries / (summaries.norm(dim=-1, keepdim=True) + 1e-8)
+            similarity = summaries @ reference
+
+        best = int(torch.argmax(similarity).item())
+        return best, float(similarity[best].item())
+
+    def _snapshot(
+        self,
+        over_budget: bool = False,
+        allocated_new_slots: int = 0,
+        carry: Optional[CapacitySnapshot] = None,
+    ) -> CapacitySnapshot:
+        """Observe the capacity signals and store them as `last_snapshot`.
+
+        Split out from the trigger decision so `write()` can ask the trigger
+        *before* placing and still record the post-placement state afterwards.
+        The two orderings need the same signal computation against different pool
+        states, and duplicating the computation is what would let them drift.
+
+        The rank spectrum is only computed when `occupancy_novelty_rank` is the
+        trigger and the occupancy condition already holds: a spectrum is never
         needed to decide *not* to compact, and computing it on every write is what
-        would make this method dominate the run time.
+        would make this method dominate the run time. `carry` passes a previously
+        computed snapshot whose rank fields should be reused, which is how the
+        post-placement record avoids paying for the same SVD a second time.
         """
         occupancy = occupancy_ratio(self.used, self.layout.working_capacity)
         eff = 0.0
         eta = 0
         rank_budget = 0
-        needs_spectrum = self.cfg.trigger == "occupancy_novelty_rank" and (
-            occupancy >= self.cfg.tau_k
+        needs_spectrum = (
+            carry is None
+            and self.cfg.trigger == "occupancy_novelty_rank"
+            and occupancy >= self.cfg.tau_k
         )
-        if needs_spectrum:
+        if carry is not None:
+            # Reuse the rank fields the pre-placement snapshot already measured.
+            # The pool moved by one block, which is far below the resolution of a
+            # rank estimate over thousands of rows, and a second SVD per write is
+            # the single most expensive thing this path could do needlessly.
+            eff = carry.effective_rank
+            eta = carry.energy_rank
+            rank_budget = carry.rank_max
+        elif needs_spectrum:
             sigma = self._spectrum()
             if sigma is not None:
                 eff = effective_rank(sigma)
@@ -661,32 +902,37 @@ class ProtectedResidualMemory:
             energy_rank=eta,
             rank_max=rank_budget,
             novelty_ema=float(self.novelty.value or 0.0),
-            # `>=` rather than `>`: the pool terminates exactly at capacity, so a
-            # strict comparison is never true and the immediate branch below is
-            # dead. The flag suppresses the branch when _place already made room
-            # for this write, which would otherwise compact twice per write.
-            over_budget=(
-                self.used >= self.layout.working_capacity
-                and not self._headroom_handled
-            ),
+            allocated_new_slots=allocated_new_slots,
+            over_budget=bool(over_budget),
         )
         self.last_snapshot = snapshot
+        return snapshot
 
+    def _maybe_compact(self, snapshot: CapacitySnapshot):
+        """Feed one snapshot to the trigger and compact if it says so.
+
+        Returns `(compacted, report, reason)`. `reason` is `None` when nothing
+        happened, otherwise the reason string recorded on the compaction report,
+        so a run can be audited for *which* branch fired rather than only whether
+        the pool shrank.
+        """
         if self.cfg.mode in ("full_rewrite", "anchor_rewrite"):
-            return False, None
+            return False, None, None
         if self.cfg.compact_mode == "none":
-            return False, None
+            return False, None, None
 
-        if self.trigger.observe(snapshot):
-            report = self.compact_with_report(reason="capacity_trigger")
-            self.trigger.on_compacted()
-            return report["freed_slots"] > 0, report
-        return False, None
+        if not self.trigger.observe(snapshot):
+            return False, None, None
+
+        reason = "over_budget" if snapshot.over_budget else "capacity_trigger"
+        report = self.compact_with_report(reason=reason)
+        self.trigger.on_compacted()
+        return report["freed_slots"] > 0, report, reason
 
     def _spectrum(self, max_rows: int = _SPECTRUM_MAX_ROWS) -> Optional[torch.Tensor]:
         if self.used < self.block:
             return None
-        activations = self._distinct()[0].detach().to(torch.float32)
+        activations = self._distinct()[_REFERENCE_LAYER].detach().to(torch.float32)
         activations = self._subsample(activations, max_rows)
         activations = activations - activations.mean(dim=0, keepdim=True)
         try:
@@ -747,12 +993,25 @@ class ProtectedResidualMemory:
         if target >= window:
             return {**empty, "reason_skipped": "target_not_smaller"}
 
+        # The native block selectors emit whole blocks only. `window` and `target`
+        # are already rounded to `block` above, but the final clamp against
+        # `used - protect` can unround `window` when the newest appended block is
+        # narrower than `block`. Refuse explicitly rather than letting the operator
+        # raise inside the try: a skipped compaction is visible in the report, an
+        # exception is swallowed into `reason_skipped` and loses the reason.
+        if self.cfg.compact_mode in ("recent_blocks", "select_blocks"):
+            if window % block != 0 or target % block != 0:
+                return {
+                    **empty,
+                    "reason_skipped": "block_misaligned:%d/%d" % (window % block, target % block),
+                }
+
         start = self.total - used
         source = self._memory[:, start : start + window, :].detach().to(torch.float32)
         weights = self._window_importance(start, window)
 
         try:
-            compacted = self.compactor(source, weights, target)
+            compacted = self._run_compactor(source, weights, target)
         except Exception as error:  # noqa: BLE001 - a failed compaction must not kill the run
             return {**empty, "reason_skipped": f"compactor_error: {error!r}"}
 
@@ -761,6 +1020,7 @@ class ProtectedResidualMemory:
                 **empty,
                 "reason_skipped": "compactor_width_mismatch:%d!=%d" % (compacted.shape[1], target),
             }
+
 
         remainder = self._memory[:, start + window : self.total, :].clone()
         # The merged content must land flush against the trailing end, otherwise
@@ -796,13 +1056,47 @@ class ProtectedResidualMemory:
             "used_after": self.used,
             "shots": self.compaction_count,
             "weighted": weights is not None,
+            "operator": self.cfg.compact_mode,
         }
         self.history.append({"event": "compact", **report})
         return report
 
+    def _run_compactor(self, source: torch.Tensor, weights, target: int) -> torch.Tensor:
+        """Invoke the configured compaction operator.
+
+        The block selectors need two things the geometric operators do not: the
+        native block width, and the goal direction that `select_block_compact`
+        scores blocks against. Both are threaded in here rather than being added
+        to the shared `(source, weights, target)` signature, so the SVD operators
+        keep their existing interface and stay untouched.
+        """
+        mode = self.cfg.compact_mode
+        if mode == "select_blocks":
+            return select_block_compact(
+                source,
+                target,
+                block=self.compactor_block,
+                weights=weights,
+                goal_direction=self.goal_direction,
+                select_weights=self.select_weights,
+            )
+        if mode == "recent_blocks":
+            return recent_block_compact(source, target, block=self.compactor_block)
+        if mode == "carrier_residual":
+            raise NotImplementedError(
+                "compact_mode=carrier_residual is phase 3; it needs the trained "
+                "CarrierResidualCompactor and is not wired up yet"
+            )
+        return self.compactor(source, weights, target)
+
     def _window_importance(self, start: int, window: int) -> Optional[torch.Tensor]:
-        """Importance weights for the sliding window, or None for the plain SVD baseline."""
-        if self.cfg.compact_mode != "weighted_svd_tokens":
+        """Importance weights for the sliding window, or None when unused.
+
+        Consumed by the importance-weighted SVD baseline and by the block
+        selector. `recent_blocks` deliberately does not ask for them: it must stay
+        a pure-recency control, and a control that reads importance is not one.
+        """
+        if self.cfg.compact_mode not in ("weighted_svd_tokens", "select_blocks"):
             return None
 
         slots = self._memory[0, start : start + window, :]

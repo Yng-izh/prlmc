@@ -112,6 +112,8 @@ STRUCTURAL_ABLATIONS: Dict[str, Dict[str, object]] = {
     "compact_geometric": {"compact_mode": "svd_tokens"},
     "compact_weighted": {"compact_mode": "weighted_svd_tokens"},
     "compact_learned": {"compact_mode": "learned"},
+    "compact_recent_blocks": {"compact_mode": "recent_blocks"},
+    "compact_block_select": {"compact_mode": "select_blocks"},
     "no_compaction": {"compact_mode": "none"},
     "gate_off": {"gate_mode": "ones"},
     "novelty_gate": {"gate_mode": "novelty"},

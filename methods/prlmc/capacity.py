@@ -86,6 +86,14 @@ class CapacitySnapshot:
     energy_rank: int = 0
     rank_max: int = 0
     novelty_ema: float = 0.0
+    # Slots this write actually allocated. Zero when the candidate was judged
+    # explainable by the existing memory and folded into an addressed block.
+    # This is the signal the `allocation` trigger consumes: it replaces
+    # "novelty is high" with the operational fact "this write needs new space".
+    allocated_new_slots: int = 0
+    # True only when a write *allocated* and left the pool at or beyond the
+    # working capacity. A write that updated a block in place cannot be over
+    # budget -- it consumed nothing -- and must not trigger compaction.
     over_budget: bool = False
 
     @property
@@ -105,6 +113,7 @@ class CapacitySnapshot:
             "rank_max": self.rank_max,
             "rank_utilisation": self.rank_utilisation,
             "novelty_ema": self.novelty_ema,
+            "allocated_new_slots": self.allocated_new_slots,
             "over_budget": self.over_budget,
         }
 
@@ -112,9 +121,18 @@ class CapacitySnapshot:
 class CompactTrigger:
     """Decide when to consolidate, with hysteresis and an immediate hard branch.
 
-    The object is stateful because the trigger requires W *consecutive* updates
-    above both thresholds. Any update that drops below either threshold resets
-    the run, which is what makes W meaningful.
+    The object is stateful for two reasons. The threshold triggers require W
+    *consecutive* updates above both entry thresholds (and any update below
+    either *exit* threshold resets the run, which is what makes W meaningful),
+    and hysteresis needs an armed/disarmed latch that survives across updates.
+
+    Hysteresis is implemented as a latch rather than as two independent
+    comparisons. `armed` is False when idle; a run of qualifying updates arms
+    it, and while armed the entry thresholds are replaced by the lower exit
+    thresholds, so a brief dip does not immediately disarm. Compaction disarms
+    it. Without the latch the exit thresholds would never be read at all, which
+    is what the previous version did: it stored `tau_k_exit`/`tau_n_exit`,
+    validated them, and then ignored them.
     """
 
     def __init__(self, config: PRLMCConfig):
@@ -149,29 +167,46 @@ class CompactTrigger:
         if trigger == "none":
             return False
 
-        above_k = snapshot.occupancy >= self.cfg.tau_k
-        above_n = snapshot.novelty_ema >= self.cfg.tau_n
-
-        if trigger == "occupancy":
-            above_n = True
-        elif trigger not in ("occupancy_novelty", "occupancy_novelty_rank"):
-            raise ValueError(f"unknown trigger: {trigger}")
-
-        # `occupancy_novelty_rank` differs from `occupancy_novelty` only in that
-        # the rank statistics are *computed* (layout._observe_capacity gates the
-        # spectrum on the trigger name). They are not a veto here.
-        #
-        # The note calls k_eta/r_max and r_eff/r_max an auxiliary signal: a ratio
-        # near 1 means the representation is hard to reduce by low-rank
-        # approximation, and a low ratio means there may be redundancy to squeeze
-        # out. Neither is proof of functional fidelity, so neither may decide
-        # whether consolidation happens. Vetoing on `energy_rank >= rank_max`
-        # blocked 494 of 500 observed writes and made the trigger unreachable.
-
-        if above_k and above_n:
-            self.consecutive += 1
+        if trigger == "allocation":
+            # Operational form of novelty pressure. `rho` decides whether this
+            # write needed new capacity; occupancy decides whether there is
+            # pressure. Requiring two anti-correlated scalars to cross fixed
+            # thresholds on the same write is what made `occupancy_novelty`
+            # structurally unreachable: novelty falls as occupancy rises, so
+            # their qualifying windows are disjoint by construction.
+            need_space = snapshot.occupancy >= self.cfg.tau_k
+            if snapshot.allocated_new_slots > 0 and need_space:
+                self.consecutive += 1
+            else:
+                self.consecutive = 0
         else:
-            self.consecutive = 0
+            # Entry thresholds while idle, exit thresholds once armed.
+            tau_k = self.cfg.tau_k_exit if self.armed else self.cfg.tau_k
+            tau_n = self.cfg.tau_n_exit if self.armed else self.cfg.tau_n
+            above_k = snapshot.occupancy >= tau_k
+            above_n = snapshot.novelty_ema >= tau_n
+
+            if trigger == "occupancy":
+                above_n = True
+            elif trigger not in ("occupancy_novelty", "occupancy_novelty_rank"):
+                raise ValueError(f"unknown trigger: {trigger}")
+
+            # `occupancy_novelty_rank` differs from `occupancy_novelty` only in
+            # that the rank statistics are *computed* (layout._snapshot
+            # gates the spectrum on the trigger name). They are not a veto here.
+            #
+            # The note calls k_eta/r_max and r_eff/r_max an auxiliary signal: a
+            # ratio near 1 means the representation is hard to reduce by low-rank
+            # approximation, and a low ratio means there may be redundancy to
+            # squeeze out. Neither is proof of functional fidelity, so neither
+            # may decide whether consolidation happens. Vetoing on
+            # `energy_rank >= rank_max` blocked 494 of 500 observed writes and
+            # made the trigger unreachable.
+
+            if above_k and above_n:
+                self.consecutive += 1
+            else:
+                self.consecutive = 0
 
         if self.consecutive >= max(1, self.cfg.trigger_consecutive):
             self.armed = True
@@ -181,7 +216,7 @@ class CompactTrigger:
         return False
 
     def on_compacted(self) -> None:
-        """Clear the armed flag and the consecutive run after a compaction."""
+        """Disarm and clear the consecutive run after a compaction."""
         self.armed = False
         self.consecutive = 0
 
