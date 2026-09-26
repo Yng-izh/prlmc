@@ -15,7 +15,7 @@
 | E2 | `prlmc-obs` | 阈值标定（`compact_mode: none`） | 已完成，500 次写入 |
 | E3 | `prlmc-r1` | occupancy-only 结构消融 | 已完成，**accuracy 全 0** |
 | E3b | 纯代码分析 | 归零的机制根因（不运行） | 已完成 |
-| E4 | 待跑 | 分离 gate 幅值与 compactor | 未开始 |
+| E4 | 2×2 矩阵 | 分离 gate 幅值与 compactor | 已完成，**compactor 是充分原因** |
 
 线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离**。
 
@@ -265,6 +265,9 @@ E3 的 novelty 数学修正本身是对的，但它同时改变了 gate：
 
 两个变量（compactor 与 gate 幅值）在 E3 中同时变化，无法归因。
 
+**（E4 跑完后回填）** 空缺的那一格由 E4 的 B 格填上，结果为 **18.00**，不是 0.0。
+完整的 2×2 矩阵与结论见 E4 一节。
+
 ### 结论
 
 按设计文档"occupancy-only 跑不好就先修 compactor"的判据，**下一步是修 compactor，
@@ -358,6 +361,11 @@ E1 只有 n=2，不足以给 compactor 定罪，但**足以说明 gate 单独解
 **推论**：E4 若也归零，只能证明"低 gate 也致命"，**不能**证明 gate 是独立的第二因。
 若要真正分离，需要第三个格子：新代码 + `compact_mode: none` + `gate_mode: ones`。
 
+**（E4 跑完后回填）** 该第三个格子就是 E4 的 **C 格**（`gate=ones` + `svd_tokens`），
+它拿到 0.00，与 D 格相同；而 B 格（`gate=novelty` + `none`）拿到 18.00。
+结论：**compactor 是充分原因，gate 是次要因素**。E3b 原先"E4 归零即证明 gate 独立"
+的判据已被证伪，详见 E4 一节。
+
 ### 两个数据异常的代码解释（已定性）
 
 **rank 全为 0 —— 不是 bug，是没算。** `trigger: occupancy` 时 `_snapshot` 不计算 spectrum
@@ -377,9 +385,10 @@ E3 用 `write_mode: append`，因此 `addressed = False`、`allocated = True` �
 
 ### 代码层面定不下来的
 
-- **是否有第二个独立杀手。** 必须靠 E4（以及上面提到的第三个格子）。
-- 若一定要从代码下注：`svd_tokens` 是主因（高置信）；gate 是次要放大（中置信）；
-  两者经 basis 耦合（中置信）。
+- **是否有第二个独立杀手。** ~~必须靠 E4~~ **已由 E4 的 C 格定下**：gate=ones 时
+  compactor 单独仍打 0.00，故 compactor 是充分原因；gate 是次要因素（见 E4）。
+- 从代码下注的结果：`svd_tokens` 是主因（**高置信，已实证**）；gate 是次要放大
+  （**中置信，已实证掉 9.0 EM 但不致命**）；两者经 basis 耦合（中置信，未单独验证）。
 
 ### 一句话机制
 
@@ -388,17 +397,83 @@ E3 用 `write_mode: append`，因此 `addressed = False`、`allocated = True` �
 
 ---
 
-## E4 — 待跑：分离 gate 幅值与 compactor
+## E4 — 2×2 隔离矩阵：gate × compact
 
-**唯一必要的实验**：新代码 + `compact_mode: none`，`factconsolidation_sh_32k` 全量 100 查询。
-配置上只把 `prlmc_r1.yaml` 的 `compact_mode` 改为 `none`，其余不动。
+**设计**：代码、数据、seed 全部固定，只改两个开关。四格中的 D 就是 E3，
+所以只需新跑 A、B、C 三格。
 
-判据：
+|  | `gate=ones` | `gate=novelty` |
+|---|---|---|
+| **`compact=none`** | **A**（EM 27.00） | **B**（EM 18.00） |
+| **`compact=svd_tokens`** | **C**（EM 0.00） | **D = E3**（EM 0.00） |
 
-- 若也是 0.0 → gate 幅值是**第二个独立杀手**，`tau_alloc` 与 gate 定义需要重做。
-- 若接近 22.0 → 只有 `svd_tokens` 有问题，gate 修正无害，可直接进 Round 2。
+每格 = `prlmc_r1.yaml` 改 `gate_mode` 与 `compact_mode` 两行（外加 `output_dir`/`stats_dir`），
+共 3～4 行差异，逐行核验过。数据集 `factconsolidation_sh_32k`，82 次写入，100 条查询。
 
-**预估成本**：约 21 分钟（83 chunk × 4.99 s + 100 查询），比 E3 的 1273.7 s 更短。
+### 结果
+
+| 格 | `gate_mode` | `compact_mode` | EM | F1 | rougeL_f1 | 基线参照 |
+|---|---|---|---|---|---|---|
+| **A** | `ones` | `none` | **27.00** | 32.019 | 32.101 | EM 22.00 |
+| **B** | `novelty` | `none` | **18.00** | 20.863 | 20.841 | F1 25.990 |
+| **C** | `ones` | `svd_tokens` | **0.00** | 0.000 | 0.000 | rougeL 26.355 |
+| **D**（= E3） | `novelty` | `svd_tokens` | **0.00** | 0.000 | 0.000 | |
+
+A 的其他指标：`substring_exact_match 29.00`，`rougeL_recall 34.333`，
+`input_len 162.65`，`output_len 10.0`。
+
+### 支撑数字
+
+| 格 | compacts | 触发原因 | evictions | `gate` p50 | `novelty` p50 | `mct` s/chunk |
+|---|---|---|---|---|---|---|
+| A | 0 | — | **34** | 1.0000 | 0.4372 | 0.309 |
+| B | 0 | — | **34** | **0.0577** | 0.0839 | 0.279 |
+| C | **5** | `capacity_trigger` | 0 | 1.0000 | 0.3793 | 25.218 |
+| D | 5 | `capacity_trigger` | 0 | 0.0967 | 0.1277 | 4.994 |
+
+A、B 两格 `over_budget_request` 各 34 次、`made_room_for_write` 各 34 次 —— 即
+`compact=none` 时全部走 `_place` 的 `_evict_oldest` 兜底，行为退化为滑动窗口。
+C、D 两格的 5 次压缩均为 `capacity_trigger`，`used` 9984 → 7424，与 E3 完全一致。
+
+### 时间
+
+| 格 | 开始 | 结束 | 耗时 |
+|---|---|---|---|
+| A | 11:52:25 | 12:09:12 | **955.3 s** |
+| B | 12:09:45 | 12:22:13 | **702.9 s** |
+| C | 12:22:13 | — | **853.0 s** |
+
+三格在同一张 GPU 6 上串行执行（`chain_2x2.sh`），同进程外无并发。
+
+### 结论
+
+**1. compactor 是充分原因。** A → C 只动 `compact_mode`，gate 恒为 1.0，
+accuracy 从 27.00 掉到 0.00。E3b 的代码分析（S·Vᵀ 非可读记忆 + free region 平铺）
+得到实证。
+
+**2. gate 是真实但次要的伤害，单独不致命。** A → B 只动 `gate_mode`：
+27.00 → 18.00，**掉 9.0 个 EM**，且**低于基线 22.00**。gate p50 从 1.0000 降到 0.0577。
+
+**3. 无交互效应。** 两个 compactor 格都是 0.00，compaction 完全主导，
+gate 在其之上没有可测量的额外影响。
+
+### 判据对照
+
+E3b 原先给出的判据是"若 E4 也归零 → gate 是第二个独立杀手"。**该判据已被证伪**：
+E4 的 B 格（新代码 + `compact=none`）拿到 18.00，不是 0.0。
+真正决定性的是新增的 **C 格**：gate 取满幅时 compactor 单独仍把 accuracy 打到 0.00。
+E3b 中"需要第三个格子才能分离"的判断由此兑现 —— C 就是那个格子。
+
+### 不确定项（不要从本矩阵读出的结论）
+
+- **A 高于基线 5 个 EM 不构成结论。** n=100 下差值标准误约 6.1 个百分点，
+  5 个点是 0.8 个标准误，**不显著**。
+- **seed**：配置无 seed 旋钮。确定性来自 `do_sample=False` 贪心解码与固定数据顺序，
+  因此四格可比。
+- **C 的 `mct` 25.218 s/chunk 与 D 的 4.994 s/chunk 差 5.05 倍**，
+  两格压缩次数与参数完全相同，该差异无代码解释，怀疑是运行时 GPU 争用。
+
+### Round 2 待办（代码已写，未上传未验证）
 
 ### Round 2 待办（代码已写，未上传未验证）
 
@@ -536,6 +611,11 @@ GPU=6 QUERIES=2 bash run_smoke.sh
 GPU=6 QUERIES=8 bash run_obs.sh
 # E3
 GPU=6 QUERIES=0 bash run_r1.sh
+# E4（三格串行；D 即 E3，不需重跑）
+CELL=a GPU=6 QUERIES=0 bash run_2x2.sh
+CELL=b GPU=6 QUERIES=0 bash run_2x2.sh
+CELL=c GPU=6 QUERIES=0 bash run_2x2.sh
+# 或一次串起：bash chain_2x2.sh
 ```
 
 运行结果落在 `outputs/<run>/`，内部信号落在同目录的 `prlmc_stats.jsonl`，
