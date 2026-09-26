@@ -58,7 +58,7 @@ _FLOAT_FIELDS = frozenset({
     "tau_k", "tau_n", "tau_k_exit", "tau_n_exit", "tau_alloc",
     "rank_eta", "compact_ratio",
 })
-_BOOL_FIELDS = frozenset({"compact_probe", "verbose"})
+_BOOL_FIELDS = frozenset({"compact_probe", "verbose", "active_memory_mask", "native_filler_only"})
 _OPTIONAL_INT_FIELDS = frozenset({"k_max", "seed"})
 _STR_FIELDS = frozenset({
     "mode", "mode_code", "anchor_source", "anchor_text", "write_mode",
@@ -143,6 +143,18 @@ class PRLMCConfig:
     })
     compact_period: int = 10
     compact_min_slots: int = 256
+    # Phase 2: mask the free region out of the reader's attention instead of
+    # trusting the filler to stay harmless. Active keys are [A, S, R]; the free
+    # region [k_anchor, total - used) gets the dtype minimum as an additive
+    # bias, so SDPA assigns it exactly zero weight. Requires the Phase 2 patch
+    # in `modeling_memoryllm.py`; with an unpatched file the flag is inert and
+    # the pool is read exactly as before.
+    active_memory_mask: bool = False
+    # Phase 2 interim fallback: restrict free-region filler to uncompressed
+    # native blocks, never compactor output. Repeated native tokens still
+    # perturb the attention probability mass, so this is a stopgap for runs
+    # where the active mask is off; with the mask on it is belt-and-braces.
+    native_filler_only: bool = False
     # Diagnostic probes are evaluated on a copy of the state, never on the live
     # one, so the running agent is not reminded of the probe questions.
     compact_probe: bool = True

@@ -245,6 +245,19 @@ class ProtectedResidualMemory:
         self.made_room_for_write = False
         self.anchor_info: Dict[str, Any] = {}
 
+        # Phase 2: mark the free region inactive for the reader. The pool keeps
+        # its fixed width -- only the attention bias changes -- because the
+        # rotary offsets and the prefix length both assume a fixed memory
+        # length. See `_sync_active_mask`.
+        self.active_memory_mask = bool(getattr(config, "active_memory_mask", False))
+        # Phase 2 interim fallback: the filler may only repeat uncompressed
+        # native blocks, never compactor output. Repeated native tokens still
+        # perturb the attention probability mass, so this is a stopgap -- the
+        # active mask is what actually removes the free region from the read.
+        self.native_filler_only = bool(getattr(config, "native_filler_only", False))
+        self._active_mask_used: Optional[int] = None
+        self._active_mask_count = 0
+
     # -- helpers ------------------------------------------------------------
 
     @property
@@ -285,6 +298,8 @@ class ProtectedResidualMemory:
         self.made_room_for_write = False
         self.last_snapshot = CapacitySnapshot(budget_slots=self.layout.working_capacity)
         self.importance = ImportanceTracker(self.cfg.importance_weights)
+        self._active_mask_used = None
+        self._sync_active_mask()
 
     def snapshot(self) -> Dict[str, Any]:
         """Capture mutable state so a candidate compaction can be tried and undone.
@@ -335,6 +350,12 @@ class ProtectedResidualMemory:
         self.trigger.consecutive = state["trigger_consecutive"]
         self.trigger.armed = state["trigger_armed"]
         self.trigger.update_count = state["trigger_updates"]
+        # `used` came back from the snapshot, so the published mask describes a
+        # rolled-back pool until this runs. The cache key is dropped rather than
+        # compared, because the restore may return to a width the mask already
+        # held before the candidate compaction was tried.
+        self._active_mask_used = None
+        self._sync_active_mask()
 
     # -- anchor -------------------------------------------------------------
 
@@ -354,6 +375,7 @@ class ProtectedResidualMemory:
 
         if self.cfg.anchor_source == "none" or not text:
             self.anchor_info = {"anchor_tokens": 0, "anchor_slots": 0, "reason": "disabled"}
+            self._sync_active_mask()
             return self.anchor_info
 
         block = self._encode(text, max_tokens)
@@ -361,6 +383,7 @@ class ProtectedResidualMemory:
             # Too short to inject safely. The caller still has to write this chunk
             # through the residual path so it is not silently lost.
             self.anchor_info = {"anchor_tokens": 0, "anchor_slots": 0, "anchor_skipped": True}
+            self._sync_active_mask()
             return self.anchor_info
 
         n = block.shape[1]
@@ -679,6 +702,10 @@ class ProtectedResidualMemory:
             self._memory[:, self.total - need : self.total, :] = delta.to(self.dtype)
         self.used += need
         self.newest_width = need
+        # The append path moves the active/free boundary, so the mask has to
+        # follow it. `_tile_free_region` is not called here -- appending leaves
+        # the existing filler in place -- so the sync is explicit.
+        self._sync_active_mask()
         return evicted
 
     def _merge_into_block(self, target: int, delta: torch.Tensor) -> None:
@@ -759,6 +786,38 @@ class ProtectedResidualMemory:
         self.evicted_blocks += 1
         self._tile_free_region()
 
+    def _sync_active_mask(self) -> None:
+        """Publish the active-slot mask the reader should attend to.
+
+        Phase 2. The pool keeps its fixed width; only the attention bias changes.
+        Active slots are the Anchor prefix [0, k_anchor) and the distinct suffix
+        [total - used, total). Everything between them -- the free region -- is
+        marked inactive, so the filler that `_tile_free_region` leaves there is
+        never read as evidence.
+
+        Cached on `used`: the mask is a pure function of it, so a write that does
+        not move the boundary costs nothing. A run with `active_memory_mask:
+        false`, or one whose modeling fork is unpatched, leaves the model's
+        all-true buffer in place and therefore reads the pool exactly as before.
+        """
+        if not self.active_memory_mask:
+            return
+        buffer = getattr(self.model, "memory_active_mask", None)
+        if buffer is None:
+            return
+        if self._active_mask_used == self.used:
+            return
+
+        total = self.layout.total
+        k_anchor = self.layout.k_anchor
+        mask = torch.zeros(total, dtype=torch.bool, device=buffer.device)
+        mask[:k_anchor] = True
+        if self.used > 0:
+            mask[total - self.used :] = True
+        buffer.copy_(mask)
+        self._active_mask_used = self.used
+        self._active_mask_count += 1
+
     def _tile_free_region(self) -> None:
         """Fill [k_anchor, total - used) with tiled copies of occupied content.
 
@@ -771,6 +830,7 @@ class ProtectedResidualMemory:
         Written in source-width chunks so no allocation larger than the source is
         ever materialised.
         """
+        self._sync_active_mask()
         free_start, free_end = self.layout.free_bounds(self.used)
         width = free_end - free_start
         if width <= 0:
@@ -778,6 +838,24 @@ class ProtectedResidualMemory:
 
         if self.used > 0:
             source = self._distinct()
+            if self.native_filler_only:
+                # Phase 2 interim fallback. The consolidator writes synthetic
+                # tokens at the *front* of the distinct suffix, so restricting
+                # the filler to the residual tail keeps compactor output out of
+                # the free region. When nothing native is left the Anchor is the
+                # only uncompressed source; if that is gone too the existing
+                # filler is left untouched rather than overwritten with synthetic
+                # tokens. Repeated native tokens still change the attention
+                # probability mass, so this is a stopgap only -- the active mask
+                # is what actually removes the free region from the read.
+                start, end = self.layout.working_bounds(self.used)
+                native = self._memory[:, start + self.n_consolidated : end, :]
+                if native.shape[1] > 0:
+                    source = native
+                elif self.anchor_slots is not None:
+                    source = self.anchor_slots
+                else:
+                    return
         elif self.anchor_slots is not None:
             source = self.anchor_slots
         else:
@@ -1131,6 +1209,12 @@ class ProtectedResidualMemory:
             "projection": self.cfg.projection,
             "write_mode": self.cfg.write_mode,
             "compact_mode": self.cfg.compact_mode,
+            "active_memory_mask": self.active_memory_mask,
+            "active_mask_slots": int(self.layout.k_anchor + self.used)
+            if self.active_memory_mask
+            else int(self.layout.total),
+            "active_mask_updates": self._active_mask_count,
+            "native_filler_only": self.native_filler_only,
             "anchor": self.anchor_info,
         }
 
