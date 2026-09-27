@@ -125,6 +125,41 @@ reader hidden loss 下降
 **如果一个窗口都 overfit 不了，不要跑任何大实验**，优先查训练图、memory
 replacement、梯度流、loss 计算。这个实验非常便宜，价值极高。
 
+### E6a 结果（2026-09-24，已通过）
+
+第一次全跑：**失败但发现了真问题**。`before` 与 `after` 逐位相同，查明是梯度
+NaN 导致 40 步更新全被 `GradScaler` 跳过（详见下文第 6 节）。修掉 NaN 与
+`use_amp` 后重跑：
+
+| 指标 | 数值 |
+|---|---|
+| uncompacted accuracy | 1.000 (16/16) |
+| before（select_blocks） | 1.000 (16/16), gold_loss 0.8384 |
+| stage A（16 步，KD 为主）之后 | 1.000, gold_loss 0.9354 |
+| stage B（24 步，金标为主）之后 | 1.000, **gold_loss 0.3761** |
+| 训练耗时 | 约 27 分钟（16+24 步，16 probe） |
+
+**结论：训练链现在是通的。** gold_loss 从 0.8384 降到 **0.3761**（降幅 55%），
+说明梯度确实流到了 compactor 并改变了 reader 的输出。
+
+**但这次实验还证明不了"压缩更好"**，原因有两个，都不是代码问题：
+
+1. **准确率天花板。** select_blocks 在 16/16 上已经是 100%，没有上升空间。
+   验收条件 `after > before` 在准确率上**结构性地无法满足**。要判定优劣必须
+   看 gold_loss 或换更难的 probe 集，不能用 accuracy。
+2. **这个 probe 集区分不了"记忆"和"猜"。** 16 个 probe 的正确答案恰好全部
+   是窗口内**最新**的那条事实，而 `select_blocks` 保留的正是最新块，所以它
+   天然满分。这批 probe 测的是"有没有把最新事实留下"，不是"压缩有没有丢信息"。
+
+因此 E6a 的定位要修正为：**它验证的是训练链可用（已达成），不是压缩质量。**
+下一步若要检验压缩质量，需要构造答案分散在窗口**各处**（尤其是会被丢掉的
+老块里）的 probe 集，并配合 `COMPACTOR_PLAN.md` 后面那节描述的
+compaction-unit benchmark（functional retention @ 1/3/5/10 次压缩）。
+
+附带确认的两项：`carrier_residual` 在初始化时与 `select_blocks` 逐位相同
+（`identity_at_init: True`，`max |d| = 0.000e+00`），这是复用"先安全基线、
+后小幅融合"路线的先决条件；`gamma` 从 0.00237 起步且未撞 `gamma_max = 0.05`。
+
 ## E6b：多窗口离线训练（E6a 通过后）
 
 不要在线每个 episode 临时训练。离线采样大量 `(memory window X, carrier set Y0,
@@ -322,3 +357,50 @@ probe 分辨不出好坏。`probes_from_lines` 用 `first_match` 唯一匹配模
 
 改完后 `[mem] step 0 before student` 从 23.02 GB 降到 **21.20 GB**，smoke
 （2+2 步、8 probe）完整跑通，stage A 的 step 0 backward 正常完成。
+
+### 6. 第一次全跑"没效果"的真相：梯度是 NaN，训练被静默跳过
+
+第一次完整 E6a 跑完后 `before` 和 `after` 逐位相同：
+
+```
+before {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
+after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
+```
+
+这不是"训练没用"，是**一个参数都没动**。`state_report` 里 `gamma = 0.0023712937`
+与初始化值逐位相同，`carrier` 项 40 步全是 `0.0`（因为 `up.weight` 恒为 0）。
+
+加 `PRLMC_GRAD_TRACE=1` 后看到真实原因：
+
+```
+[grad] step 0 cand_leaf=nan scale=65536.0 | gamma_logit=nan route_logit=nan ... up.weight=nan
+[grad] step 1 cand_leaf=nan scale=32768.0 | ...全是 nan
+```
+
+`scale` 从 65536 掉到 32768 = `GradScaler` 检测到 inf/nan 后**每一步都跳过
+`optimiser.step()`**，所以参数保持初始化值，而日志里的 loss 数字看起来仍然正常。
+两个独立缺陷叠加：
+
+1. **NaN 源头：`delta / (delta_rms + 1e-6)`。** `up.weight` 零初始化 ⇒ 第一步
+   `delta ≡ 0` ⇒ `delta_rms = 0`。forward 无害（`0/1e-6 = 0`），但 backward 需要
+   `d(delta_rms)/d(delta_ij) = delta_ij / (N·delta_rms)`，在原点正好是 `0/0`。
+   这个 NaN 传导到除 `gamma_logit` 外的所有 compactor 参数（`gamma_logit` 有第二条
+   到 loss 的路径才幸免）。
+   **修法**：改用 RMSNorm 形式 `delta * rsqrt(delta_var + 1e-6)`。eps 放在根号
+   **里面**，原点处梯度增益是有限的 `1/sqrt(1e-6) = 1000`；离开原点后与原式代数等价。
+2. **放大器：`use_amp=True` 但没有 `autocast`。** 整条路径没有任何 `autocast`，
+   backbone 本身就是 fp16。`GradScaler` 把 loss 乘 65536 再 backward，而 fp16
+   激活梯度的上限是 65504，超过就 `inf`，`inf * 0 → nan`。
+   **修法**：`use_amp` 默认改为 `False`（没有 autocast 时 scaler 只有害处）。
+
+修后 smoke 梯度全部有限，且 loss 真的在降：
+
+```
+[grad] step 0 cand_leaf=1.0039e+01 scale=1.0 | up.weight=1.2535e+00 down.weight=0.0 ...
+[grad] step 1 cand_leaf=7.3125e+00 scale=1.0 | up.weight=3.5428e-01 down.weight=8.0711e-01
+stage B: gold_loss 0.8384 -> 0.7489
+```
+
+**教训（已写进验收）**：overfit 验收不能只看 accuracy。必须在训练后断言
+`gamma` / `up.weight` 相对初始化**确实变了**，否则"梯度是 NaN、更新被跳过"会伪装成
+"训练无效"，浪费一整轮算力。

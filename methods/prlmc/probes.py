@@ -1016,7 +1016,7 @@ def train_carrier_compactor(
     curriculum: Sequence[int] = _CARRIER_CURRICULUM,
     reader_layers: Sequence[int] = _READER_HIDDEN_LAYERS,
     max_probe_tokens: int = 128,
-    use_amp: bool = True,
+    use_amp: bool = False,
     window_blocks: Optional[int] = None,
     target_blocks: Optional[int] = None,
     stage: str = "B",
@@ -1326,6 +1326,26 @@ def train_carrier_compactor(
                     )
                     torch.autograd.backward([candidate], [cand_leaf.grad])
                     del candidate
+
+                if os.environ.get("PRLMC_GRAD_TRACE") == "1":
+                    gnorm = "None" if cand_leaf.grad is None else "%.4e" % float(cand_leaf.grad.norm())
+                    parts = []
+                    for name, parameter in compactor.named_parameters():
+                        grad = parameter.grad
+                        parts.append(
+                            "%s=%s" % (name, "None" if grad is None else "%.4e" % float(grad.norm()))
+                        )
+                    print(
+                        "[grad] step %d cand_leaf=%s connected=%s scale=%.1f | %s"
+                        % (
+                            step,
+                            gnorm,
+                            bool(candidate_val.requires_grad),
+                            float(scaler.get_scale()),
+                            " ".join(parts),
+                        ),
+                        flush=True,
+                    )
             del cand_leaf, candidate_val, injection
 
             step_terms["carrier"] = float(carrier_term.detach())

@@ -377,6 +377,12 @@ def _l2(x: torch.Tensor) -> torch.Tensor:
     return x / (x.norm(dim=-1, keepdim=True) + _EPS)
 
 
+# Floor for the relative trust region's RMS normaliser. It sits *inside* the
+# square root, so the first-step gain (`up.weight` starts at zero) is a finite
+# `1/sqrt(_DELTA_VAR_EPS)` instead of a NaN. See `_layer_delta`.
+_DELTA_VAR_EPS = 1e-6
+
+
 class CarrierResidualCompactor(nn.Module):
     """Native carrier blocks plus a bounded learned residual. Phase 3.
 
@@ -515,8 +521,24 @@ class CarrierResidualCompactor(nn.Module):
         # coefficient would let a large-norm `up` produce a residual far exceeding
         # the carriers, which is the E4 failure mode in disguise.
         carrier_rms = carrier.pow(2).mean(dim=(-2, -1), keepdim=True).sqrt()
-        delta_rms = delta.pow(2).mean(dim=(-2, -1), keepdim=True).sqrt()
-        return delta / (delta_rms + 1e-6) * carrier_rms
+        # `rsqrt(var + eps)` -- the RMSNorm form -- and not `delta_rms + eps`.
+        #
+        # This is a NaN guard, not a cosmetic one. `up.weight` is zero-initialised,
+        # so on the first step `delta` is identically zero and `delta_rms` is zero
+        # too. The forward is harmless either way (`0 / 1e-6 == 0`), but the
+        # backward of `delta / delta_rms` needs
+        # `d(delta_rms)/d(delta_ij) = delta_ij / (N * delta_rms)`, which is exactly
+        # `0 / 0` at zero. That single NaN propagates to every compactor parameter
+        # (only `gamma_logit`, which reaches the loss by a second path, survives),
+        # and `GradScaler` then skips *every* update -- so training silently does
+        # nothing while the loss numbers still look plausible.
+        #
+        # Adding eps *inside the square root* keeps `d(delta_rms)` in the graph but
+        # makes the denominator `sqrt(0 + eps)` at the origin instead of `0`, so the
+        # first-step gain is a finite `1/sqrt(eps)`. Above the floor this is
+        # algebraically the same normalisation as before.
+        delta_var = delta.pow(2).mean(dim=(-2, -1), keepdim=True)
+        return delta * torch.rsqrt(delta_var + _DELTA_VAR_EPS) * carrier_rms
 
     def forward(
         self,
