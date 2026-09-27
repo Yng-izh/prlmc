@@ -20,10 +20,84 @@
 | E5b | `select_blocks` | 打分选择能否胜过纯 recency | 已完成，**与 E5a 逐条相同** |
 | E5c | E5b + active mask | 真正 K→K' 的无训练 compaction baseline | 已完成，**EM 23.00**（与 E5a 不再相同） |
 | E5d | E5c，但 filler 不受限 | 排除 E5c 的两个开关混淆 | 已完成，**EM 24.00**，与 E5c 逐条 97/100 相同 |
-| E6 | `carrier_residual` | learned fusion 是否超过 selection | 未开始 |
-| E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始 |
+| E6 | `carrier_residual` | learned fusion 是否超过 selection | 已完成，**EM 24.00**；无 ckpt，初始化即恒等，故仅验证接线 |
+| E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 |
 
-线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同。
+线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同。
+
+---
+
+---
+
+## 总结：目前能得出什么结论
+
+### 一条硬结论
+
+**合成 latent 向量是读取失败的充分原因。**
+
+E4 A→C 只改 `compact_mode` 一个变量：`none` 27.00 → `svd_tokens` **0.00**。
+27 分的落差是 n=100 标准误（≈6.1）的 4.4 倍，远超噪声；E4 B→D 在 novelty gate 上复现同一结果。
+这是整套实验里唯一统计上稳固的结论，也正是方案设计最初的诊断。
+
+### 两条软结论
+
+**原生 block 选择让压缩生命周期存活。** 同样的 5 次压缩、同样的内部状态，
+0.00 → 26.00。压缩这个动作本身不再是杀手。
+
+**active mask 是唯一真正改变读取路径的机制。** E5c 相对 E5b 有 15/100 条答案改变；
+E5a vs E5b 是 100/100 逐条完全相同。
+
+### 三条未确立
+
+| 要证明的 | 实测 | 问题 |
+|---|---|---|
+| 压缩优于淘汰 | E4 A 淘汰 27.00 vs E5a 压缩 26.00 | 差 1 分，噪声内 |
+| 打分选择优于纯 recency | E5a vs E5b 逐条 100/100 相同 | 选择策略从未被检验 |
+| 残差融合有效 | E6 与 E5c 98/100 相同 | 未训练，`up` 零初始化 |
+
+### 决定性缺口
+
+**没有任何一次运行显示"压缩比不压缩更好"。**
+
+| 运行 | 机制 | EM |
+|---|---|---|
+| E4 A | 淘汰（34 次驱逐） | 27.00 |
+| E5a–E6 | 压缩（5 次，驱逐 0） | 23–26 |
+| baseline | 无管理 | 22.00 |
+
+三者全部落在 22–27 之间，而 n=100 的 SE 是 6.1，**该区间内的一切排序都不成立**。
+
+压缩的价值主张是"同等预算下保住更多功能"。现有证据只支持**"不比淘汰差"**，
+**不支持"比淘汰好"**。
+
+### 一句话判定
+
+方向没被证伪，处方也没出错；但方案的核心卖点——压缩带来的功能保持——**到目前为止没有被测到**。
+
+原因具体：所有运行都在 `factconsolidation_sh_32k`（83 chunks），两种机制都装得下，
+压缩没有被逼到发挥。要测出来需要一个**预算真正紧张**的配置
+（更小的 `K_max`，或 `sh_262k` 的 688 chunks），并且 E6 必须带**训练过的** checkpoint。
+
+### 全部结果一览
+
+`factconsolidation_sh_32k`，n=100；除 E4 B/D 外均为 `gate_mode: ones`。
+
+| 运行 | compactor | mask | EM | F1 | rougeL_f1 | rougeL_recall | 压缩次数 |
+|---|---|---|---|---|---|---|---|
+| baseline | — | — | 22.00 | 25.990 | 26.355 | 29.167 | — |
+| E4 A | `none` | – | **27.00** | 32.019 | 32.101 | — | 0 |
+| E4 B | `none`（gate=novelty） | – | 18.00 | 20.863 | 20.841 | — | 0 |
+| E4 C | `svd_tokens` | – | **0.00** | 0.000 | 0.000 | — | 5 |
+| E3 = E4 D | `svd_tokens`（gate=novelty） | – | **0.00** | 0.000 | 0.000 | — | 5 |
+| E5a | `recent_blocks` | – | 26.00 | 31.819 | 31.901 | 34.333 | 5 |
+| E5b | `select_blocks` | – | 26.00 | 31.819 | 31.901 | 34.333 | 5 |
+| E5c | `select_blocks` | on | 23.00 | 29.249 | 29.577 | 33.833 | 5 |
+| E5d | `select_blocks` | on | 24.00 | 30.249 | 30.377 | 33.833 | 5 |
+| E6 | `carrier_residual` | on | 24.00 | 30.249 | 30.377 | 33.833 | 5 |
+
+E5a/E5b/E5c/E5d/E6 的内部状态完全一致：`used_slots 8192`、`peak_used 9984`、
+`compaction_count 5`、`evicted_blocks 0`、`occupancy 0.667`、`n_consolidated 2304`；
+后三者另有 `active_memory_mask True`、`active_mask_slots 8704`。
 
 ---
 
@@ -809,6 +883,116 @@ E5d 用了 1486.1 s（冷缓存），其中 checkpoint 分片加载 4m14s（约 
 
 ---
 
+## E6 — `carrier_residual`：原生载体 + 有界学习式残差
+
+### 动机
+
+E4 已经证明合成向量（`svd_tokens`）被冻结的 reader 读不懂。方案第 3 阶段的处方是：
+**选出 reader 本来就认识的载体 block，再在其上做小幅学习式融合**，
+即 `Y = Y0 + γΔ(X, Y0)`，而不是 `memory → SVD → 人造 latent → reader`。
+
+本运行是这条路径的**接线验证**，不是"融合有效"的证据。
+
+### 实现（Phase 3）
+
+新增 `methods/prlmc/consolidate.py`：
+
+| 组件 | 作用 |
+|---|---|
+| `_select_block_indices()` | 从 `select_block_compact` 抽出的共享打分函数 |
+| `CarrierResidualCompactor` | 载体选择 + 有界残差融合 |
+| `_l2()` | 仅用于 q/k 路由表示的行归一化 |
+
+三条性质是**结构性的**，不是调参得来的：
+
+1. **初始即恒等。** `nn.init.zeros_(self.up.weight)`，故 `delta` 恰为零，
+   输出与选中的原生载体**逐位相同**。一个刚构造的 compactor 与 `select_blocks`
+   不可区分，这让第一次训练步成为严格的改进问题。
+2. **改动是残差。** 输出恒为 `Y0 + γΔ`，`Y0` 始终在输出里，reader 见过的 slot 永不被覆盖。
+3. **幅度有界。** `γ = γ_max · sigmoid(logit)`，恒 `|γ| < γ_max`，梯度无法越过上限。
+
+路由是 **block 级**（每个输出块对输入块一个注意力分布），不是 slot 级：
+slot 级会让算子退化为重新编码，正是要避免的失败模式。
+**输出路径上没有 LayerNorm**——那会重新缩放载体本身，破坏"初始即恒等"。
+
+CPU 结构单测（`tools/unit_carrier.py`，10/10 通过）的关键一条：
+**`max |carrier − select| = 0.0`**。
+
+### 配置
+
+`prlmc_e6.yaml` = `prlmc_e5c.yaml` 只改 compactor 与输出目录，并新增两个参数：
+
+| 参数 | 值 |
+|---|---|
+| `compact_mode` | `select_blocks` → **`carrier_residual`** |
+| `carrier_rank` | 32 |
+| `carrier_gamma_max` | 0.1 |
+| `carrier_ckpt` | **未设** |
+
+`carrier_ckpt` 未设是关键：此时 `up` 仍为零初始化，`γ` 接近零，
+该运行**在数学上应当等价于 `select_blocks`**。任何偏差都需要解释。
+
+### 结果
+
+| 指标 | E5c（select） | **E6（carrier）** |
+|---|---|---|
+| exact_match | 23.00 | **24.00** |
+| f1 | 29.249 | **30.249** |
+| rougeL_f1 | 29.577 | **30.377** |
+| rougeL_recall | 33.833 | **33.833** |
+
+内部状态与 E5c 完全一致（`used 8192`、`peak 9984`、5 次压缩、`evicted 0`、
+`active_mask_slots 8704`）。时长 451.9 s。
+
+### 逐条比对
+
+| 对比 | `parsed_output` 相同 | EM 标记相同 |
+|---|---|---|
+| **E5c vs E6** | **98/100** | **99/100** |
+
+| 运行 | 两者都对 | 仅 E5c 对 | 仅 E6 对 | 两者都错 |
+|---|---|---|---|---|
+| E6 | 23 | **0** | **1** | 76 |
+
+### 结论
+
+**1. 接线是通的。** E6 跑完无失败，5 次压缩正常发生，残差路径没有崩溃也没有
+把 accuracy 打到 0——对照 E4 C 的 0.00，这是有意义的。
+
+**2. 但没有达到预期的逐位一致。** 无 `carrier_ckpt` 时应当与 `select_blocks`
+完全等价，实测却有 1 条 EM 差异。
+
+最可能的原因是运行间随机性：`cat_memory_and_hiddens` 在
+`delta_memory.shape[2] > num_tokens` 分支里用 `torch.randperm`，
+而所有配置的 `seed` 都是 `None`。这与"1 条查询差异"的量级吻合。
+
+**但无法排除残差路径有微小偏离**，因为没有独立复跑 E5c 来测量这份噪声基线。
+这是本运行唯一未闭合的点。
+
+**3. E6 目前不构成"融合有效"的证据。** 它没有被训练过：`up` 是零矩阵，
+`γ ≈ 0.047`，残差项几乎不起作用。E6 ≈ E5c 是**预期行为**，不是发现。
+真正的检验要等 Phase 4 训练出 checkpoint 后重跑。
+
+**4. 训练需要显存。** E6 峰值约 18.2 GB（由 OOM 报错反推：已分配 15.10 GiB
+再加 3.12 GiB 的申请）；Phase 4 还要额外约 6.7 GB fp32，当前集群无卡可满足。
+
+### 附：一次失败的运行
+
+E6 第一次投递失败了 40 次，全部 OOM，未产出任何结果。原因有二：
+
+1. **重试脚本的显存门槛设低了。** 门槛 14000 MiB，而实测峰值约 18.2 GB，
+   于是每次都挑到一张装不下的卡。已提高到 21000 MiB。
+2. **在脚本运行期间覆盖了脚本自身。** bash 按字节偏移增量读取脚本，
+   覆盖后偏移错位会读到半行，表现为 `genuine: command not found` 与
+   `syntax error near unexpected token 'done'`。该次损坏只发生在收尾阶段，
+   40 次重试本身都完整执行了。
+
+另一个真实差异：`carrier_residual` 比 `select_blocks` 明显更费显存，
+因为它在 fp32 下物化 `blocks`/`carriers`/`context`/`delta`，32 层 × 4096 hidden
+下每个都是 1–2 GB。
+
+---
+
 ## 参数清单
 
 ### 三次运行共用的固定参数
@@ -835,20 +1019,43 @@ E5d 用了 1486.1 s（冷缓存），其中 checkpoint 分片加载 4m14s（约 
 工作容量 = `12800 − 512 = 12288` = 48 块。硬约束：
 `tau_k ≤ 1 − 2×256/12288 = 0.958`。
 
-### 三次运行的差异
+### 各运行的差异（完整）
 
-| 参数 | E1 smoke | E2 obs | E3 r1 |
-|---|---|---|---|
-| `trigger` | `occupancy_novelty_rank` | `occupancy_novelty_rank` | **`occupancy`** |
-| `tau_k` | 0.80 | 0.0 | 0.80 |
-| `tau_k_exit` | 0.60 | 0.0 | 0.0 |
-| `tau_n` | 0.885 | 0.50 | 0.50 |
-| `tau_n_exit` | 0.880 | 0.30 | 0.30 |
-| `trigger_consecutive` | 5 | 5 | **1** |
-| `compact_mode` | `svd_tokens` | **`none`** | `svd_tokens` |
-| `compact_probe` | false | false | false |
-| `structural_ablation` | — | — | **`trigger_occupancy_only`** |
-| `queries` | 2 | 8 | **0（不截断）** |
+除下表外，所有运行共用上表的固定参数。`mask` = `active_memory_mask`，
+`filler` = `native_filler_only`。
+
+| 运行 | 配置文件 | gate | trigger | consec | compactor | mask | filler | probe | queries |
+|---|---|---|---|---|---|---|---|---|---|
+| E1 smoke | `prlmc_smoke` | novelty | `occupancy_novelty_rank` | 5 | `svd_tokens` | false | false | false | 2 |
+| E2 obs | `prlmc_obs` | novelty | `occupancy_novelty_rank` | 5 | **`none`** | false | false | false | 8 |
+| E3 | `prlmc_r1` | novelty | **`occupancy`** | **1** | `svd_tokens` | false | false | false | **0** |
+| E4 A | `prlmc_a` | **ones** | `occupancy` | 1 | **`none`** | false | false | false | 0 |
+| E4 B | `prlmc_b` | novelty | `occupancy` | 1 | **`none`** | false | false | false | 0 |
+| E4 C | `prlmc_c` | **ones** | `occupancy` | 1 | **`svd_tokens`** | false | false | false | 0 |
+| E5a | `prlmc_e5a` | ones | `occupancy` | 1 | `recent_blocks` | false | false | false | 0 |
+| E5b | `prlmc_e5b` | ones | `occupancy` | 1 | `select_blocks` | false | false | false | 0 |
+| E5c | `prlmc_e5c` | ones | `occupancy` | 1 | `select_blocks` | **true** | **true** | false | 0 |
+| E5d | `prlmc_e5d` | ones | `occupancy` | 1 | `select_blocks` | true | **false** | false | 0 |
+| E6 | `prlmc_e6` | ones | `occupancy` | 1 | **`carrier_residual`** | true | true | false | 0 |
+| E7 | — | — | — | — | — | — | — | — | 未开始 |
+| 默认 | `prlmc_8b` | novelty | `occupancy_novelty_rank` | 5 | `svd_tokens` | false | false | **true** | 0 |
+
+E6 另加 `carrier_rank: 32`、`carrier_gamma_max: 0.1`，**未设 `carrier_ckpt`**。
+
+### 三组关键对照的变量
+
+| 对照 | 唯一变量 | 结论 |
+|---|---|---|
+| E4 A (27.00) → C (0.00) | `compact_mode: none → svd_tokens` | 压缩器是充分原因 |
+| E4 B (18.00) → D (0.00) | 同上，gate=novelty | 换一条路径复现 |
+| E5a ≡ E5b (E5a 26.00) | `recent_blocks → select_blocks` | 逐条 100/100 相同，打分选择未证明有效 |
+| E5c → E5d | `native_filler_only: true → false` | 97/100 相同，排除开关混淆 |
+| E5c → E6 | `select_blocks → carrier_residual` | 98/100 相同，1 条 EM 差异在噪声内 |
+
+### `compact_probe` 在所有已跑配置中都是 `false`
+
+不是为省时间关掉的，而是它本来就无效：`agent.prlmc_probes` 从未被赋值，
+`register_probes()` 没有调用点。默认配置 `prlmc_8b.yaml` 里写的 `true` 同样不起作用。
 
 ---
 
@@ -916,6 +1123,16 @@ E3 之前修复的问题，按发现顺序：
    逐层全池读取。可行路线是逐层流水线 + 每卡复制池（池仅 3.36 GB fp16），
    属于日级改动。
 
+7. **E6 的 1 条逐条差异未闭合**：无 `carrier_ckpt` 时 `up` 为零矩阵，
+   输出应当与 `select_blocks` 逐位相同（CPU 单测为 0.0），但实测与 E5c
+   有 1/100 条 EM 差异。最可能是 `torch.randperm` 的随机性——所有配置的
+   `seed` 都是 `None`。要闭合需在同一配置下复跑一次 E5c 以测量噪声基线，
+   或把 `seed` 固定后重跑 E5c 与 E6。
+
+8. **所有配置的 `seed` 均为 `None`**：这意味着任何逐条比对都混入了运行间
+   随机性，1–3 条量级的差异无法归因。n=100 时 SE ≈ 6.1 分，因此平均分的
+   排序同样不可靠。**在固定 seed 之前，不要基于逐条差异下结论。**
+
 ---
 
 ## 复现方式
@@ -941,7 +1158,18 @@ RUN=e5a GPU=6 QUERIES=0 bash run_e5.sh
 RUN=e5b GPU=6 QUERIES=0 bash run_e5.sh
 RUN=e5c GPU=6 QUERIES=0 bash run_e5.sh
 RUN=e5d GPU=6 QUERIES=0 bash run_e5.sh
+RUN=e6  GPU=6 QUERIES=0 bash run_e5.sh
 ```
+
+集群紧张时用重试器（自动挑最空的卡并重试）：
+
+```bash
+RUN=e6 QUERIES=0 NEED_MB=21000 bash retry_run.sh
+```
+
+**不要在 `retry_run.sh` 运行期间覆盖该文件**：bash 按字节偏移增量读取脚本，
+中途覆盖会让下次读取落到半行。E6 第一次投递就是这样在收尾阶段报出
+`genuine: command not found` 的。
 
 E5c 需要先给 modeling fork 打补丁（该文件不在本地 git 里，`tools/patch_modeling.py`
 是幂等且可回滚的）：

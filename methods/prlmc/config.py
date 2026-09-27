@@ -52,18 +52,19 @@ def _coerce(value: Any, name: str) -> Any:
 _INT_FIELDS = frozenset({
     "k_anchor", "basis_max_rank", "additive_width", "projection_rank",
     "trigger_consecutive", "rank_max", "compact_period", "compact_min_slots",
+    "carrier_rank",
 })
 _FLOAT_FIELDS = frozenset({
     "address_threshold", "novelty_ema_beta", "basis_energy", "novelty_eps",
     "tau_k", "tau_n", "tau_k_exit", "tau_n_exit", "tau_alloc",
-    "rank_eta", "compact_ratio",
+    "rank_eta", "compact_ratio", "carrier_gamma_max",
 })
 _BOOL_FIELDS = frozenset({"compact_probe", "verbose", "active_memory_mask", "native_filler_only"})
 _OPTIONAL_INT_FIELDS = frozenset({"k_max", "seed"})
 _STR_FIELDS = frozenset({
     "mode", "mode_code", "anchor_source", "anchor_text", "write_mode",
     "gate_mode", "projection", "trigger", "compact_mode", "dtype", "device",
-    "stats_dir",
+    "stats_dir", "carrier_ckpt",
 })
 
 
@@ -143,6 +144,21 @@ class PRLMCConfig:
     })
     compact_period: int = 10
     compact_min_slots: int = 256
+    # ---- phase 3: carrier-residual fusion --------------------------------
+    # Rank of the learned residual. Small on purpose: the residual is a
+    # correction to native carriers, not a replacement for them, and a wide
+    # bottleneck would let it re-encode the window and reintroduce the E4
+    # failure mode.
+    carrier_rank: int = 32
+    # Ceiling on the residual amplitude. `gamma = carrier_gamma_max * sigmoid(logit)`,
+    # so this bound holds for any value of the learned parameter. Start at 0.1;
+    # 0.2 and 0.3 are the planned follow-ups. Raising it is the single knob that
+    # makes the learned part able to do more than a small correction.
+    carrier_gamma_max: float = 0.1
+    # Path to a trained CarrierResidualCompactor state_dict. Without it the
+    # compactor runs at initialisation, which is exactly `select_blocks` -- a
+    # useful control, but not evidence that fusion helps.
+    carrier_ckpt: Optional[str] = None
     # Phase 2: mask the free region out of the reader's attention instead of
     # trusting the filler to stay harmless. Active keys are [A, S, R]; the free
     # region [k_anchor, total - used) gets the dtype minimum as an additive

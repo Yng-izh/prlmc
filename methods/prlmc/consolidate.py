@@ -29,6 +29,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from methods.prlmc.config import PRLMCConfig
 
@@ -191,6 +192,72 @@ def _greedy_diverse(
     return sorted(chosen)
 
 
+def _select_block_indices(
+    source: torch.Tensor,
+    target: int,
+    block: int,
+    weights: Optional[torch.Tensor],
+    goal_direction: Optional[torch.Tensor],
+    select_weights: Optional[dict],
+) -> torch.Tensor:
+    """Return the indices of the `target // block` blocks that survive selection.
+
+    Shared by `select_block_compact` and by the carrier picker inside
+    `CarrierResidualCompactor`. Both must choose the *same* carriers: phase 3's
+    claim is that the learned residual improves on plain selection, and that
+    claim is only meaningful if the residual starts from the identical set of
+    blocks. Two independent scorers would make E6 vs E5b an operator comparison
+    rather than a residual-fusion comparison.
+
+    The returned indices are sorted ascending, so the caller can index_select and
+    keep the window in its original temporal order.
+    """
+    layers, k, d = source.shape
+    if k % block != 0:
+        raise ValueError(f"select_blocks: window {k} is not a multiple of block {block}")
+    if target % block != 0:
+        raise ValueError(f"select_blocks: target {target} is not a multiple of block {block}")
+
+    b = k // block
+    b_out = target // block
+    if b_out >= b:
+        return torch.arange(b, device=source.device, dtype=torch.long)
+
+    cfg = dict(_DEFAULT_SELECT_WEIGHTS)
+    if select_weights:
+        for key, value in select_weights.items():
+            if key in cfg:
+                cfg[key] = float(value)
+
+    x = source.view(layers, b, block, d)
+    summary = x[_SELECT_LAYER].detach().to(torch.float32).mean(dim=1)  # [B, d]
+
+    if weights is not None and weights.numel() == k:
+        importance = weights.detach().to(torch.float32).view(b, block).mean(dim=1)
+    else:
+        importance = (summary - summary.mean(dim=0, keepdim=True)).norm(dim=-1)
+    importance = _unit(importance)
+
+    recency = _unit(torch.arange(b, device=source.device, dtype=torch.float32))
+
+    if goal_direction is not None and goal_direction.numel() > 0:
+        direction = goal_direction.detach().to(torch.float32).flatten().to(source.device)
+        direction = direction / (direction.norm() + _EPS)
+        normed = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
+        goal = ((normed @ direction).clamp(-1.0, 1.0) + 1.0) / 2.0
+    else:
+        goal = torch.zeros(b, device=source.device, dtype=torch.float32)
+
+    score = (
+        cfg["importance"] * importance
+        + cfg["recency"] * recency
+        + cfg["goal"] * goal
+    )
+    unit_summary = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
+    keep = _greedy_diverse(score, unit_summary, b_out, cfg["diversity"])
+    return torch.tensor(keep, device=source.device, dtype=torch.long)
+
+
 def select_block_compact(
     source: torch.Tensor,
     target: int,
@@ -229,40 +296,10 @@ def select_block_compact(
     if b_out >= b:
         return source.contiguous()
 
-    cfg = dict(_DEFAULT_SELECT_WEIGHTS)
-    if select_weights:
-        for key, value in select_weights.items():
-            if key in cfg:
-                cfg[key] = float(value)
-
-    x = source.view(layers, b, block, d)
-    summary = x[_SELECT_LAYER].detach().to(torch.float32).mean(dim=1)  # [B, d]
-
-    if weights is not None and weights.numel() == k:
-        importance = weights.detach().to(torch.float32).view(b, block).mean(dim=1)
-    else:
-        importance = (summary - summary.mean(dim=0, keepdim=True)).norm(dim=-1)
-    importance = _unit(importance)
-
-    recency = _unit(torch.arange(b, device=source.device, dtype=torch.float32))
-
-    if goal_direction is not None and goal_direction.numel() > 0:
-        direction = goal_direction.detach().to(torch.float32).flatten().to(source.device)
-        direction = direction / (direction.norm() + _EPS)
-        normed = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
-        goal = ((normed @ direction).clamp(-1.0, 1.0) + 1.0) / 2.0
-    else:
-        goal = torch.zeros(b, device=source.device, dtype=torch.float32)
-
-    score = (
-        cfg["importance"] * importance
-        + cfg["recency"] * recency
-        + cfg["goal"] * goal
+    index = _select_block_indices(
+        source, target, block, weights, goal_direction, select_weights
     )
-    unit_summary = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
-    keep = _greedy_diverse(score, unit_summary, b_out, cfg["diversity"])
-
-    index = torch.tensor(keep, device=source.device, dtype=torch.long)
+    x = source.view(layers, b, block, d)
     kept = x.index_select(1, index)
     return kept.reshape(layers, b_out * block, d).contiguous()
 
@@ -334,6 +371,156 @@ class LearnedCompactor(nn.Module):
     def compact(self, source: torch.Tensor, weights: Optional[torch.Tensor] = None) -> torch.Tensor:
         with torch.no_grad():
             return self.forward(source, weights).to(source.dtype)
+
+def _l2(x: torch.Tensor) -> torch.Tensor:
+    """Row-wise L2 normalisation. Used on routing representations only."""
+    return x / (x.norm(dim=-1, keepdim=True) + _EPS)
+
+
+class CarrierResidualCompactor(nn.Module):
+    """Native carrier blocks plus a bounded learned residual. Phase 3.
+
+    The operator this replaces (`svd_tokens`) emitted K' brand-new vectors that
+    lie off the native delta-memory manifold, and E4 showed the frozen reader
+    cannot interpret them at all: exact_match 27.00 -> 0.00 with `compact_mode`
+    as the only variable. The carrier formulation attacks that directly.
+
+    Three properties are structural, not tuned:
+
+      * **Init is the identity.** `up` is zero-initialised, so `delta` is exactly
+        zero and the output is *bit-identical* to the selected native carriers.
+        A freshly built compactor is therefore indistinguishable from
+        `select_blocks`, which is what makes the first training step a strict
+        improvement problem rather than a question of whether the reader can
+        still read the state at all.
+      * **The modification is a residual.** The output is `Y0 + gamma * delta`,
+        never a fresh coordinate system. `Y0` stays in the output by
+        construction, so no slot the reader was trained on is ever overwritten.
+      * **The amplitude is bounded.** `gamma = gamma_max * sigmoid(logit)`, so
+        `|gamma| < gamma_max` always. Gradient descent cannot widen the residual
+        past that ceiling no matter how large the loss gradient becomes.
+
+    Routing is block level: one attention distribution per output block over the
+    input blocks, not per slot. Per-slot routing would let the operator address
+    individual positions and drift back towards a re-encoding, which is exactly
+    the failure mode this design exists to avoid.
+
+    No LayerNorm sits on the output path. A normalisation there would re-scale
+    the carriers themselves and break the identity-at-init property above; only
+    the q/k routing representations are normalised.
+    """
+
+    def __init__(
+        self,
+        num_layers: int,
+        hidden: int,
+        block: int = 256,
+        rank: int = 32,
+        gamma_max: float = 0.1,
+    ):
+        super().__init__()
+        self.num_layers = int(num_layers)
+        self.hidden = int(hidden)
+        self.block = int(block)
+        self.rank = int(rank)
+        self.gamma_max = float(gamma_max)
+
+        self.q = nn.Linear(hidden, rank, bias=False)
+        self.k = nn.Linear(hidden, rank, bias=False)
+        self.down = nn.Linear(hidden, rank, bias=False)
+        self.up = nn.Linear(rank, hidden, bias=False)
+        # The identity-at-init guarantee. Every other init would make the first
+        # compaction destroy information before any training has happened.
+        nn.init.zeros_(self.up.weight)
+        # -3.0 puts sigmoid at ~0.047, so the residual starts near but not at
+        # zero: large enough to carry gradient into `up`, small enough that a
+        # damage-free first write is still the default.
+        self.gamma_logit = nn.Parameter(torch.tensor(-3.0))
+
+        self.forward_calls = 0
+        self.last_gamma = 0.0
+
+    @property
+    def gamma(self) -> torch.Tensor:
+        """Current residual amplitude, always strictly inside `gamma_max`."""
+        return self.gamma_max * torch.sigmoid(self.gamma_logit)
+
+    def forward(
+        self,
+        source: torch.Tensor,
+        weights: Optional[torch.Tensor] = None,
+        target: Optional[int] = None,
+        block: Optional[int] = None,
+        goal_direction: Optional[torch.Tensor] = None,
+        select_weights: Optional[dict] = None,
+    ) -> torch.Tensor:
+        """Reduce [L, K, d] to [L, target, d] = carriers + gamma * delta.
+
+        `target` must be a multiple of the carrier block width and is checked
+        against the carrier count that will actually be selected.
+        """
+        layers, k, d = source.shape
+        block = self.block if block is None else int(block)
+        if target is None:
+            raise ValueError("CarrierResidualCompactor needs an explicit target width")
+        target = int(target)
+        if target % block != 0:
+            raise ValueError(
+                f"CarrierResidualCompactor: target {target} is not a multiple of block {block}"
+            )
+
+        b = k // block
+        b_out = target // block
+        if b_out >= b:
+            # Nothing to compress. Return the window untouched rather than a
+            # residual over every block, so the operator stays a no-op exactly
+            # where `select_blocks` is one.
+            return source.contiguous()
+
+        index = _select_block_indices(
+            source, target, block, weights, goal_direction, select_weights
+        )
+        blocks = source.view(layers, b, block, d)
+        carriers = blocks.index_select(1, index)  # [L, b_out, block, d]
+
+        # Summaries are fp32 and detached: they decide *routing only*, and the
+        # design keeps the carrier picker's scoring out of the gradient path so
+        # that selection and fusion cannot co-adapt into a different operator.
+        src_summary = blocks.detach().to(torch.float32).mean(dim=2)  # [L, b, d]
+        car_summary = carriers.detach().to(torch.float32).mean(dim=2)  # [L, b_out, d]
+
+        # L2 normalisation on the routing representations only -- never on the
+        # output path.
+        q = self.q(_l2(car_summary))
+        kk = self.k(_l2(src_summary))
+        attn = torch.softmax(
+            torch.matmul(q, kk.transpose(-1, -2)) / max(1.0, self.rank ** 0.5), dim=-1
+        )  # [L, b_out, b]
+
+        # Block-level gather: "ljb,lbtd->ljtd" per layer, i.e. every slot of an
+        # output block receives the same mixture of input blocks.
+        context = torch.einsum("ljb,lbtd->ljtd", attn, blocks.to(torch.float32))
+        delta = self.up(F.gelu(self.down(context - carriers.to(torch.float32))))
+
+        gamma = self.gamma
+        out = carriers.to(torch.float32) + gamma * delta
+        self.forward_calls += 1
+        self.last_gamma = float(gamma.detach())
+        return out.reshape(layers, b_out * block, d).to(source.dtype)
+
+    def compact(self, source: torch.Tensor, weights: Optional[torch.Tensor] = None, **kwargs):
+        """Inference entry point. Mirrors `LearnedCompactor.compact`."""
+        with torch.no_grad():
+            return self.forward(source, weights, **kwargs)
+
+    def state_report(self) -> dict:
+        return {
+            "carrier_rank": self.rank,
+            "gamma_max": self.gamma_max,
+            "gamma": self.last_gamma,
+            "forward_calls": self.forward_calls,
+        }
+
 
 def build_compactor(config: PRLMCConfig, hidden: int):
     """Return the callable compaction operator for this config, or None.

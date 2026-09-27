@@ -219,6 +219,49 @@ def teacher_kd_loss(teacher_logits, batches, student_logits) -> torch.Tensor:
     return total / count
 
 
+def reader_hidden_loss(
+    teacher_hidden: Sequence[torch.Tensor],
+    student_hidden: Sequence[torch.Tensor],
+    layers: Sequence[int] = (8, 16, 24, 31),
+) -> torch.Tensor:
+    """L_reader-hidden: match the reader's hidden states, not just its answers.
+
+    Phase 4's premise is that a compactor can preserve the *output* while still
+    moving the reader into a different regime, and a regime change is what shows
+    up later as fragility rather than as an immediate accuracy drop. Matching the
+    query-token hidden states at a few depths constrains the trajectory itself.
+
+    Only the query positions are compared, and only at `layers`. The memory
+    prefix is deliberately excluded: it is the thing being changed, so requiring
+    it to match would penalise the compaction for doing its job.
+
+    `teacher_hidden` must come from a forward pass over the *uncompacted* state,
+    so it is detached by the caller before being passed here.
+    """
+    if not teacher_hidden or not student_hidden:
+        return torch.zeros((), device="cpu")
+
+    total = None
+    count = 0
+    for teacher, student in zip(teacher_hidden, student_hidden):
+        if teacher is None or student is None or teacher.numel() == 0:
+            continue
+        if teacher.shape != student.shape:
+            raise ValueError(
+                "reader_hidden_loss requires matching shapes, got %s and %s"
+                % (tuple(teacher.shape), tuple(student.shape))
+            )
+        # Two-sided: the reader should not drift in either direction, and a
+        # one-sided penalty would let the student simply shrink its activations.
+        term = F.mse_loss(student.to(torch.float32), teacher.detach().to(torch.float32))
+        total = term if total is None else total + term
+        count += 1
+
+    if total is None or count == 0:
+        return torch.zeros((), device="cpu")
+    return total / count
+
+
 def latent_reconstruction_loss(before: torch.Tensor, after: torch.Tensor) -> torch.Tensor:
     """Auxiliary weighted reconstruction term, kept subordinate to the probes."""
     if before.shape != after.shape:
@@ -269,14 +312,51 @@ def differentiable_memory(model, memory: torch.Tensor):
 
 @dataclass
 class CompactObjective:
-    """Weights for L_compact. Budget cost is explicit, per section 3.4."""
+    """Weights for the compaction objective.
 
+    Phase 4 target, from the design note:
+
+        L = L_gold + 0.5*L_KD + 0.1*L_reader-hidden + 0.05*L_carrier + 0.02*L_stats
+
+    These are **development starting values, not final hyperparameters**. The note
+    is explicit that every threshold and weight is to be chosen on a dev split, so
+    treat any number here as a placeholder to be re-tuned rather than a result.
+    """
+
+    gold: float = 1.0
+    kd: float = 0.5
+    reader_hidden: float = 0.1
+    carrier: float = 0.05
+    stats: float = 0.02
+    # Legacy weights, kept so existing callers of `total` keep working.
     recon: float = 0.1
     probe: float = 1.0
-    kd: float = 0.3
     anchor: float = 0.5
     budget: float = 0.01
     target_tokens: int = 256
+
+    def phase4_total(
+        self,
+        gold_loss: Optional[torch.Tensor] = None,
+        kd_loss: Optional[torch.Tensor] = None,
+        reader_hidden_loss: Optional[torch.Tensor] = None,
+        carrier_loss: Optional[torch.Tensor] = None,
+        stats_loss: Optional[torch.Tensor] = None,
+        device: str = "cpu",
+    ) -> torch.Tensor:
+        """The phase-4 objective. Missing terms contribute zero, never NaN."""
+        zero = torch.zeros((), device=device)
+
+        def pick(term):
+            return zero if term is None else term
+
+        return (
+            self.gold * pick(gold_loss)
+            + self.kd * pick(kd_loss)
+            + self.reader_hidden * pick(reader_hidden_loss)
+            + self.carrier * pick(carrier_loss)
+            + self.stats * pick(stats_loss)
+        )
 
     def total(
         self,
@@ -479,4 +559,262 @@ def train_compactor(
         "initial_loss": history[0] if history else float("nan"),
         "probe_weight": float(objective.probe),
         "kd_weight": float(objective.kd),
+    }
+
+
+# --- phase 4: carrier-residual training -------------------------------------
+
+# Depth at which the reader's hidden states are compared. Chosen to span the
+# stack rather than cluster at the end: an early layer catches a change in how
+# the memory is *read*, a late one catches a change in what is read out.
+_READER_HIDDEN_LAYERS = (8, 16, 24, 31)
+
+# Curriculum from the design note. Each entry is the *retained* block count, so
+# the operator is asked to compress harder as training proceeds. 19 -> 9 blocks
+# is the full schedule; the intermediate step exists because jumping straight to
+# the hardest ratio made the gold term dominate and the residual collapse to
+# zero in the first version of this schedule.
+_CARRIER_CURRICULUM = (19, 15, 19, 12, 19, 9)
+
+
+def _active_pool(manager, device):
+    """Build the active [A, S, R] prefix only, in the pool dtype.
+
+    The design note is explicit that the whole [32, 12800, 4096] pool must not be
+    copied to fp32: at 4096 hidden and 32 layers that copy alone is ~6.7 GB, which
+    does not fit on a 32 GB V100 next to an 8B model and its activations. The
+    reader only ever attends to the active region anyway -- the free region is
+    masked out by phase 2 -- so the narrowed tensor is both cheaper and exactly
+    the state the reader is meant to see.
+    """
+    total = manager.total
+    used = manager.used
+    k_anchor = manager.layout.k_anchor
+    memory = manager._memory
+    active = memory[:, :k_anchor, :]
+    if used > 0:
+        active = torch.cat([active, memory[:, total - used : total, :]], dim=1)
+    return active.to(device).detach().clone()
+
+
+def _forward_with_hidden(model, input_ids, layers, enable_grad: bool):
+    """One reader forward pass, returning both logits and selected hidden states.
+
+    `output_hidden_states=True` is what the phase-4 objective needs, and it is the
+    reason this path cannot reuse `_forward_spans`: that helper only keeps logits.
+    """
+    def run():
+        out = model(input_ids=input_ids, output_hidden_states=True, return_dict=True)
+        return out.logits, out.hidden_states
+
+    if enable_grad:
+        logits, hidden = run()
+    else:
+        with torch.no_grad():
+            logits, hidden = run()
+
+    picked = []
+    if hidden is not None:
+        for index in layers:
+            if 0 <= index < len(hidden):
+                picked.append(hidden[index])
+    return logits, picked
+
+
+def train_carrier_compactor(
+    manager,
+    probes: Sequence[Probe],
+    objective: Optional[CompactObjective] = None,
+    steps: int = 50,
+    lr: float = 1e-3,
+    allow_test_probes: bool = False,
+    curriculum: Sequence[int] = _CARRIER_CURRICULUM,
+    reader_layers: Sequence[int] = _READER_HIDDEN_LAYERS,
+    max_probe_tokens: int = 128,
+    use_amp: bool = True,
+) -> Dict[str, float]:
+    """Phase 4: train the carrier residual against the reader.
+
+    Objective, with development starting weights from the design note:
+
+        L = L_gold + 0.5*L_KD + 0.1*L_reader-hidden + 0.05*L_carrier + 0.02*L_stats
+
+    Both the backbone and the reader are frozen; only the carrier module moves.
+    The gold term is primary, KD is auxiliary, and the reader-hidden term is what
+    makes this phase 4 rather than a longer phase 3.
+
+    Resource discipline, all of it load-bearing on a 32 GB V100:
+
+      * only the active [A, S, R] prefix is materialised (`_active_pool`);
+      * probes are truncated to `max_probe_tokens` (64-128), batch of one;
+      * the candidate is cast to the pool dtype and the loss is scaled, so the
+        activation graph stays fp16;
+      * `torch.utils.checkpoint` is used when available, trading a second forward
+        for a much smaller activation footprint.
+
+    Returns a report dict; the trained module is attached to `manager.compactor`.
+
+    Known train/inference discrepancy, recorded rather than hidden: narrowing the
+    pool to [A, S, R] changes the memory prefix length from 12800 to
+    `k_anchor + used`, which shifts the rotary positions of every query token.
+    The design note mandates the narrowing because the full-pool fp32 copy does not
+    fit on a 32 GB V100, so the alternative is no phase 4 at all. Teacher and
+    student see the *same* prefix length, so KD and the hidden-state term remain
+    well posed; what is unverified is whether a residual trained at the shortened
+    prefix still transfers to the fixed-length pool. Check that before trusting a
+    phase-4 checkpoint in a full run.
+    """
+    from methods.prlmc.consolidate import CarrierResidualCompactor
+
+    assert_test_isolation(probes, allow_test=allow_test_probes)
+    if not probes:
+        raise ValueError("train_carrier_compactor needs at least one functional probe")
+    if manager.used < 2 * manager.block:
+        raise ValueError("not enough memory written to train a compactor")
+
+    objective = objective or CompactObjective()
+    device = manager.model.memory.device
+
+    start = manager.total - manager.used
+    window = min(
+        manager.used - manager.newest_width,
+        max(manager.cfg.compact_min_slots, manager.used // 2),
+    )
+    window = max(manager.block, (window // manager.block) * manager.block)
+    window = min(window, manager.used - manager.newest_width)
+    if window <= manager.block:
+        raise ValueError("window is too small to train against")
+
+    source = manager._memory[:, start : start + window, :].to(device)
+    batches = _probe_batches(manager.tokenizer, probes, str(device), max_length=max_probe_tokens)
+    if not batches:
+        raise ValueError("every probe was truncated away; raise max_probe_tokens")
+
+    compactor = CarrierResidualCompactor(
+        num_layers=manager.num_layers,
+        hidden=manager.hidden,
+        block=manager.block,
+        rank=int(getattr(manager.cfg, "carrier_rank", 32)),
+        gamma_max=float(getattr(manager.cfg, "carrier_gamma_max", 0.1)),
+    ).to(device=device, dtype=torch.float32)
+
+    optimiser = torch.optim.AdamW(compactor.parameters(), lr=lr)
+    try:
+        scaler = torch.amp.GradScaler("cuda", enabled=bool(use_amp))
+    except (AttributeError, TypeError):
+        scaler = torch.cuda.amp.GradScaler(enabled=bool(use_amp))
+
+    # Freeze the backbone and the reader. Without this the differentiable forward
+    # would retain an 8B-parameter graph on every step.
+    frozen = []
+    for parameter in manager.model.parameters():
+        if parameter.requires_grad:
+            parameter.requires_grad_(False)
+            frozen.append(parameter)
+
+    base_active = _active_pool(manager, device)
+    k_anchor = manager.layout.k_anchor
+    active_start = k_anchor + (manager.total - manager.used - start)
+
+    # Teacher pass over the *uncompacted* active state, detached. It must run
+    # against `base_active`, not the live pool: the student forward sees the
+    # narrowed [A, S, R] prefix, and a teacher pass over the full 12800-slot pool
+    # would give the two sides different sequence lengths, which both
+    # `teacher_kd_loss` and `reader_hidden_loss` would reject on shape.
+    with torch.no_grad(), differentiable_memory(manager.model, base_active):
+        teacher_logits = []
+        teacher_hidden = []
+        for input_ids, n_prefix, _ in batches:
+            logits, hidden = _forward_with_hidden(
+                manager.model, input_ids, reader_layers, enable_grad=False
+            )
+            teacher_logits.append(logits[:, n_prefix - 1 : -1, :].detach())
+            teacher_hidden.append([h.detach() for h in hidden])
+
+    history: List[float] = []
+    ratios: List[int] = []
+    try:
+        for step in range(int(steps)):
+            keep_blocks = curriculum[min(step * len(curriculum) // max(1, int(steps)), len(curriculum) - 1)]
+            target = max(manager.block, min(window - manager.block, keep_blocks * manager.block))
+            ratios.append(target)
+
+            optimiser.zero_grad(set_to_none=True)
+
+            candidate = compactor(
+                source,
+                target=target,
+                block=manager.block,
+                goal_direction=manager.goal_direction,
+                select_weights=manager.select_weights,
+            )
+
+            # Substitute only into the active region of the narrowed pool. Writes
+            # go through `candidate.to(...)`, which keeps the graph: assigning via
+            # `.data` here would silently detach the objective.
+            pool = base_active.clone()
+            width = candidate.shape[1]
+            lo = active_start
+            pool[:, lo : lo + width, :] = candidate.to(pool.dtype)
+
+            with differentiable_memory(manager.model, pool):
+                student_logits = []
+                student_hidden = []
+                for input_ids, n_prefix, _ in batches:
+                    logits, hidden = _forward_with_hidden(
+                        manager.model, input_ids, reader_layers, enable_grad=True
+                    )
+                    student_logits.append(logits[:, n_prefix - 1 : -1, :])
+                    student_hidden.append(hidden)
+
+            gold_term = gold_loss_from_logits(batches, student_logits, device)
+            kd_term = teacher_kd_loss(teacher_logits, batches, student_logits).to(device)
+
+            hidden_term = None
+            for teacher, student in zip(teacher_hidden, student_hidden):
+                term = reader_hidden_loss(teacher, student, layers=reader_layers)
+                hidden_term = term if hidden_term is None else hidden_term + term
+
+            # L_carrier: the residual must stay a residual. Without this the
+            # amplitude bound is the only thing keeping the operator from turning
+            # into a re-encoder.
+            carrier_term = torch.zeros((), device=device)
+            if compactor.up.weight.numel() > 0:
+                carrier_term = compactor.up.weight.pow(2).mean()
+            stats_term = (compactor.gamma.to(device) ** 2).reshape(())
+
+            loss = objective.phase4_total(
+                gold_loss=gold_term,
+                kd_loss=kd_term,
+                reader_hidden_loss=hidden_term,
+                carrier_loss=carrier_term,
+                stats_loss=stats_term,
+                device=str(device),
+            )
+
+            if scaler.is_enabled():
+                scaler.scale(loss).backward()
+                scaler.step(optimiser)
+                scaler.update()
+            else:
+                loss.backward()
+                optimiser.step()
+
+            history.append(float(loss.item()))
+    finally:
+        for parameter in frozen:
+            parameter.requires_grad_(True)
+
+    manager.compactor = compactor
+    manager.carrier_compactor = compactor
+    return {
+        "steps": float(steps),
+        "window_tokens": float(window),
+        "target_tokens": float(ratios[-1]) if ratios else float("nan"),
+        "initial_loss": history[0] if history else float("nan"),
+        "final_loss": history[-1] if history else float("nan"),
+        "gamma": float(compactor.gamma.detach()),
+        "gamma_max": float(compactor.gamma_max),
+        "curriculum": [float(v) for v in ratios],
+        "amp": 1.0 if scaler.is_enabled() else 0.0,
     }

@@ -59,6 +59,7 @@ from methods.prlmc.capacity import (
 )
 from methods.prlmc.config import PRLMCConfig
 from methods.prlmc.consolidate import (
+    CarrierResidualCompactor,
     build_compactor,
     recent_block_compact,
     select_block_compact,
@@ -1077,7 +1078,7 @@ class ProtectedResidualMemory:
         # narrower than `block`. Refuse explicitly rather than letting the operator
         # raise inside the try: a skipped compaction is visible in the report, an
         # exception is swallowed into `reason_skipped` and loses the reason.
-        if self.cfg.compact_mode in ("recent_blocks", "select_blocks"):
+        if self.cfg.compact_mode in ("recent_blocks", "select_blocks", "carrier_residual"):
             if window % block != 0 or target % block != 0:
                 return {
                     **empty,
@@ -1161,11 +1162,58 @@ class ProtectedResidualMemory:
         if mode == "recent_blocks":
             return recent_block_compact(source, target, block=self.compactor_block)
         if mode == "carrier_residual":
-            raise NotImplementedError(
-                "compact_mode=carrier_residual is phase 3; it needs the trained "
-                "CarrierResidualCompactor and is not wired up yet"
+            return self._carrier_compactor()(
+                source,
+                weights,
+                target=target,
+                block=self.compactor_block,
+                goal_direction=self.goal_direction,
+                select_weights=self.select_weights,
             )
         return self.compactor(source, weights, target)
+
+    def _carrier_compactor(self):
+        """Lazily build the phase-3 compactor, then reuse it.
+
+        Built on first compaction rather than in `__init__` so that configs which
+        never select `carrier_residual` do not pay for the module, and so that a
+        checkpoint path is only read once. The module lives on the model's device
+        and dtype-agnostic in fp32; the forward casts back to the pool dtype at
+        the end.
+        """
+        existing = getattr(self, "_carrier", None)
+        if existing is not None:
+            return existing
+
+        carrier = CarrierResidualCompactor(
+            num_layers=self.num_layers,
+            hidden=self.hidden,
+            block=self.compactor_block,
+            rank=int(getattr(self.cfg, "carrier_rank", 32)),
+            gamma_max=float(getattr(self.cfg, "carrier_gamma_max", 0.1)),
+        ).to(device=self._memory.device, dtype=torch.float32)
+
+        ckpt = getattr(self.cfg, "carrier_ckpt", None)
+        if ckpt:
+            state = torch.load(ckpt, map_location=self._memory.device)
+            if isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            carrier.load_state_dict(state)
+            carrier.trained = True  # noqa: attribute set for parity with LearnedCompactor
+            print(f"[prlmc] carrier_residual: loaded {ckpt}")
+        else:
+            # No checkpoint: the module is at initialisation, where `up` is zero
+            # and the output equals the selected carriers bit for bit. That is a
+            # deliberate control, not a trained fusion operator, and the run log
+            # says so.
+            print(
+                "[prlmc] carrier_residual: no carrier_ckpt, running at "
+                "initialisation (equivalent to select_blocks)"
+            )
+
+        carrier.eval()
+        self._carrier = carrier
+        return carrier
 
     def _window_importance(self, start: int, window: int) -> Optional[torch.Tensor]:
         """Importance weights for the sliding window, or None when unused.
@@ -1174,7 +1222,15 @@ class ProtectedResidualMemory:
         selector. `recent_blocks` deliberately does not ask for them: it must stay
         a pure-recency control, and a control that reads importance is not one.
         """
-        if self.cfg.compact_mode not in ("weighted_svd_tokens", "select_blocks"):
+        if self.cfg.compact_mode not in (
+            "weighted_svd_tokens",
+            "select_blocks",
+            # The carrier picker is the same scorer as `select_blocks`, so it
+            # needs the same importance weights. Without them it would fall back
+            # to the dispersion stand-in and the two operators would no longer
+            # share a carrier set.
+            "carrier_residual",
+        ):
             return None
 
         slots = self._memory[0, start : start + window, :]
