@@ -396,14 +396,40 @@ class CarrierResidualCompactor(nn.Module):
       * **The modification is a residual.** The output is `Y0 + gamma * delta`,
         never a fresh coordinate system. `Y0` stays in the output by
         construction, so no slot the reader was trained on is ever overwritten.
-      * **The amplitude is bounded.** `gamma = gamma_max * sigmoid(logit)`, so
-        `|gamma| < gamma_max` always. Gradient descent cannot widen the residual
-        past that ceiling no matter how large the loss gradient becomes.
+      * **The amplitude is bounded *relatively*.** `alpha = gamma_max *
+        sigmoid(logit)` bounds the coefficient, and the delta is additionally
+        RMS-normalised onto the carrier's own scale before it is scaled:
+
+            delta = delta / (rms(delta) + eps) * rms(carrier)
+
+        so `rms(alpha * delta) <= gamma_max * rms(Y0)` holds for *any* magnitude
+        `up` may learn. Bounding the coefficient alone is not enough: a `up` whose
+        output norm grew 100x would still exceed the carriers at
+        `gamma_max = 0.1`. This relative form is the hard guarantee against
+        re-introducing the E4 failure mode, where the reader was handed memory
+        whose scale it had never been trained on.
 
     Routing is block level: one attention distribution per output block over the
     input blocks, not per slot. Per-slot routing would let the operator address
     individual positions and drift back towards a re-encoding, which is exactly
     the failure mode this design exists to avoid.
+
+    Routing is also **shared across layers**. A native MemoryLLM block is
+    generated jointly by all 32 layers and represents one memory event, so
+    letting each layer fuse from a different source block could synthesise a
+    cross-layer splice that never appeared in the training distribution. The
+    attention is computed once, in the reference layer, and reused by every layer.
+
+    The routing logits start from a native cosine similarity prior plus a learned
+    term scaled by `sigmoid(route_logit)`:
+
+        logits = native_cosine / temperature + route_scale * learned
+
+    `route_logit` is initialised so `route_scale ~= 0.018`, which makes the first
+    steps behave like "a carrier absorbs the source blocks it is already closest
+    to". This matters because `up` starts at zero, so early gradients would
+    otherwise reach `q`/`k`/`down` through a near-zero delta and routing would
+    begin from noise.
 
     No LayerNorm sits on the output path. A normalisation there would re-scale
     the carriers themselves and break the identity-at-init property above; only
@@ -436,14 +462,61 @@ class CarrierResidualCompactor(nn.Module):
         # zero: large enough to carry gradient into `up`, small enough that a
         # damage-free first write is still the default.
         self.gamma_logit = nn.Parameter(torch.tensor(-3.0))
+        # -4.0 puts the learned routing contribution at sigmoid ~= 0.018, so the
+        # native cosine prior dominates at step 0. Routing therefore starts from
+        # "absorb the semantically nearest blocks" rather than from noise.
+        self.route_logit = nn.Parameter(torch.tensor(-4.0))
+        # Similarity temperature for the native prior. 0.1 sharpens the cosine
+        # distribution; a value near 1.0 would make it almost uniform over 12
+        # blocks and the prior would carry no information.
+        self.route_temperature = 0.1
+        # The layer whose block means drive routing. Layer 0 is the same
+        # reference the carrier selector scores in (`_SELECT_LAYER`), so
+        # selection and routing at least agree on which layer defines a block.
+        self.reference_layer = 0
 
         self.forward_calls = 0
         self.last_gamma = 0.0
+        self.last_residual_ratio = 0.0
+        self.last_routing_entropy = 0.0
 
     @property
     def gamma(self) -> torch.Tensor:
-        """Current residual amplitude, always strictly inside `gamma_max`."""
+        """Residual amplitude. Bounded by `gamma_max`; see `forward` for the
+        RMS normalisation that makes the bound *relative*."""
         return self.gamma_max * torch.sigmoid(self.gamma_logit)
+
+    @property
+    def route_scale(self) -> torch.Tensor:
+        """Weight of the learned routing term relative to the native prior."""
+        return torch.sigmoid(self.route_logit)
+
+    def _layer_delta(self, attn, block_layer, carrier_layer):
+        """Residual for one layer, factored out so it can be checkpointed.
+
+        Must stay a pure function of its arguments: `torch.utils.checkpoint`
+        recomputes it during backward from the stored inputs, so anything it read
+        from a mutable closure would be read at backward time, not forward time.
+        Reading parameters is fine -- they are leaf tensors.
+
+        `carrier_layer` arrives in the pool's own dtype and the fp32 cast happens
+        in here, deliberately. A checkpoint stores whatever the caller passes, so
+        casting outside would have persisted a 37.7 MB fp32 tensor per layer (1.2 GB
+        for all 32); casting inside keeps the stored input at 18.9 MB fp16 and
+        recomputes the rest.
+        """
+        carrier = carrier_layer.to(torch.float32)
+        context = torch.einsum("jb,btd->jtd", attn, block_layer.to(torch.float32))
+        delta = self.up(F.gelu(self.down(context - carrier)))
+
+        # Relative trust region. Normalising the delta to the carrier's own RMS and
+        # then scaling by alpha means the modification is bounded by a fraction of
+        # the *carrier magnitude*, whatever `up` learns. Bounding only the
+        # coefficient would let a large-norm `up` produce a residual far exceeding
+        # the carriers, which is the E4 failure mode in disguise.
+        carrier_rms = carrier.pow(2).mean(dim=(-2, -1), keepdim=True).sqrt()
+        delta_rms = delta.pow(2).mean(dim=(-2, -1), keepdim=True).sqrt()
+        return delta / (delta_rms + 1e-6) * carrier_rms
 
     def forward(
         self,
@@ -483,30 +556,83 @@ class CarrierResidualCompactor(nn.Module):
         blocks = source.view(layers, b, block, d)
         carriers = blocks.index_select(1, index)  # [L, b_out, block, d]
 
-        # Summaries are fp32 and detached: they decide *routing only*, and the
-        # design keeps the carrier picker's scoring out of the gradient path so
-        # that selection and fusion cannot co-adapt into a different operator.
-        src_summary = blocks.detach().to(torch.float32).mean(dim=2)  # [L, b, d]
-        car_summary = carriers.detach().to(torch.float32).mean(dim=2)  # [L, b_out, d]
+        # Routing is computed once, in the reference layer, and reused by all 32
+        # layers: a native block is one jointly generated memory event, so
+        # per-layer routing could splice together a block that never existed in
+        # the training distribution.
+        #
+        # Only the reference layer is summarised, not the whole [L, b, block, d]:
+        # the previous form cast every layer to fp32 (`blocks[...].to(float32)`)
+        # and materialised 1.9 GB just to average one layer.
+        ref = min(max(self.reference_layer, 0), layers - 1)
+        src_summary = blocks[ref].detach().to(torch.float32).mean(dim=1)  # [b, d]
+        car_summary = carriers[ref].detach().to(torch.float32).mean(dim=1)  # [b_out, d]
 
         # L2 normalisation on the routing representations only -- never on the
         # output path.
-        q = self.q(_l2(car_summary))
-        kk = self.k(_l2(src_summary))
-        attn = torch.softmax(
-            torch.matmul(q, kk.transpose(-1, -2)) / max(1.0, self.rank ** 0.5), dim=-1
-        )  # [L, b_out, b]
+        src_unit = _l2(src_summary)
+        car_unit = _l2(car_summary)
 
-        # Block-level gather: "ljb,lbtd->ljtd" per layer, i.e. every slot of an
-        # output block receives the same mixture of input blocks.
-        context = torch.einsum("ljb,lbtd->ljtd", attn, blocks.to(torch.float32))
-        delta = self.up(F.gelu(self.down(context - carriers.to(torch.float32))))
+        # Native cosine prior. Carriers absorb the blocks they are already
+        # closest to, which is a sensible starting point rather than noise.
+        native_logits = (car_unit @ src_unit.transpose(-1, -2)) / max(
+            1e-6, float(self.route_temperature)
+        )  # [b_out, b]
 
-        gamma = self.gamma
-        out = carriers.to(torch.float32) + gamma * delta
+        learned_logits = (self.q(car_unit) @ self.k(src_unit).transpose(-1, -2)) / max(
+            1.0, self.rank ** 0.5
+        )
+        logits = native_logits + self.route_scale * learned_logits
+        attn = torch.softmax(logits, dim=-1)  # [b_out, b]
+
+        # Casting the whole [L, b_out, block, d] carrier stack to fp32 up front cost
+        # 1.2 GB at the E6a shape for no reason: only one layer is alive at a time.
+        alpha = self.gamma
+        out = torch.empty(layers, b_out, block, d, dtype=source.dtype, device=source.device)
+        residual_sq = 0.0
+        carrier_sq = 0.0
+
+        # Per-layer checkpointing. Retaining this loop's graph is what made the E6a
+        # training step OOM: each layer keeps ~4 fp32 tensors of `b_out*block*d`
+        # (37.7 MB at the E6a shape) for backward, so all 32 layers together hold
+        # ~4.8 GB. The backbone leaves only ~4.3 GB free on a 32 GB card, which is
+        # why training died at this line while inference (no graph) was comfortable.
+        # Checkpointing stores just the layer inputs and recomputes one layer during
+        # backward, cutting retained memory to a few hundred MB.
+        use_ckpt = torch.is_grad_enabled() and any(
+            p.requires_grad for p in self.parameters()
+        )
+
+        for layer in range(layers):
+            carrier_layer = carriers[layer]
+
+            if use_ckpt:
+                import torch.utils.checkpoint as checkpoint
+
+                delta = checkpoint.checkpoint(
+                    self._layer_delta,
+                    attn,
+                    blocks[layer],
+                    carrier_layer,
+                    use_reentrant=False,
+                    preserve_rng_state=False,
+                )
+            else:
+                delta = self._layer_delta(attn, blocks[layer], carrier_layer)
+
+            out[layer] = (carrier_layer.to(torch.float32) + alpha * delta).to(source.dtype)
+            if layer == ref:
+                with torch.no_grad():
+                    residual_sq = float((alpha * delta).pow(2).mean().sqrt())
+                    carrier_sq = float(carrier_layer.to(torch.float32).pow(2).mean().sqrt())
+
         self.forward_calls += 1
-        self.last_gamma = float(gamma.detach())
-        return out.reshape(layers, b_out * block, d).to(source.dtype)
+        self.last_gamma = float(alpha.detach())
+        self.last_residual_ratio = residual_sq / (carrier_sq + 1e-12)
+        with torch.no_grad():
+            p = attn.detach().clamp_min(1e-12)
+            self.last_routing_entropy = float((-(p * p.log()).sum(dim=-1).mean()).detach())
+        return out.reshape(layers, b_out * block, d)
 
     def compact(self, source: torch.Tensor, weights: Optional[torch.Tensor] = None, **kwargs):
         """Inference entry point. Mirrors `LearnedCompactor.compact`."""
@@ -518,6 +644,10 @@ class CarrierResidualCompactor(nn.Module):
             "carrier_rank": self.rank,
             "gamma_max": self.gamma_max,
             "gamma": self.last_gamma,
+            "residual_ratio": self.last_residual_ratio,
+            "routing_entropy": self.last_routing_entropy,
+            "route_scale": float(self.route_scale.detach()),
+            "reference_layer": self.reference_layer,
             "forward_calls": self.forward_calls,
         }
 
