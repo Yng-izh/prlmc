@@ -10,7 +10,7 @@
 SVD synthesis       → 已淘汰
 native selection    → 安全基线
 active mask         → 可用
-carrier residual    → 接线完成，尚未训练
+carrier residual    → 已接线、已训练，但未离开恒等点
 adaptive trigger    → 暂停
 novelty gate        → 暂停
 ```
@@ -19,7 +19,9 @@ E5a/E5b 都是 EM 26，E5c/E5d/E6 在 23–24；E6 未训练且初始化严格�
 selection。**因此没有理由继续改 trigger 或 selector 权重**，重心收敛到 compactor 本身。
 
 最大的缺口：**还没有真正训练出一个能把被丢弃 block 的信息融合回 carrier、并且提升
-功能保持的压缩器。**
+功能保持的压缩器。** E6a（2026-09-25）已经把训练链接通并拿到首个有效读数
+（`recovery_rate = 1/3`），但 `residual_ratio` 停在 0.14%，融合项没有离开恒等点，
+因此这一缺口仍然成立。
 
 ---
 
@@ -158,6 +160,36 @@ replacement、梯度流、loss 计算。这个实验非常便宜，价值极高�
 
 **E6a 尚未在硬窗口上训练。** 下一步唯一要做的事：固定 `--window 3,17890`，
 用同一个 `CarrierResidualCompactor`（结构不动）训练，报 `recovery_rate`。
+
+### E6a 硬窗口训练结果（2026-09-25，有效）
+
+缺陷 9–12 全部修复后的首次有效训练。固定 `--window 3,17890`，结构未改，
+loss 权重未调，stage A 16 步 + stage B 24 步，`lr 1e-3`，`gamma_max 0.05`。
+
+筛选（`--dry-run`）与上表逐位一致：`no-mem 0/20`、`uncompacted 6/20`、
+`before 3/20`、`lost 3`。
+
+| 阶段 | `after` | `recovery_rate` | `gold` 首→末 | `kd` 首→末 |
+|---|---|---|---|---|
+| A（16 步） | 4/20 | **1/3 = 0.333** | 3.8737 → 3.7321 | 1.4617 → 1.0696 |
+| B（24 步） | 4/20 | **1/3 = 0.333** | 3.7168 → 3.2787 | 1.0802 → 0.9928 |
+
+恢复的 probe 是 `What sport is Charlie Manuel associated with?`；
+`Who created Girls?` 与 `Who is Victor Turner employed by?` 仍丢失。
+
+内部状态阶段末：`gamma` 0.0024011 → 0.0024612（预算 0.05，**用到 4.8%**）；
+`residual_ratio` 0.00072533 → 0.00142481（判据要求 < 5%，**实测 0.14%**）；
+`route_scale` 0.018158 → 0.018614；`routing_entropy` 2.9432（仍均匀）；
+`hidden` 分量全程持平 ~0.0028，未下降；`amp` 0.0。
+
+**这不是机制成立**：`residual_ratio` 停在 0.14%，注入张量与 `select_blocks`
+的差异只占 carrier 的千分之一量级，融合项没有真正离开恒等点。
+1/3 的恢复因此不能归因于 residual fusion。训练链本身是通的
+（`carrier` 分量单调上升，`up.weight` 已离开零初始化；`kd` 明显下降），
+但 16 + 24 步、`lr 1e-3` 下的有效梯度信号不足以推动 `gamma` 用掉预算。
+
+下一步的判据不变：只有当 `residual_ratio` 真正放大、`after` 相对 `before`
+在 `lost` 子集上有可重复提升，才能回去做 E7 adaptive trigger 与 E6b 多窗口。
 
 ## E6b：多窗口离线训练（E6a 通过后）
 
@@ -405,3 +437,7 @@ stage B: gold_loss 0.8384 -> 0.7489   # 跨度错误的数值，仅说明 loss �
 **教训（已写进验收）**：overfit 验收不能只看 accuracy。必须在训练后断言
 `gamma` / `up.weight` 相对初始化**确实变了**，否则"梯度是 NaN、更新被跳过"会伪装成
 "训练无效"，浪费一整轮算力。
+
+该断言在 2026-09-25 的硬窗口训练中通过：`gamma` 从 0.0023713 变到 0.0024612，
+`up.weight` 的平方均值从 `0.0` 升到 `9.88e-05`，梯度不再是 NaN。
+剩下的问题是量级——`residual_ratio` 只到 0.14%，见「E6a 硬窗口训练结果」。

@@ -1022,7 +1022,7 @@ E6a 用一个窗口做离线 overfit，检验 `CarrierResidualCompactor` 与整�
 | `lr` | 1e-3 |
 | `gamma_max` | 0.05（命令行覆盖 YAML 的 0.1） |
 | `use_amp` | False |
-| GPU | gpu7，32764 MB free |
+| GPU | gpu9（v100-2），32768 MB free |
 | `max_probe_tokens` | 256（必须大于 ~163 token 的渲染提示词） |
 
 ### 首轮结果全部作废
@@ -1123,10 +1123,77 @@ after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
 [grad] step 1 cand_leaf=7.3125e+00 scale=1.0 | gamma_logit=9.7598e-02 route_logit=2.0263e-11 q.weight=2.8726e-08 k.weight=2.8117e-08 down.weight=8.0711e-01 up.weight=3.5428e-01
 ```
 
+### 硬窗口训练结果（有效，2026-09-25）
+
+缺陷 9–12 全部修复后的完整训练，`--window 3,17890`，stage A 16 步 + stage B 24 步。
+命令：
+
+```text
+E6A_NEED_MB=21000 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+CUDA_VISIBLE_DEVICES=9 python /tmp/e6a_overfit.py \
+  --window 3,17890 --steps-a 16 --steps-b 24 \
+  --probes 20 --max-probe-tokens 256 \
+  --lr 1e-3 --gamma-max 0.05 --min-probes 4 --min-lost 3 \
+  --out /tmp/e6a_report.json
+```
+
+筛选指标（`--dry-run` 阶段，与上表逐位一致）：
+
+| 指标 | 值 |
+|---|---|
+| `no_memory` | 0/20 |
+| `uncompacted` | 6/20 |
+| `before`（`select_blocks`） | 3/20 |
+| `lost` | 3 |
+| `identity_at_init` | `True`（`max |d| = 0.000e+00`） |
+
+训练结果：
+
+| 阶段 | `after` | `recovery` | `gold` 首→末 | `kd` 首→末 |
+|---|---|---|---|---|
+| A（16 步） | 4/20 | **1/3 = 0.333** | 3.8737 → 3.7321 | 1.4617 → 1.0696 |
+| B（24 步） | 4/20 | **1/3 = 0.333** | 3.7168 → 3.2787 | 1.0802 → 0.9928 |
+
+`acceptance`：
+
+```text
+{'n_eligible': 6, 'n_lost': 3, 'n_recovered': 1, 'recovery_rate': 0.3333333333333333,
+ 'lost_questions': ['Who created Girls?', 'What sport is Charlie Manuel associated with?',
+                    'Who is Victor Turner employed by?'],
+ 'recovered_questions': ['What sport is Charlie Manuel associated with?'],
+ 'no_memory_accuracy': 0.0, 'before_accuracy': 0.15, 'after_accuracy': 0.2,
+ 'uncompacted_accuracy': 0.3}
+```
+
+即 `What sport is Charlie Manuel associated with?` 被塞了回来，
+`Who created Girls?` 与 `Who is Victor Turner employed by?` 仍丢失。
+
+内部状态（阶段末）：
+
+| 量 | A 末 | B 末 | 预算 / 参照 |
+|---|---|---|---|
+| `gamma` | 0.0024011 | 0.0024612 | `gamma_max` = 0.05，用到 **4.8%** |
+| `residual_ratio` | 0.00072533 | 0.00142481 | 判据要求 < 5%，实测 **0.14%** |
+| `route_scale` | 0.018158 | 0.018614 | — |
+| `routing_entropy` | 2.9432058 | 2.9432118 | 均匀分布 |
+| `forward_calls` | 34 | 83 | — |
+| `amp` | 0.0 | 0.0 | — |
+
+`carrier` 分量按步单调上升（A：`0.0 → 3.97e-05`；B：`4.26e-05 → 9.88e-05`），
+说明 `up.weight` 确实在离开零初始化；`hidden` 分量全程持平在 ~0.0028，未下降。
+
+**读数解读（不构成机制结论）**：`residual_ratio` 停在 0.14%，即注入张量与原生
+`select_blocks` 的差异只占 carrier 的千分之一量级，`gamma` 只用掉预算的 4.8%。
+融合项没有真正离开恒等点，因此那 1/3 的恢复不足以归因于 residual fusion。
+16 + 24 步、`lr 1e-3` 的有效梯度信号太弱，`kd` 是唯一明显下降的分量。
+
 ### 附：显存
 
 修复 reader 图与 compactor 图共存后，`[mem] step 0 before student`
 从 23.02 GB 降到 21.20 GB。40 步训练期间该值稳定在 21.49–22.70 GB，无 OOM。
+
+缺陷 12 修复前的对照：`alloc=22.72GB` 时 backward 需要 3.12 GiB、
+仅 3.09 GiB 可用，第一步即 `torch.OutOfMemoryError`。
 
 第一次全跑在此处 OOM：`torch.OutOfMemoryError` 于 stage A 第 0 步的 probe backward，
 `GPU 0 has a total capacity of 31.73 GiB of which 68.00 MiB is free`。
@@ -1245,6 +1312,45 @@ E3 之前修复的问题，按发现顺序：
 
 8. **`KeyError('model')`** —— `agent.py:53` 需要 `model` 与 `temperature` 键。
    **修复**：补入配置文件。
+
+9. **打分跨度落在提示词中间（E6a 全部数字作废的根因）。**
+   `score_probes` 与 `_probe_batches` 都写作
+   `n_prefix = min(len(stem), width - 1)`。渲染后的 `rag_agent` 提示词长 **163 token**，
+   而 `max_probe_tokens` 默认 **64**，于是 `n_prefix = 63`，被打分的位置是
+   "answer a question" 里的 `' question'`。该位置只由问题文本决定，与 memory 池无关，
+   所以 accuracy 恒为满分、`gold_loss` 也不是答案的 loss。
+   **修复**：两处都改为 `n_prefix = len(prefix_ids)`，并在
+   `len(prefix_ids) >= max_length` 时直接 `raise`；默认值提到 256。
+
+10. **`weights` 没有接进 compactor 调用。**
+    `compressed_pool` 与训练器两处调用 `compactor(...)` 时都漏了 `train_weights`，
+    于是选择臂用的是未加权的 importance，与 `_select_block_indices` 内部实际使用的
+    0.4 加权 importance 不一致。
+    **修复**：三处都按第二个位置参数传入 `train_weights`。
+    生效证据是筛窗打印的 dropped 集合发生变化：
+    `[0,1,2,3,4,5,6,7,8,9] vs [0,1,2,3,4,5,6,8,9,11] (unweighted)`。
+
+11. **rebuild 写在注入上下文内部（梯度走了另一个 carrier 集合）。**
+    `_pool_in_place` 在 `with` 块存续期间把 candidate 写进窗口尾部
+    （`new_start = start + window - target`），退出时才 `restore()`。
+    而 `manager._memory` 返回的是 `model.memory.data`，即 `source` 是池存储的视图。
+    原来的 rebuild 写在 `with` 块内，因此读到的 `source` 已被覆写，且同一份被污染的
+    `source` 同时用于三处：`_select_block_indices`（对 19 个 block 全部打分，
+    含被覆写的尾部）、`src_summary`/`car_summary` 的路由均值、
+    以及尾部 carrier 的 `blocks.index_select`。在该窗口上加权选择恰好丢掉
+    block 0–9，于是尾部正是 carrier 集合——**反向传播穿过的是与 forward 不同的
+    carrier 集合**。报出的 loss 看起来正常，因为它们来自正确构造的 `candidate_val`。
+    **修复**：把 rebuild 与 backward 移出 `with` 块。
+    `restore()` 已先执行，`source` 与参数均未变，重建结果是逐位相同的。
+    AST 校验：`with` 块内 `cand_leaf.grad is not None` 节点数 **0**。
+
+12. **回滚副本整步占用显存（首次训练在 backward 处 OOM）。**
+    `_PoolInjection.__init__` 克隆被顶掉的窗口槽位后把 604 MB 留在 GPU 上，
+    但 `restore()` 只在步末读一次，且该张量不参与 autograd。
+    与此同时 backward 必须物化全宽 `[32, 12800, 4096]` fp16 的 memory 梯度
+    （**3.12 GiB**，读全宽就是必须的），当时只剩 3.09 GiB，**差 30 MB**。
+    **修复**：副本存到 CPU，`restore()` 时再传回；每步多一次 604 MB 拷贝，
+    峰值让出 604 MB。
 
 ---
 
