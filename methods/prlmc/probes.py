@@ -152,8 +152,19 @@ def _probe_batches(
             if input_ids.shape[1] < 2:
                 continue
             prefix_ids = tokenizer(stem, add_special_tokens=False).input_ids
-            n_prefix = min(len(prefix_ids), input_ids.shape[1] - 1)
-            if n_prefix <= 0:
+            if len(prefix_ids) >= max_length:
+                # Clamping here does not shorten the prompt, it moves the answer
+                # span into the middle of it. The rendered `rag_agent` prompt is
+                # ~163 tokens, so any `max_length` below that scored an instruction
+                # word rather than the answer and every accuracy/gold number was
+                # independent of the memory pool. See EXPERIMENTS.md, E6a.
+                raise ValueError(
+                    "_probe_batches: max_length=%d truncates the %d-token prompt; "
+                    "the answer span would be mid-instruction"
+                    % (max_length, len(prefix_ids))
+                )
+            n_prefix = len(prefix_ids)
+            if n_prefix <= 0 or n_prefix >= input_ids.shape[1]:
                 continue
             batches.append((input_ids, n_prefix, float(probe.weight)))
     return batches
@@ -912,9 +923,28 @@ def compressed_pool(
     start = manager.total - manager.used
     window = int(window_blocks) * manager.block
     target = int(target_blocks) * manager.block
+    if window > manager.used:
+        # `_compacted_pool` derives `new_start` from `used - window + target`, so a
+        # window wider than the pool makes that arithmetic negative and the
+        # placement silently produces an over-wide pool. The failure it used to
+        # raise ("width 13056 != 12800") pointed at the placement rather than at
+        # the real cause, which is always a window the caller never wrote.
+        raise ValueError(
+            "compressed_pool: window %d slots exceeds the %d slots written"
+            % (window, manager.used)
+        )
     source = manager._memory[:, start : start + window, :].to(device)
+    # The importance weights are not optional here. `_select_block_indices` scores
+    # importance at weight 0.4, and without them it falls back to the
+    # dispersion-based stand-in -- a *different* set of carriers than
+    # `compact_with_report` picks for the same source. A screen that derives the
+    # dropped blocks from the weighted scorer and then measures the unweighted one
+    # is comparing two different operators, and every probe whose fact sat in a
+    # dropped block would still be readable in the scored pool.
+    weights = manager._window_importance(start, window)
     candidate = compactor(
         source,
+        weights,
         target=target,
         block=manager.block,
         goal_direction=manager.goal_direction,
@@ -932,7 +962,7 @@ def score_candidate(
     probes: Sequence[Probe],
     window_blocks: int,
     target_blocks: int,
-    max_probe_tokens: int = 128,
+    max_probe_tokens: int = 256,
 ) -> Dict[str, float]:
     """Teacher-forced answer accuracy and gold loss of one candidate compaction.
 
@@ -1015,7 +1045,7 @@ def train_carrier_compactor(
     allow_test_probes: bool = False,
     curriculum: Sequence[int] = _CARRIER_CURRICULUM,
     reader_layers: Sequence[int] = _READER_HIDDEN_LAYERS,
-    max_probe_tokens: int = 128,
+    max_probe_tokens: int = 256,
     use_amp: bool = False,
     window_blocks: Optional[int] = None,
     target_blocks: Optional[int] = None,
@@ -1038,7 +1068,9 @@ def train_carrier_compactor(
 
       * the pool keeps its config width and the freed region is excluded from
         attention by the active mask, rather than the pool being narrowed;
-      * probes are truncated to `max_probe_tokens` (64-128), batch of one;
+      * probes are capped at `max_probe_tokens`, which must exceed the ~163
+        token rendered prompt or the answer span is scored mid-instruction;
+        batch of one;
       * the candidate is cast to the pool dtype and the loss is scaled, so the
         activation graph stays fp16;
       * `torch.utils.checkpoint` is used when available, trading a second forward
@@ -1085,6 +1117,10 @@ def train_carrier_compactor(
         raise ValueError("window is too small to train against")
 
     source = manager._memory[:, start : start + window, :].to(device)
+    # Same reason as in `compressed_pool`: the carrier picker scores importance at
+    # weight 0.4, so training without the weights would optimise a different
+    # carrier set than the one inference actually places.
+    train_weights = manager._window_importance(start, window)
     batches = _probe_batches(manager.tokenizer, probes, str(device), max_length=max_probe_tokens)
     if not batches:
         raise ValueError("every probe was truncated away; raise max_probe_tokens")
@@ -1207,6 +1243,7 @@ def train_carrier_compactor(
             with torch.no_grad():
                 candidate_val = compactor(
                     source,
+                    train_weights,
                     target=target,
                     block=manager.block,
                     goal_direction=manager.goal_direction,
@@ -1319,6 +1356,7 @@ def train_carrier_compactor(
                 if cand_leaf.grad is not None:
                     candidate = compactor(
                         source,
+                        train_weights,
                         target=target,
                         block=manager.block,
                         goal_direction=manager.goal_direction,

@@ -125,40 +125,39 @@ reader hidden loss 下降
 **如果一个窗口都 overfit 不了，不要跑任何大实验**，优先查训练图、memory
 replacement、梯度流、loss 计算。这个实验非常便宜，价值极高。
 
-### E6a 结果（2026-09-24，已通过）
+### E6a 结果（2026-09-24，首轮指标作废；硬窗口已就绪）
 
-第一次全跑：**失败但发现了真问题**。`before` 与 `after` 逐位相同，查明是梯度
-NaN 导致 40 步更新全被 `GradScaler` 跳过（详见下文第 6 节）。修掉 NaN 与
-`use_amp` 后重跑：
+首轮全跑的两组数字——`before 1.000 (16/16), gold_loss 0.8384` 与
+`stage B gold_loss 0.3761`——**全部作废**，原因不是 loss 权重也不是 probe 集难度，
+而是打分跨度错误：`n_prefix = min(len(stem), width - 1)` 被 `max_probe_tokens = 64`
+夹住，而渲染后的提示词长 163 token，于是被打分的是提示词中间的一个词，
+与 memory 池无关。accuracy 因此恒为满分，`gold_loss` 也不是答案的 loss。
+详见 `EXPERIMENTS.md`「已修复的缺陷」第 9 条。
+
+修复跨度后重新筛选硬窗口，首个候选即命中（`row 3 start 17890`）：
 
 | 指标 | 数值 |
 |---|---|
-| uncompacted accuracy | 1.000 (16/16) |
-| before（select_blocks） | 1.000 (16/16), gold_loss 0.8384 |
-| stage A（16 步，KD 为主）之后 | 1.000, gold_loss 0.9354 |
-| stage B（24 步，金标为主）之后 | 1.000, **gold_loss 0.3761** |
-| 训练耗时 | 约 27 分钟（16+24 步，16 probe） |
+| `no-mem` | 0/20 |
+| `full`（未压缩） | 6/20 |
+| `select`（selection 后） | 3/20 |
+| `lost` | **3** |
+| `eligible` | 6 |
 
-**结论：训练链现在是通的。** gold_loss 从 0.8384 降到 **0.3761**（降幅 55%），
-说明梯度确实流到了 compactor 并改变了 reader 的输出。
+窗口构造要求支持事实落在 `select_blocks` **丢弃**的 block 里，因此 selection
+确实丢信息。判定指标为 `recovery_rate = recovered / lost`，不看总体准确率
+（20 题中只有 3 题 `lost`，信号会被稀释）。
 
-**但这次实验还证明不了"压缩更好"**，原因有两个，都不是代码问题：
+首轮"验收条件在准确率上结构性无法满足"的观察仍然成立，但根因已更换：
+不是 probe 恰好都是最新事实，而是跨度错误让 accuracy 与池无关。`after > before`
+这一判据依旧不能用，仍须落在 `lost` 子集上。
 
-1. **准确率天花板。** select_blocks 在 16/16 上已经是 100%，没有上升空间。
-   验收条件 `after > before` 在准确率上**结构性地无法满足**。要判定优劣必须
-   看 gold_loss 或换更难的 probe 集，不能用 accuracy。
-2. **这个 probe 集区分不了"记忆"和"猜"。** 16 个 probe 的正确答案恰好全部
-   是窗口内**最新**的那条事实，而 `select_blocks` 保留的正是最新块，所以它
-   天然满分。这批 probe 测的是"有没有把最新事实留下"，不是"压缩有没有丢信息"。
-
-因此 E6a 的定位要修正为：**它验证的是训练链可用（已达成），不是压缩质量。**
-下一步若要检验压缩质量，需要构造答案分散在窗口**各处**（尤其是会被丢掉的
-老块里）的 probe 集，并配合 `COMPACTOR_PLAN.md` 后面那节描述的
-compaction-unit benchmark（functional retention @ 1/3/5/10 次压缩）。
-
-附带确认的两项：`carrier_residual` 在初始化时与 `select_blocks` 逐位相同
+附带确认的一项：`carrier_residual` 在初始化时与 `select_blocks` 逐位相同
 （`identity_at_init: True`，`max |d| = 0.000e+00`），这是复用"先安全基线、
-后小幅融合"路线的先决条件；`gamma` 从 0.00237 起步且未撞 `gamma_max = 0.05`。
+后小幅融合"路线的先决条件。
+
+**E6a 尚未在硬窗口上训练。** 下一步唯一要做的事：固定 `--window 3,17890`，
+用同一个 `CarrierResidualCompactor`（结构不动）训练，报 `recovery_rate`。
 
 ## E6b：多窗口离线训练（E6a 通过后）
 
@@ -311,7 +310,8 @@ FactConsolidation 的规则是"序列号大的更新"，所以正确答案是**�
 probe 分辨不出好坏。`probes_from_lines` 用 `first_match` 唯一匹配模板并按 subject
 取最新行；模板重叠会导致 `Who is the capital of Great Britain?` 这类无法回答的问题。
 
-修完后 dry run：`uncompacted = 1.0 (16/16)`，`before = 1.0 (16/16)`。
+修完后 dry run 曾报 `uncompacted = 1.0 (16/16)`、`before = 1.0 (16/16)`；
+这两个数值后来确认为打分跨度错误的产物（见「首轮指标作废」），已作废。
 
 ### 显存
 
@@ -360,11 +360,12 @@ probe 分辨不出好坏。`probes_from_lines` 用 `first_match` 唯一匹配模
 
 ### 6. 第一次全跑"没效果"的真相：梯度是 NaN，训练被静默跳过
 
-第一次完整 E6a 跑完后 `before` 和 `after` 逐位相同：
+第一次完整 E6a 跑完后 `before` 和 `after` 逐位相同（下两行的数值是错跨度产物，
+已作废；但「逐位相同」这一事实成立）：
 
 ```
-before {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
-after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
+before {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}   # 跨度错误的数值
+after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}   # 跨度错误的数值
 ```
 
 这不是"训练没用"，是**一个参数都没动**。`state_report` 里 `gamma = 0.0023712937`
@@ -398,7 +399,7 @@ after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
 ```
 [grad] step 0 cand_leaf=1.0039e+01 scale=1.0 | up.weight=1.2535e+00 down.weight=0.0 ...
 [grad] step 1 cand_leaf=7.3125e+00 scale=1.0 | up.weight=3.5428e-01 down.weight=8.0711e-01
-stage B: gold_loss 0.8384 -> 0.7489
+stage B: gold_loss 0.8384 -> 0.7489   # 跨度错误的数值，仅说明 loss 在降，数值作废
 ```
 
 **教训（已写进验收）**：overfit 验收不能只看 accuracy。必须在训练后断言

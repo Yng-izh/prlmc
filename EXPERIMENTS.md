@@ -21,10 +21,10 @@
 | E5c | E5b + active mask | 真正 K→K' 的无训练 compaction baseline | 已完成，**EM 23.00**（与 E5a 不再相同） |
 | E5d | E5c，但 filler 不受限 | 排除 E5c 的两个开关混淆 | 已完成，**EM 24.00**，与 E5c 逐条 97/100 相同 |
 | E6 | `carrier_residual` | learned fusion 是否超过 selection | 已完成，**EM 24.00**；无 ckpt，初始化即恒等，故仅验证接线 |
-| E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 已完成，**gold_loss 0.8384 → 0.3761**；accuracy 16/16 已满分，`improved_over_select: False` |
+| E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 首轮指标因打分跨度错误全部作废；跨度修复后筛出硬窗口 `lost = 3`，待训练 |
 | E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 |
 
-线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链，gold_loss 0.8384 → 0.3761。
+线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链；首轮打分跨度错误使全部指标作废，修复后筛出 `lost = 3` 的硬窗口。
 
 ---
 
@@ -1013,71 +1013,71 @@ E6a 用一个窗口做离线 overfit，检验 `CarrierResidualCompactor` 与整�
 | 压缩目标 | 9 blocks = 2304 slots |
 | anchor | 30 行 |
 | `LINES_PER_CHUNK` | 20（19 次写入凑满 4864 slots） |
-| probes | 16（由窗口内 380 条事实行合成，渲染推理时的 `rag_agent` 模板） |
+| probes | 20（由窗口内 380 条事实行合成，渲染推理时的 `rag_agent` 模板） |
 | stage A | 16 步，`L_gold` 权重 0 |
 | stage B | 24 步，`L = L_gold + 0.5L_KD + 0.1L_hidden + 0.05L_carrier + 0.02L_stats` |
 | `lr` | 1e-3 |
 | `gamma_max` | 0.05（命令行覆盖 YAML 的 0.1） |
 | `use_amp` | False |
 | GPU | gpu7，32764 MB free |
-| `max_probe_tokens` | 64 |
+| `max_probe_tokens` | 256（必须大于 ~163 token 的渲染提示词） |
 
-### 结果
+### 首轮结果全部作废
 
-| 阶段 | accuracy | gold_loss |
-|---|---|---|
-| uncompacted（满池，无压缩） | 1.000 (16/16) | 0.9240 |
-| before（`select_blocks`） | 1.000 (16/16) | 0.8384 |
-| stage A 之后（16 步） | 1.000 (16/16) | 0.9354 |
-| stage B 之后（24 步） | 1.000 (16/16) | **0.3761** |
+E6a 首轮产出的 `accuracy` 与 `gold_loss` **全部作废**，原因见「已修复的缺陷」第 9 条：
+打分跨度落在提示词中间，与 memory 池无关。以下旧表已随之删除：
 
-`acceptance`：
+- 四阶段 accuracy / gold_loss 表（`uncompacted`、`before`、stage A、stage B）
+- `acceptance` 字典（`before_accuracy`、`after_accuracy` 均为错跨度产物）
+- stage A / stage B 逐项 loss 表
+- 内部状态表（该轮以错误目标训练，参数更新不可用）
+
+`gamma`、`residual_ratio`、`route_scale` 等状态量本身是真实读数，但它们描述的是一轮
+以错误目标训练的更新，不作为任何结论的依据。
+
+### 硬窗口筛选结果（有效）
+
+跨度修复后重新筛选，`--dry-run` 不训练。首个候选即命中，窗口 `row 3 start 17890`：
+
+| 指标 | 值 |
+|---|---|
+| 写入 | 19 blocks = 4864 slots |
+| selection 丢弃 | 10 blocks |
+| 候选 probes | 20 |
+| `no-mem` | 0/20 |
+| `full`（未压缩满池） | 6/20 |
+| `select`（selection 后） | 3/20 |
+| **`lost`** | **3** |
+| `eligible`（池必需） | 6 |
+
+`carrier_residual == select_blocks at init: True (max |d| = 0.000e+00)`。
+
+被 selection 丢掉、需要靠 fusion 恢复的三条：
 
 ```text
-{'improved_over_select': False, 'before_accuracy': 1.0, 'after_accuracy': 1.0, 'uncompacted_accuracy': 1.0}
+Who created Girls?
+What sport is Charlie Manuel associated with?
+Who is Victor Turner employed by?
 ```
 
-训练总时长约 27 分钟（16+24 步 × 16 probes），`forward_calls` 34 → 83。
+`weights` 修复生效的直接证据——加权与不加权选出的 dropped 集合不同：
 
-### 逐项 loss
+```text
+[e6a]   weights change the dropped set: [0,1,2,3,4,5,6,7,8,9] vs [0,1,2,3,4,5,6,8,9,11] (unweighted)
+```
 
-stage A（`L_gold` 权重 0，故 gold 不参与更新）：
+### 指标定义
 
-| 分量 | 首步 | 末步 |
-|---|---|---|
-| kd | 0.05117 | 0.01701 |
-| hidden | 0.004445 | 0.002618 |
-| carrier | 0.0 | 3.159e-05 |
-| stats | 5.623e-06 | 5.651e-06 |
-| 总 loss | 0.05162 | 0.01727 |
+判定不看总体准确率（20 题中只有 3 题 `lost`，信号会被稀释）：
 
-stage B：
+| 指标 | 定义 |
+|---|---|
+| `eligible` | `full` 对且 `no-mem` 错，即池确实必需 |
+| `lost` | `eligible` 且 `select` 错，selection 真的丢了 |
+| `recovered` | `lost` 且 `after` 对，fusion 塞了回来 |
+| `recovery_rate` | `recovered / lost`，取值 0、1/3、2/3、1 |
 
-| 分量 | 首步 | 末步 |
-|---|---|---|
-| gold | 0.9226 | **0.3827** |
-| kd | 0.01718 | 0.2595 |
-| hidden | 0.002513 | 0.004706 |
-| carrier | 3.319e-05 | 1.316e-04 |
-| stats | 5.654e-06 | 5.878e-06 |
-| 总 loss | 0.93148 | 0.51295 |
-
-### 内部状态
-
-| 量 | 初始化 | stage A 后 | stage B 后 |
-|---|---|---|---|
-| `gamma` | 0.0023713 | 0.0023771 | 0.0024245 |
-| `gamma_max` | 0.05 | 0.05 | 0.05 |
-| `residual_ratio` | 0.0 | 0.000853 | 0.002068 |
-| `route_scale` | 0.017986 | 0.017994 | 0.018359 |
-| `routing_entropy` | 2.9406 | 2.9406 | 2.9406 |
-| `reference_layer` | 0 | 0 | 0 |
-| `carrier_rank` | 32 | 32 | 32 |
-
-初始恒等性检查：`identity_at_init: True`，`max |d| = 0.000e+00`
-（新构造的 `carrier_residual` 与 `select_blocks` 输出逐位相同）。
-
-`gamma` 未撞 `gamma_max`（0.00242 < 0.05）。
+`after` 由训练路径产出，`--dry-run` 不产生该值。
 
 ### 第一次全跑：40 步更新全部被跳过
 
@@ -1087,6 +1087,10 @@ stage B：
 before {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
 after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
 ```
+
+这两行的 `accuracy` 与 `gold_loss` 数值来自错跨度评分（缺陷 9），数值本身不作数；
+但"`before` 与 `after` 逐位相同"这一事实成立，它就是该缺陷的下游证据——
+`GradScaler` 每步都跳过更新。
 
 `state_report` 中 `gamma = 0.0023712937` 与初始化值逐位相同，`carrier` 分量 40 步
 全为 `0.0`（`up.weight` 恒为 0）。加 `PRLMC_GRAD_TRACE=1` 后：
@@ -1275,6 +1279,37 @@ E3 之前修复的问题，按发现顺序：
 8. **所有配置的 `seed` 均为 `None`**：这意味着任何逐条比对都混入了运行间
    随机性，1–3 条量级的差异无法归因。n=100 时 SE ≈ 6.1 分，因此平均分的
    排序同样不可靠。**在固定 seed 之前，不要基于逐条差异下结论。**
+
+9. **probe 打分跨度落在提示词中间（E6a 首轮全部指标作废的根因）。**
+   `score_probes` 与 `_probe_batches` 都写 `n_prefix = min(len(stem), width - 1)`。
+   渲染后的 `rag_agent` 提示词长 **163** token，而 `max_probe_tokens` 默认 **64**，
+   于是 `min(163, 63) = 63`，被打分的"答案"是 `' question'`——"answer a question"
+   里的那个词，只靠问题文本即可预测。
+   后果：accuracy 与 memory 池完全无关，因此
+
+   - `lost` 在 12 个窗口上恒为 0（`select` 必然等于 `full`）；
+   - 把 mask 全部置为屏蔽后仍得 20/20，被误读为"mask 失效"；
+   - 把 compacted 池里被丢弃的 block 清零后仍得 20/20。
+
+   SDPA 追踪给出决定性反证：`mask-all-off` 屏蔽了全部 12800 个池位置
+   （`pool_all_blocked: 64`，`blocked_frac 0.997`），分数仍是 20/20。
+   全屏蔽的池必须等价于无记忆（0/20）。**mask 本身没有问题，先前的 `empty-mask`
+   异常随之作废。**
+
+   **修复**：`n_prefix = len(prefix_ids)`，且在 `len(prefix_ids) >= max_length`
+   时直接 `raise`，不再静默评错 token；`max_probe_tokens` 默认 64 → **256**
+   （`tools/e6a_overfit.py`、`methods/prlmc/probes.py` 两处调用点同改）。
+   `score_candidate` 与 `train_carrier_compactor` 的默认值同为 256。
+
+   **影响范围**：`_probe_batches` 同时供 trainer 使用，故 E6a 首轮的 `gold_loss`
+   也是错跨度的产物，不只是 accuracy。修复后首个窗口即得 `lost = 3`。
+
+   **同轮修复的另两个真缺陷**：
+   `compressed_pool` 的 `weights` 未传入 compactor（加权与不加权选出的
+   dropped 集合确实不同：`[0..9]` vs `[0,1,2,3,4,5,6,8,9,11]`）；
+   `_compacted_pool` 宽度越界（窗口只剩 18 block 时仍请求 19 block，
+   `new_used` 变负，产出 13056 宽）。
+
 
 ---
 
