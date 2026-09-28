@@ -1344,46 +1344,63 @@ def train_carrier_compactor(
                         step_terms["hidden"] += float(probe_hidden.detach())
                         n_probes += 1
 
-                # One backward through the compactor, after the reader graphs are
-                # gone. `cand_leaf` holds the summed d(loss)/d(candidate) over all
-                # probes. Rebuilding the forward here is what keeps the 8B reader
-                # graph and the compactor graph from ever being live at the same
-                # time -- that coexistence, not the attention scores, was the E6a
-                # OOM. `forward` reads only `source` and the parameters, both
-                # unchanged since the no-grad pass, so the rebuilt tensor is
-                # bit-identical and this backward is the exact gradient the single
-                # stacked backward would have produced.
-                if cand_leaf.grad is not None:
-                    candidate = compactor(
-                        source,
-                        train_weights,
-                        target=target,
-                        block=manager.block,
-                        goal_direction=manager.goal_direction,
-                        select_weights=manager.select_weights,
-                    )
-                    torch.autograd.backward([candidate], [cand_leaf.grad])
-                    del candidate
+            # One backward through the compactor, after the reader graphs are
+            # gone. `cand_leaf` holds the summed d(loss)/d(candidate) over all
+            # probes. Rebuilding the forward here is what keeps the 8B reader
+            # graph and the compactor graph from ever being live at the same
+            # time -- that coexistence, not the attention scores, was the E6a
+            # OOM. `forward` reads only `source` and the parameters, both
+            # unchanged since the no-grad pass, so the rebuilt tensor is
+            # bit-identical and this backward is the exact gradient the single
+            # stacked backward would have produced.
+            #
+            # The ordering below is load-bearing and must not be moved back
+            # inside the `with _pool_in_place` block. `source` is a view into
+            # `model.memory` (`_memory` returns `.data`), and the injection
+            # writes the candidate into the *tail* of the window: `new_start =
+            # total - (used - window + target)`, which is `start + window -
+            # target`. Those slots stay written until `restore()` runs on exit.
+            # Rebuilt from inside the block, `forward` would read a corrupted
+            # `source` in three places at once -- `_select_block_indices`
+            # (which scores all `window // block` blocks, including the
+            # overwritten ones), the `src_summary`/`car_summary` routing means,
+            # and `blocks.index_select` for any selected carrier that happens to
+            # lie in that tail (on the pinned window the weighted selection drops
+            # blocks 0-9, so the tail *is* the carrier set). The residual would
+            # then be taken through a different carrier set than the forward
+            # used, while the reported loss still looked healthy -- the losses
+            # come from the correctly built `candidate_val`, not from this call.
+            if cand_leaf.grad is not None:
+                candidate = compactor(
+                    source,
+                    train_weights,
+                    target=target,
+                    block=manager.block,
+                    goal_direction=manager.goal_direction,
+                    select_weights=manager.select_weights,
+                )
+                torch.autograd.backward([candidate], [cand_leaf.grad])
+                del candidate
 
-                if os.environ.get("PRLMC_GRAD_TRACE") == "1":
-                    gnorm = "None" if cand_leaf.grad is None else "%.4e" % float(cand_leaf.grad.norm())
-                    parts = []
-                    for name, parameter in compactor.named_parameters():
-                        grad = parameter.grad
-                        parts.append(
-                            "%s=%s" % (name, "None" if grad is None else "%.4e" % float(grad.norm()))
-                        )
-                    print(
-                        "[grad] step %d cand_leaf=%s connected=%s scale=%.1f | %s"
-                        % (
-                            step,
-                            gnorm,
-                            bool(candidate_val.requires_grad),
-                            float(scaler.get_scale()),
-                            " ".join(parts),
-                        ),
-                        flush=True,
+            if os.environ.get("PRLMC_GRAD_TRACE") == "1":
+                gnorm = "None" if cand_leaf.grad is None else "%.4e" % float(cand_leaf.grad.norm())
+                parts = []
+                for name, parameter in compactor.named_parameters():
+                    grad = parameter.grad
+                    parts.append(
+                        "%s=%s" % (name, "None" if grad is None else "%.4e" % float(grad.norm()))
                     )
+                print(
+                    "[grad] step %d cand_leaf=%s connected=%s scale=%.1f | %s"
+                    % (
+                        step,
+                        gnorm,
+                        bool(candidate_val.requires_grad),
+                        float(scaler.get_scale()),
+                        " ".join(parts),
+                    ),
+                    flush=True,
+                )
             del cand_leaf, candidate_val, injection
 
             step_terms["carrier"] = float(carrier_term.detach())
