@@ -1005,6 +1005,9 @@ E6a 用一个窗口做离线 overfit，检验 `CarrierResidualCompactor` 与整�
 本运行**不读 MemoryAgentBench**，不产出 EM/F1 等指标，只产出 loss 与内部状态。
 驱动为 `tools/e6a_overfit.py`，在 host `/tmp/` 下执行。
 
+窗口构造要求 probe 的支持事实落在 `select_blocks` **丢弃**的 block 里，
+使 selection 可证地丢信息；判定用 `recovery_rate`，见「指标定义」。
+
 ### 配置
 
 | 项 | 值 |
