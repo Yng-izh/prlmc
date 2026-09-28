@@ -855,7 +855,15 @@ class _PoolInjection:
         self.candidate = candidate
         self.new_start = new_start
         self.target = target
-        self.saved = base[:, new_start : new_start + target, :].clone()
+        # The displaced slots are read only by `restore()`, at the very end of
+        # the step, and they never take part in autograd. Keeping the clone on
+        # the device therefore holds 604 MB live across the whole reader
+        # backward for nothing -- and the full-width memory gradient that
+        # backward has to materialise is 3.12 GiB, which is exactly where the
+        # 32 GB V100 ran out (needed 3.12 GiB, had 3.09 GiB free). Offloading
+        # costs one 604 MB copy per step and returns that headroom at the peak.
+        saved = base[:, new_start : new_start + target, :].clone()
+        self.saved = saved.cpu() if saved.is_cuda else saved
 
     def reinject(self):
         return _InjectSlice.apply(
@@ -866,7 +874,7 @@ class _PoolInjection:
         with torch.no_grad():
             self.base[
                 :, self.new_start : self.new_start + self.target, :
-            ] = self.saved
+            ] = self.saved.to(self.base.device)
 
 
 @contextmanager
