@@ -21,9 +21,10 @@
 | E5c | E5b + active mask | 真正 K→K' 的无训练 compaction baseline | 已完成，**EM 23.00**（与 E5a 不再相同） |
 | E5d | E5c，但 filler 不受限 | 排除 E5c 的两个开关混淆 | 已完成，**EM 24.00**，与 E5c 逐条 97/100 相同 |
 | E6 | `carrier_residual` | learned fusion 是否超过 selection | 已完成，**EM 24.00**；无 ckpt，初始化即恒等，故仅验证接线 |
+| E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 已完成，**gold_loss 0.8384 → 0.3761**；accuracy 16/16 已满分，`improved_over_select: False` |
 | E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 |
 
-线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同。
+线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链，gold_loss 0.8384 → 0.3761。
 
 ---
 
@@ -974,7 +975,7 @@ CPU 结构单测（`tools/unit_carrier.py`，10/10 通过）的关键一条：
 真正的检验要等 Phase 4 训练出 checkpoint 后重跑。
 
 **4. 训练需要显存。** E6 峰值约 18.2 GB（由 OOM 报错反推：已分配 15.10 GiB
-再加 3.12 GiB 的申请）；Phase 4 还要额外约 6.7 GB fp32，当前集群无卡可满足。
+再加 3.12 GiB 的申请）。E6a 已在此集群实测跑通训练，见下节。
 
 ### 附：一次失败的运行
 
@@ -990,6 +991,148 @@ E6 第一次投递失败了 40 次，全部 OOM，未产出任何结果。原因
 另一个真实差异：`carrier_residual` 比 `select_blocks` 明显更费显存，
 因为它在 fp32 下物化 `blocks`/`carriers`/`context`/`delta`，32 层 × 4096 hidden
 下每个都是 1–2 GB。
+
+---
+
+## E6a — 离线单窗口 overfit：训练链验证
+
+### 目的与形态
+
+E6 的 compactor 从未被训练过（`up` 零初始化、`γ ≈ 0`），因此 E6 ≈ E5c 是预期行为。
+E6a 用一个窗口做离线 overfit，检验 `CarrierResidualCompactor` 与整条 functional-loss
+训练链能否产生参数更新。
+
+本运行**不读 MemoryAgentBench**，不产出 EM/F1 等指标，只产出 loss 与内部状态。
+驱动为 `tools/e6a_overfit.py`，在 host `/tmp/` 下执行。
+
+### 配置
+
+| 项 | 值 |
+|---|---|
+| 窗口 | 19 blocks = 4864 slots |
+| 压缩目标 | 9 blocks = 2304 slots |
+| anchor | 30 行 |
+| `LINES_PER_CHUNK` | 20（19 次写入凑满 4864 slots） |
+| probes | 16（由窗口内 380 条事实行合成，渲染推理时的 `rag_agent` 模板） |
+| stage A | 16 步，`L_gold` 权重 0 |
+| stage B | 24 步，`L = L_gold + 0.5L_KD + 0.1L_hidden + 0.05L_carrier + 0.02L_stats` |
+| `lr` | 1e-3 |
+| `gamma_max` | 0.05（命令行覆盖 YAML 的 0.1） |
+| `use_amp` | False |
+| GPU | gpu7，32764 MB free |
+| `max_probe_tokens` | 64 |
+
+### 结果
+
+| 阶段 | accuracy | gold_loss |
+|---|---|---|
+| uncompacted（满池，无压缩） | 1.000 (16/16) | 0.9240 |
+| before（`select_blocks`） | 1.000 (16/16) | 0.8384 |
+| stage A 之后（16 步） | 1.000 (16/16) | 0.9354 |
+| stage B 之后（24 步） | 1.000 (16/16) | **0.3761** |
+
+`acceptance`：
+
+```text
+{'improved_over_select': False, 'before_accuracy': 1.0, 'after_accuracy': 1.0, 'uncompacted_accuracy': 1.0}
+```
+
+训练总时长约 27 分钟（16+24 步 × 16 probes），`forward_calls` 34 → 83。
+
+### 逐项 loss
+
+stage A（`L_gold` 权重 0，故 gold 不参与更新）：
+
+| 分量 | 首步 | 末步 |
+|---|---|---|
+| kd | 0.05117 | 0.01701 |
+| hidden | 0.004445 | 0.002618 |
+| carrier | 0.0 | 3.159e-05 |
+| stats | 5.623e-06 | 5.651e-06 |
+| 总 loss | 0.05162 | 0.01727 |
+
+stage B：
+
+| 分量 | 首步 | 末步 |
+|---|---|---|
+| gold | 0.9226 | **0.3827** |
+| kd | 0.01718 | 0.2595 |
+| hidden | 0.002513 | 0.004706 |
+| carrier | 3.319e-05 | 1.316e-04 |
+| stats | 5.654e-06 | 5.878e-06 |
+| 总 loss | 0.93148 | 0.51295 |
+
+### 内部状态
+
+| 量 | 初始化 | stage A 后 | stage B 后 |
+|---|---|---|---|
+| `gamma` | 0.0023713 | 0.0023771 | 0.0024245 |
+| `gamma_max` | 0.05 | 0.05 | 0.05 |
+| `residual_ratio` | 0.0 | 0.000853 | 0.002068 |
+| `route_scale` | 0.017986 | 0.017994 | 0.018359 |
+| `routing_entropy` | 2.9406 | 2.9406 | 2.9406 |
+| `reference_layer` | 0 | 0 | 0 |
+| `carrier_rank` | 32 | 32 | 32 |
+
+初始恒等性检查：`identity_at_init: True`，`max |d| = 0.000e+00`
+（新构造的 `carrier_residual` 与 `select_blocks` 输出逐位相同）。
+
+`gamma` 未撞 `gamma_max`（0.00242 < 0.05）。
+
+### 第一次全跑：40 步更新全部被跳过
+
+第一次完整 E6a 跑完，`before` 与 `after` 逐位相同：
+
+```text
+before {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
+after  {'accuracy': 1.0, 'gold_loss': 0.8384018540382385}
+```
+
+`state_report` 中 `gamma = 0.0023712937` 与初始化值逐位相同，`carrier` 分量 40 步
+全为 `0.0`（`up.weight` 恒为 0）。加 `PRLMC_GRAD_TRACE=1` 后：
+
+```text
+[grad] step 0 cand_leaf=nan scale=65536.0 | gamma_logit=nan route_logit=nan q.weight=nan k.weight=nan down.weight=nan up.weight=nan
+[grad] step 1 cand_leaf=nan scale=32768.0 | gamma_logit=nan route_logit=nan q.weight=nan k.weight=nan down.weight=nan up.weight=nan
+```
+
+`scale` 从 65536 降到 32768，即 `GradScaler` 检测到 inf/nan 后每一步都跳过
+`optimiser.step()`，参数保持初始化值；该次运行的 loss 数字仍正常输出。
+
+两个独立缺陷：
+
+1. **`consolidate.py:519`（当时）`delta / (delta_rms + 1e-6)`。** `up.weight`
+   零初始化 ⇒ 第一步 `delta ≡ 0` ⇒ `delta_rms = 0`。forward 无害（`0/1e-6 = 0`），
+   但 backward 的 `d(delta_rms)/d(delta_ij) = delta_ij / (N·delta_rms)` 在原点
+   为 `0/0`。该 NaN 传导到除 `gamma_logit` 外的所有 compactor 参数。
+2. **`probes.py` 的 `use_amp` 默认 `True`，但路径中无 `autocast`。** backbone 本身
+   为 fp16，`GradScaler` 将 loss 放大 65536 倍后 backward，激活梯度超过 fp16 上限
+   65504 即 `inf`，`inf * 0 → nan`。
+
+修复后 `[grad]` 全部有限：
+
+```text
+[grad] step 0 cand_leaf=1.0039e+01 scale=1.0 | gamma_logit=1.7140e-06 route_logit=0.0 q.weight=0.0 k.weight=0.0 down.weight=0.0 up.weight=1.2535e+00
+[grad] step 1 cand_leaf=7.3125e+00 scale=1.0 | gamma_logit=9.7598e-02 route_logit=2.0263e-11 q.weight=2.8726e-08 k.weight=2.8117e-08 down.weight=8.0711e-01 up.weight=3.5428e-01
+```
+
+### 附：显存
+
+修复 reader 图与 compactor 图共存后，`[mem] step 0 before student`
+从 23.02 GB 降到 21.20 GB。40 步训练期间该值稳定在 21.49–22.70 GB，无 OOM。
+
+第一次全跑在此处 OOM：`torch.OutOfMemoryError` 于 stage A 第 0 步的 probe backward，
+`GPU 0 has a total capacity of 31.73 GiB of which 68.00 MiB is free`。
+当时的账目为：模型 19.57 GB + teacher pass ≈ 20.0 GB（`step 0 before student` 实测
+23.02 GB）+ per-layer checkpoint 存下的满宽 layer 输入 3.37 GB + 全池 `pool.grad`
+3.36 GB + compactor 活图 3.02 GB。
+
+两条当时的猜测经实测被排除：
+
+1. **注意力分数矩阵**：实测 mem-efficient SDPA 同时接受 bool mask 与 float `-inf` mask，
+   forward 峰值 1.24–1.46 GB、backward 1.87 GB，未回退到 math backend。
+2. **per-layer checkpoint 无效**：该分支有效，但 fork 在每层循环内重新拼接 12800 前缀，
+   每个被存下的 layer 输入为满宽 `[1, 12801, 4096]` fp16 ≈ 105 MB，32 层 ≈ 3.37 GB。
 
 ---
 
