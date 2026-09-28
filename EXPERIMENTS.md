@@ -1187,10 +1187,93 @@ CUDA_VISIBLE_DEVICES=9 python /tmp/e6a_overfit.py \
 融合项没有真正离开恒等点，因此那 1/3 的恢复不足以归因于 residual fusion。
 16 + 24 步、`lr 1e-3` 的有效梯度信号太弱，`kd` 是唯一明显下降的分量。
 
+### Stage B 延长到 220 步（同窗口同超参）
+
+条件与上一节完全相同，只把 Stage B 从 24 步延长到 **220 步**（Stage A 仍 16 步），
+固定 `--window 3,17890`，结构未改，loss 权重未调。运行 05:43:58Z → 09:38:07Z，
+共 3 h 54 min，`EXIT=0`。命令：
+
+```text
+E6A_NEED_MB=21000 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+CUDA_VISIBLE_DEVICES=9 PRLMC_GRAD_TRACE=1 python /tmp/e6a_overfit.py \
+  --window 3,17890 --steps-a 16 --steps-b 220 \
+  --probes 20 --max-probe-tokens 256 \
+  --lr 1e-3 --gamma-max 0.05 --min-probes 4 --min-lost 3 \
+  --out /tmp/e6a_report_longB.json
+```
+
+筛选指标与前两次逐位一致（`no_memory 0/20`、`uncompacted 6/20`、`before 3/20`、
+`lost 3`、`identity_at_init True`）。
+
+#### 两版 Stage B 对照
+
+| 项 | Stage B 24 步 | Stage B 220 步 |
+|---|---|---|
+| `after` | 4/20 | **6/20** |
+| `recovery_rate` | 1/3 = 0.333 | **2/3 = 0.667** |
+| `gold` 首→末 | 3.7168 → 3.2787 | 3.6848 → **2.4318** |
+| `kd` 首→末 | 1.0802 → 0.9928 | 1.0047 → **0.7586** |
+| `hidden` 首→末 | 0.0029897 → 0.0029241 | 0.0028581 → **0.0043209** |
+| `carrier` 首→末 | 4.26e-05 → 9.88e-05 | 4.37e-05 → **2.244e-04** |
+| `stats` 首→末 | 5.78e-06 → 6.06e-06 | 5.78e-06 → 9.60e-06 |
+| `residual_ratio` | 0.0014248 | **0.0026117** |
+| `gamma` | 0.0024612 | 0.0030977 |
+| `route_scale` | 0.018614 | 0.0267555 |
+| `routing_entropy` | 2.9432118 | **2.7599626** |
+| `forward_calls` | 83 | 475 |
+
+#### `acceptance`（220 步版）
+
+```text
+{'n_eligible': 6, 'n_lost': 3, 'n_recovered': 2, 'recovery_rate': 0.6666666666666666,
+ 'lost_questions': ['Who created Girls?', 'What sport is Charlie Manuel associated with?',
+                    'Who is Victor Turner employed by?'],
+ 'recovered_questions': ['What sport is Charlie Manuel associated with?',
+                         'Who is Victor Turner employed by?'],
+ 'no_memory_accuracy': 0.0, 'before_accuracy': 0.15, 'after_accuracy': 0.3,
+ 'uncompacted_accuracy': 0.3}
+```
+
+`lost_questions` 列的是全部三条 `lost`，不是未恢复项；本次未恢复的只有
+`Who created Girls?`。
+
+#### Stage A 两侧一致
+
+两次运行的 Stage A 完全相同（16 步、`after 4/20`、`recovery 1/3`）：
+
+| 量 | 24 步版 Stage A | 220 步版 Stage A |
+|---|---|---|
+| `gamma` | 0.0024011049 | 0.0024011049 |
+| `residual_ratio` | 0.00072533 | 0.00074491 |
+| `route_scale` | 0.018158 | 0.0181656 |
+| `routing_entropy` | 2.9432058 | 2.9432061 |
+| `forward_calls` | 34 | 34 |
+| `carrier` 末 | 3.97e-05 | 4.08e-05 |
+
+`gamma` 逐位相同，`residual_ratio` 有约 2.7% 的相对差异，其余量在浮点噪声范围内。
+
+#### 读数
+
+四个内部量在 220 步下同向移动，且**第一次明确离开恒等点邻域**：
+`residual_ratio` 1.83×、`route_scale` 1.44×、`carrier` 2.27×，
+`routing_entropy` 从 2.9432 降到 2.7600（路由不再均匀）。
+这四点合起来比 `recovery_rate` 本身更强——它说明融合与路由确实被训练推动，
+而不是数值噪声。
+
+但两条判据仍未满足：
+
+- `residual_ratio` 0.0026，是「< 5%」判据的**约 1/19**；`gamma` 只用到预算的 **6.2%**。
+- 「reader hidden loss 下降」**反向**：`hidden` 从 0.0028581 升到 0.0043209
+  （区间最低 0.0026601）。
+
+分母只有 3，`1/3 → 2/3` 是一道题的差别，单看该比值不构成证据；
+`after 6/20 == uncompacted 6/20` 同样受制于样本量。
+
 ### 附：显存
 
 修复 reader 图与 compactor 图共存后，`[mem] step 0 before student`
 从 23.02 GB 降到 21.20 GB。40 步训练期间该值稳定在 21.49–22.70 GB，无 OOM。
+延长到 220 步（累计 236 步）期间同样无 OOM。
 
 缺陷 12 修复前的对照：`alloc=22.72GB` 时 backward 需要 3.12 GiB、
 仅 3.09 GiB 可用，第一步即 `torch.OutOfMemoryError`。

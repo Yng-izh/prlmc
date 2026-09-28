@@ -10,7 +10,7 @@
 SVD synthesis       → 已淘汰
 native selection    → 安全基线
 active mask         → 可用
-carrier residual    → 已接线、已训练，但未离开恒等点
+carrier residual    → 已训练，开始离开恒等点，量级仍不足
 adaptive trigger    → 暂停
 novelty gate        → 暂停
 ```
@@ -19,8 +19,8 @@ E5a/E5b 都是 EM 26，E5c/E5d/E6 在 23–24；E6 未训练且初始化严格�
 selection。**因此没有理由继续改 trigger 或 selector 权重**，重心收敛到 compactor 本身。
 
 最大的缺口：**还没有真正训练出一个能把被丢弃 block 的信息融合回 carrier、并且提升
-功能保持的压缩器。** E6a（2026-09-25）已经把训练链接通并拿到首个有效读数
-（`recovery_rate = 1/3`），但 `residual_ratio` 停在 0.14%，融合项没有离开恒等点，
+功能保持的压缩器。** E6a（2026-09-25/28）已经把训练链接通并拿到两轮有效读数
+（`recovery_rate` 1/3 → 2/3），但 `residual_ratio` 只到 0.26%，仍远低于 5% 判据，
 因此这一缺口仍然成立。
 
 ---
@@ -190,6 +190,37 @@ loss 权重未调，stage A 16 步 + stage B 24 步，`lr 1e-3`，`gamma_max 0.0
 
 下一步的判据不变：只有当 `residual_ratio` 真正放大、`after` 相对 `before`
 在 `lost` 子集上有可重复提升，才能回去做 E7 adaptive trigger 与 E6b 多窗口。
+
+### Stage B 延长到 220 步（2026-09-28）
+
+同一窗口、同一超参，只把 Stage B 从 24 步延长到 220 步（Stage A 仍 16 步）。
+运行 3 h 54 min，`EXIT=0`。
+
+| 项 | 24 步 | 220 步 |
+|---|---|---|
+| `after` | 4/20 | **6/20** |
+| `recovery_rate` | 1/3 | **2/3** |
+| `residual_ratio` | 0.0014248 | **0.0026117** |
+| `gamma` | 0.0024612 | 0.0030977（预算 6.2%） |
+| `route_scale` | 0.018614 | 0.0267555 |
+| `routing_entropy` | 2.9432118 | **2.7599626** |
+| `gold` 首→末 | 3.7168 → 3.2787 | 3.6848 → 2.4318 |
+| `kd` 首→末 | 1.0802 → 0.9928 | 1.0047 → 0.7586 |
+| `hidden` 首→末 | 0.0029897 → 0.0029241 | 0.0028581 → **0.0043209** |
+| `carrier` 首→末 | 4.26e-05 → 9.88e-05 | 4.37e-05 → 2.244e-04 |
+
+`after 6/20` 追平 `uncompacted 6/20`；恢复的是
+`What sport is Charlie Manuel associated with?` 与
+`Who is Victor Turner employed by?`，未恢复的只有 `Who created Girls?`。
+Stage A 两侧 `gamma` 逐位相同（0.0024011049），确认 Stage B 是唯一变量。
+
+**判断**：`residual_ratio` 1.83×、`route_scale` 1.44×、`carrier` 2.27×、
+`routing_entropy` 下降——四个量同向移动，第一次明确离开恒等点邻域，
+比 `recovery_rate` 本身更能说明融合与路由被推动。
+但 `residual_ratio` 仍是「< 5%」判据的约 1/19，`gamma` 只用掉预算 6.2%；
+「reader hidden loss 下降」这条验收**反向**（`hidden` 上升）。
+分母只有 3，`1/3 → 2/3` 是一道题的差别。因此**仍记为未通过**，
+不改结构、不调 loss 权重，下一步仍是让 `residual_ratio` 真正放大。
 
 ## E6b：多窗口离线训练（E6a 通过后）
 
@@ -440,4 +471,5 @@ stage B: gold_loss 0.8384 -> 0.7489   # 跨度错误的数值，仅说明 loss �
 
 该断言在 2026-09-25 的硬窗口训练中通过：`gamma` 从 0.0023713 变到 0.0024612，
 `up.weight` 的平方均值从 `0.0` 升到 `9.88e-05`，梯度不再是 NaN。
-剩下的问题是量级——`residual_ratio` 只到 0.14%，见「E6a 硬窗口训练结果」。
+2026-09-28 的 220 步版进一步确认：`gamma` 到 0.0030977，`up.weight` 平方均值到
+`2.244e-04`。剩下的问题是量级——`residual_ratio` 只到 0.26%，见上节。
