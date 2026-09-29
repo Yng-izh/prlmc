@@ -22,10 +22,10 @@
 | E5d | E5c，但 filler 不受限 | 排除 E5c 的两个开关混淆 | 已完成，**EM 24.00**，与 E5c 逐条 97/100 相同 |
 | E6 | `carrier_residual` | learned fusion 是否超过 selection | 已完成，**EM 24.00**；无 ckpt，初始化即恒等，故仅验证接线 |
 | E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 已完成，单窗口 220 步恢复 2/3 |
-| E6b-mini | 离线多窗口共享 checkpoint | 单窗口恢复能否泛化到未见窗口 | 已完成，**训练 7/30、held-out 0/16，判为 `window_overfit`** |
+| E6b-mini | 离线多窗口共享 checkpoint | 单窗口恢复能否泛化到未见窗口 | 已完成（**2026-09-29 重跑，前一轮作废**），训练 6/30 = 0.200、held-out 2/16 = 0.125，判为 `partial` |
 | E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 |
 
-线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链；首轮打分跨度错误使全部指标作废，修复后筛出 `lost = 3` 的硬窗口并训练到恢复 2/3 → E6b-mini 把单窗口扩到 8 训练 + 2 held-out，**held-out 恢复 0/16，单窗口成绩不泛化**。
+线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链；首轮打分跨度错误使全部指标作废，修复后筛出 `lost = 3` 的硬窗口并训练到恢复 2/3 → E6b-mini 把单窗口扩到 8 训练 + 2 held-out；**首轮因度量缺陷把 held-out 分子结构性固定为 0，`window_overfit` 与 0/16 全部作废；修复后重跑得训练 6/30、held-out 2/16，两侧无统计差异（Fisher p = 0.694），计划预设的「训练强 / held-out 弱」对比不存在**。
 
 ---
 
@@ -1307,6 +1307,9 @@ E6a 已经证明**在单个硬窗口上**训练可以把 `recovery_rate` 推到 
 同一份 `_stage_weights`、同一个 `_select_block_indices`、同样 19→9、`lr 1e-3`、
 `gamma_max 0.05`。这样无论结果正负都只有一种解释。
 
+**但该前提有一处未兑现**：每窗口步数同时变了（E6a 220 步/窗口 vs 这里 24 步/窗口）。
+本轮结果证明这一混淆是决定性的——见下方「下一步含义」。
+
 硬窗口定义沿用 E6a：`uncompacted` 答对、原生 `select_blocks` 丢掉。
 **没有为了凑数量塞入普通窗口。**
 
@@ -1319,7 +1322,7 @@ E6a 已经证明**在单个硬窗口上**训练可以把 `recovery_rate` 推到 
 | 每窗口 probe 数 | 训练 20，held-out 60 |
 | Stage A | 8 窗口 × 4 步 = 32 |
 | Stage B | 8 窗口 × 24 步 = 192 |
-| 合计 | 224 步，`forward_calls 459` |
+| 合计 | 224 步，`forward_calls 449` |
 | `window_blocks` / `target_blocks` | 19 / 9 |
 | `lr` / `gamma_max` | 1e-3 / 0.05 |
 | `seed` | `None`（与 E6a 一致，不引入新变量） |
@@ -1347,7 +1350,7 @@ E6a 已经证明**在单个硬窗口上**训练可以把 `recovery_rate` 推到 
 
 ### 硬窗口筛选结果
 
-11 个候选筛出 10 个硬窗口，用时 303 s，29–34 s/窗口。
+11 个候选筛出 10 个硬窗口，用时 332 s，29–62 s/窗口。
 
 | row | start | `uncompacted` | `select_blocks` | `lost` |
 |---|---|---|---|---|
@@ -1368,42 +1371,69 @@ E6a 已经证明**在单个硬窗口上**训练可以把 `recovery_rate` 推到 
 
 划分结果：训练 row 3（8 窗口），held-out row 2（2 窗口），`row_separated: True`。
 
-### 结果
+### 结果（2026-09-29 重跑，v100-2 gpu9，`EXIT=0`）
 
-**`verdict: window_overfit`** —— 训练恢复 7/30，held-out 恢复 **0/16**。
+> **前一轮（2026-09-28）的 held-out 数据全部作废**，原因见「已修复的缺陷」第 14–16 条：
+> `measure_window` 被传入**已训练**的 compactor 去算 `before`，而 `evaluate_window`
+> 用同一个对象算 `after`；前向确定性 + 重建逐位相同 → `before == after`
+> → `recovered` 被**结构性固定为 0**。因此当时的 `window_overfit` 与 `0/16`
+> 都不是测量结果，是接线缺陷的产物。本轮已重写 `tools/e6b_mini.py` 并重跑。
 
-| 集合 | 窗口数 | `lost` | 恢复 | `recovery_rate` |
-|---|---|---|---|---|
-| 训练 | 8 | 30 | 7 | 0.233 |
-| **held-out** | **2** | **16** | **0** | **0.000** |
+**`verdict: partial`** —— 训练恢复 6/30，held-out 恢复 **2/16**。
 
-逐窗口（训练侧极不均匀，8 个窗口里 4 个为 0）：
+| 集合 | 窗口数 | `lost` | 恢复 | `recovery_rate` | 95% CI |
+|---|---|---|---|---|---|
+| 训练 | 8 | 30 | 6 | 0.200 | [0.095, 0.373] |
+| **held-out** | **2** | **16** | **2** | **0.125** | **[0.035, 0.360]** |
+
+两侧同水平：Fisher 精确检验双侧 **p = 0.694**；改用窗口级
+Mann-Whitney（不假设探针独立，n₁=8 / n₂=2）**U = 8.0，z = 0.000**，
+同样检出不到差异。**计划预设的「训练强、held-out 弱」对比在本轮数据里不存在。**
+
+逐窗口（训练侧极不均匀，8 个窗口里 3 个逐位未变）：
+
+| row | start | `lost` | 恢复 | rate | 答案集是否改变 |
+|---|---|---|---|---|---|
+| 3 | 17890 | 3 | 1 | 0.333 | 是 |
+| 3 | 17130 | 2 | 0 | 0 | **否** |
+| 3 | 16750 | 6 | 0 | 0 | **否** |
+| 3 | 14470 | 5 | 0 | 0 | **否** |
+| 3 | 17510 | 4 | 1 | 0.250 | 是 |
+| 3 | 14850 | 3 | 0 | 0 | 是 |
+| 3 | 16370 | 5 | 3 | 0.600 | 是 |
+| 3 | 15230 | 2 | 1 | 0.500 | 是 |
 
 | row | start | `lost` | 恢复 | rate |
 |---|---|---|---|---|
-| 3 | 17890 | 3 | 1 | 0.33 |
-| 3 | 17130 | 2 | 0 | 0 |
-| 3 | 16750 | 6 | 0 | 0 |
-| 3 | 14470 | 5 | 0 | 0 |
-| 3 | 17510 | 4 | 2 | 0.50 |
-| 3 | 14850 | 3 | 0 | 0 |
-| 3 | 16370 | 5 | 3 | 0.60 |
-| 3 | 15230 | 2 | 1 | 0.50 |
+| 2 | 3450 | 7 | 1 | 0.143 |
+| 2 | 3830 | 9 | 1 | 0.111 |
 
-| row | start | `lost` | 恢复 | rate |
-|---|---|---|---|---|
-| 2 | 3450 | 7 | 0 | 0.0 |
-| 2 | 3830 | 9 | 0 | 0.0 |
+held-out 两个窗口**都改变了答案集**，且签名链闭合：
+`after == before` 均为 `False`；`trained_as_before == after` 均为 `True`
+（即用训练前 compactor 去测量，得到的正是 `after` 的签名——证明 `before`
+确实取自未训练状态）。完整 `integrity`：
+
+```text
+{'weights_identical': False, 'train_windows_changed': 5, 'held_windows_changed': 2,
+ 'determinism_checked': 2, 'held_all_unchanged': False, 'ok': True,
+ 'reason': 'weights changed and at least one window changed an answer'}
+```
 
 判定门槛在脚本中先定后用，不看结果再挑：held-out `lost = 0` → `undecidable`；
+完整性检查未过 → `unmeasured`（**优先于其他分支**）；
 `recovered = 0` → `window_overfit`；`rate ≥ 0.5` 且 `recovered ≥ 2` → `generalises`；
 其余 → `partial`。
 
 ```text
-verdict: {'outcome': 'window_overfit',
-          'reason': 'held-out recovered nothing while training recovered 7/30',
+verdict: {'outcome': 'partial',
+          'reason': 'held-out recovery 2/16, below the 0.5 threshold',
           'thresholds': {'generalises_rate': 0.5, 'generalises_min_recovered': 2}}
 ```
+
+**计划预设的两个实质分支都没有触发。** `generalises` 需要 rate ≥ 0.5 且
+recovered ≥ 2，实测 0.125 / 2，未达；`window_overfit` 需要 recovered == 0，
+实测 2，未达。落到了兜底的 `partial`——而 `COMPACTOR_PLAN.md` 的判定表
+原本没有把这个分支当作真实结局来讨论。
 
 ### 训练轨迹
 
@@ -1411,43 +1441,79 @@ verdict: {'outcome': 'window_overfit',
 
 | 量 | Stage A 首 → 末 | Stage B 首 → 末 | 末值 |
 |---|---|---|---|
-| `gamma` | 0.002373 → 0.002429 | 0.002498 → **0.003025** | 预算的 6.1% |
-| `residual_ratio` | 0.000139 → 0.001295 | 0.001816 → **0.002993** | — |
-| `route_scale` | 0.017988 → 0.018123 | 0.018611 → **0.024066** | — |
-| `routing_entropy` | 2.9432 | 2.9432 → 2.9413 | 基本不变 |
-| `forward_calls`（累计） | 19 → 75 | 123 → 459 | — |
+| `gamma` | 0.002373 → 0.002431 | 0.002502 → **0.003024** | 预算 0.05 的 6.0% |
+| `residual_ratio` | 0.000139 → 0.001445 | 0.001960 → **0.002970** | — |
+| `route_scale` | 0.017989 → 0.018082 | 0.018546 → **0.024022** | — |
+| `routing_entropy` | 2.9432 | 2.9432 → 2.9418 | 均匀上限 ln(19) = 2.9444 的 **0.99911×** |
+| `forward_calls`（累计） | 9 → 65 | 113 → 449 | — |
 
-Stage B 的 `gold` 与 `kd` 在 **8/8** 个窗口全部下降
-（`gold` 如 4.2685 → 3.7935、3.4408 → 3.2096）。
-`hidden` **没有一致方向**：8 个窗口中 5 个下降、3 个上升，
+Stage B 的 `gold` 与 `kd` 在 **8/8** 个窗口全部下降，按窗口降幅 6.3%–10.5%
+（`gold` 如 3.7712 → 3.5430、4.2161 → 3.7923）。
+`hidden` **没有一致方向**：8 个窗口中 3 个上升、5 个下降，
 与 E6a 单窗口的"反向"读数一致——说明它不是一个可靠的验收量。
 
 ### 读数
 
-**这不是过拟合，是表达能力不足。** 判据如下。
+**本轮不能支持"窗口级过拟合"，也不能支持"泛化成立"。**
 
-窗口级过拟合的特征是"训练强、held-out 弱"。实测训练侧只有 23%，且**8 个窗口中
-4 个完全为零**。恢复只发生在 4 个窗口上，是"在少数窗口上碰巧有效"，
-不是"学得很好但不能泛化"。held-out 归零是这一更根本问题的下游表现。
+先排除结构性零：held-out 2/16，两个窗口各恢复 1 个（row2 3450 的
+`In what city did Gamal Abdel Nasser die?`、row2 3830 的
+`What sport is Atlético Choloma associated with?`），四处签名断言全部通过。
+训练过的 compactor 确实能在**从未见过的窗口**上改变答案并救回被丢弃的事实。
+0.125 撑不起"泛化成功"，但它是负结果可被阅读的前提——上一轮的 0/16 不具这个资格。
 
-对照 E6a 单窗口：那里 220 步拿到 2/3。这里每窗口 24 步，训练侧就崩到 7/30。
-**这也与过拟合假说不符**——过拟合不会因为在更多窗口上训练而把训练侧自身拉低。
+**过拟合判据不成立。** 窗口级过拟合要求"训练强、held-out 弱"。实测训练 0.200、
+held-out 0.125，Fisher p = 0.694、窗口级 Mann-Whitney z = 0.000，
+在任何粒度上都检不出差距。
 
-`gamma` 与 `residual_ratio` 在 16 个窗口间单调涨到 0.003025 / 0.002993，
-从未因换窗口而塌陷，说明优化器没有在窗口间打架、量级在稳定增长。
-**但量级增长没有换来功能恢复。** 这是本轮最重要的负面证据：
-carrier residual 目前的表达力，不足以把被丢弃 block 的信息搬回 carrier。
+**"表达能力不足"作为根因也不能由本轮支持。** `COMPACTOR_PLAN.md` 原用三项证据，
+逐项复核后只剩两项：
 
-一个必须写明的读数限制：held-out 的 `lost` 为 7 与 9，分母比训练窗口（2–6）大得多，
+1. 「训练强 / held-out 弱」——**成立**（该差距不存在，故过拟合不成立），
+   但这只否证过拟合，不正面支持表达力不足。
+2. 「过拟合假说无法解释在更多窗口上训练反而把训练侧拉低」——**必须撤回**。
+   该现象不存在：窗口 17890 在 E6b-mini 是 `lost 3` 恢复 1 = 1/3，
+   与 E6a 24 步的 1/3 **同一水平**。多窗口训练没有损害任何一个窗口。
+3. `residual_ratio` 与 `gamma` 单调上涨、量级增长未换来功能恢复——**成立**。
+   `residual_ratio` 涨 21×（0.000139 → 0.002970），但 17890/17130/16750/14470
+   这四个窗口的训练后答案集与初始压缩器逐位相同（后三个完全如此，合计 13 个
+   `lost` 零响应）。量级增长与逐窗口功能响应完全脱钩。
+
+**`loss 降幅是反向指标` 不成立。** Spearman（Stage B 训练损失降幅 vs 恢复率，
+n = 8）**−0.583**，精确置换检验双侧 **p = 0.137**——不显著。
+只能说"无正相关"，不能说"反向"。降幅最大的窗口 16750（−10.5%）恢复 0/6，
+降幅最小的窗口 15230（−6.3%）恢复 1/2，方向一致但样本量不足以下结论。
+
+**未被排除的竞争假说：每窗口步数不足。** 这是本轮最需要写明的读数限制。
+
+| 设定 | 每窗口 Stage B 步数 | `recovery_rate` | `routing_entropy` / 均匀 |
+|---|---|---|---|
+| E6a 单窗口 | 24 | 1/3 = 0.333 | 2.9432 / 0.99958× |
+| E6a 单窗口 | 220 | 2/3 = 0.667 | **2.7600 / 0.93735×** |
+| E6b-mini 8 窗口 | 24 | 0.200 | 2.9418 / 0.99911× |
+
+同一窗口、同一超参，步数 24 → 220 把恢复率翻倍，并且**第一次让路由离开均匀分布**。
+E6b-mini 把 224 步摊给 8 个窗口，路由熵停在 24 步的单窗口水平（0.99911× vs 0.99958×）。
+**"每窗口 24 步预算不足"与"表达能力不足"在本轮数据上不可区分**，
+而计划的两项论据（第二项已撤、第一项只否证过拟合）都不足以把二者分开。
+
+一个仍然成立的读数限制：held-out 的 `lost` 为 7 与 9，分母比训练窗口（2–6）大得多，
 因为它用了 60 probes 而训练用 20。分母放大是为了让 rate 有分辨力，
-但也意味着 held-out 测的是更宽的探针集。**0/16 不能单独当作"泛化完全失败"的终局证据**，
-它与此处更强的证据（训练侧仅 23%、半数为零）方向一致、相互加强。
+也意味着 held-out 测的是更宽的探针集。**2/16 不能单独当作"泛化成立"的证据**，
+它只足以推翻"泛化为零"。
 
 ### 下一步含义
 
-按既定诊断纪律，这里要动的是**架构或目标**，不是继续加窗口、不是调
-`gamma`/trigger/selector。多窗口泛化失败时第一个嫌疑是 `L_hidden`——
-本轮**没有**删除它，正是为了不让"多窗口"与"改 objective"两个变量同时变动。
+计划第 5 步的门槛**既没有被打开，也没有被关上**：held-out 非零，故"回架构"
+的触发条件不成立；rate 远低于 0.5，故"放大 E6b"的触发条件也不成立。
+
+要打开这个结，唯一办法是把**总步数**与**窗口数**分离——固定每窗口步数到 220，
+再比较单窗口与 8 窗口在**同一窗口**上的表现。这是目前唯一能把
+"步数不足"与"表达力不足"两个假说拆开的实验。
+
+`L_hidden` 本轮**没有**删除，正是为了不让"多窗口"与"改 objective"两个变量同时变动；
+计划里"第一步嫌疑是 `L_hidden`"的指示，其触发前提（多窗口泛化失败）本轮不成立，
+故该路线指示未被激活。
 
 ### 复现方式
 
@@ -1482,8 +1548,10 @@ E6A_NEED_MB=21000 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 | 报告口径 | 单窗口 `recovery_rate` | 汇总 `recovered / lost` |
 
 E6b-mini 的 24 步/窗口是**刻意压低**的：目的是在有限机时内暴露"跨窗口是否成立"，
-不是复现 E6a 的绝对水平。因此"7/30 低于 2/3"本身不构成对 E6a 的否证，
-构成否证的是 **held-out = 0/16**。
+不是复现 E6a 的绝对水平。因此"6/30 低于 2/3"本身不构成对 E6a 的否证。
+但本轮 held-out 非零（2/16），也不构成"泛化失败"的否证——
+这正是判为 `partial` 而不是任何二元结论的原因。**该口径差异是下一轮必须消除的混淆**：
+每窗口步数需要提到与 E6a 可比的量级，否则窗口数与步数两个变量始终纠缠在一起。
 
 ---
 
@@ -1654,6 +1722,41 @@ E3 之前修复的问题，按发现顺序：
      `try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` 是
      **无条件打印**的。在 v100-2 上实测（`tools/alloc_probe.py`），
      设置该变量后同一句话照样出现，故它不能作为"变量未生效"的证据。
+
+14. **【致命，已修】E6b-mini 的 held-out 度量被结构性固定为 0（`window_overfit` 判决作废）。**
+     旧 `tools/e6b_mini.py:729` 把**已训练**的 `compactor` 传进 `measure_window`，
+     而该函数正是用它去算 `before`；`evaluate_window` 随后用**同一个对象**算 `after`。
+     compactor 前向确定性、窗口重建逐位相同、probe 集复用
+     → `before == after` → `recovered = lost & after_correct` 恒为空集
+     → **任何训练都无法产出非零 held-out 恢复**。
+
+     这不是"泛化失败"，是度量通道没接上：旧实现的 `0/16` 与
+     `verdict: window_overfit` **全部作废**，其下游结论
+     （「不是过拟合，是表达能力不足」所依赖的零值证据）随之作废。
+
+     **修复**：`measure_window` 增加独立的 `template` + `initial_state` 参数，
+     在函数内构造一份 `before_compactor`（`copy.deepcopy` 模板后
+     `load_state_dict(copy.deepcopy(initial_state))`），保证 `before` 永远取自
+     训练前状态，与调用方持有的 `compactor` 无关。修复后 held-out 两侧
+     `after == before` 均为 `False`、`trained_as_before == after` 均为 `True`。
+
+15. **【已修】held-out 的 `n_lost` 取自错误的对象。**
+     旧实现里 held-out 的 `n_lost` 是用**训练后**的 compactor 在 60 probes 上算的，
+     而同一窗口在筛选阶段（20 probes、初始 compactor）是 `lost` 3 / 6。
+     两个数字口径不同却被并列写进报告，制造了"held-out 分母 7/9 远大于训练窗口 2–6"
+     的假象。**修复**后 `n_lost` 一律来自初始 compactor，
+     筛选值与报告值重新对齐。
+
+16. **【已修】`recovered == 0` 的判定分支没有完整性闸门。**
+     旧 `tools/e6b_mini.py:398` 把 `n_recovered == 0` 直接映射到 `window_overfit`，
+     而结构性零恰好落进这一分支——**缺陷被自动翻译成了科学结论**。
+     修复后 `verdict` 先查 `integrity["ok"]`，未过则输出 `unmeasured` 并附原因；
+     另有三条前置断言：无训练阶段 → `"no training stage ran; nothing was trained"`；
+     `state_dict` 逐位相同 → `"every update was discarded (NaN gradients?)"`；
+     任何窗口都未改变答案 → `"`after` is the initial compactor, so `recovered` was not measured"`。
+
+     另修复一处会用错的判读：`held_all_unchanged` 只作为附注字符串输出，
+     **不折进结果分支**——单个窗口碰巧未变不能否决整轮测量。
 
 ---
 

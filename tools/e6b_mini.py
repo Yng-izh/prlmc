@@ -45,8 +45,57 @@ Metrics
 Per window and aggregated:
 
     eligible  the pool was required: wrong with the pool zeroed, right intact
-    lost      eligible and then lost by native selection      (the denominator)
-    recovered lost and answered again by the trained carrier  (the numerator)
+    lost      eligible and then lost by the *initial* compactor  (the denominator)
+    recovered lost and answered again by the trained carrier      (the numerator)
+
+`lost` is measured against the compactor's **initial** state, which is bitwise identical
+to `select_blocks` (the identity check asserts this). That keeps the denominator
+comparable with the screening count, where the same quantity is what makes a window
+"hard" in the first place.
+
+Correction to the first version of this script
+----------------------------------------------
+The first run reported `verdict: window_overfit` on held-out 0/16. That verdict was
+unmeasurable, and the code that produced it was wrong.
+
+Held-out windows were re-measured at 60 probes *after* training, and `measure_window`
+was handed the same `compactor` object that `train_window` had already updated in place.
+So `before` and `after` were two evaluations of the same function:
+
+  * the compactor forward is deterministic -- `attention_dropout` is 0.0, the pool path
+    has no dropout, and `_select_block_indices` / `_greedy_diverse` contain no RNG;
+  * `rebuild` re-anchors and re-writes the same fact lines from the same start, and
+    `initialize_anchor` calls `reset`, so the pool is bit-identical;
+  * `evaluate_window` reuses `entry["probes"]`, so the probe set is identical.
+
+Identical weights, identical pool, identical probes => identical `correct` dicts =>
+`recovered` is structurally zero. No amount of real recovery could have been observed.
+
+The training side was never affected: its `before` came from the screen, measured before
+any training, and `evaluate_window` reuses it. The two sides therefore ran under
+different conventions, and only the held-out one was incapable of a positive result.
+
+The fix is structural, not a patch to one call site. Three parts:
+
+  * `main` snapshots `initial_state = copy.deepcopy(compactor.state_dict())` before any
+    step runs. That snapshot is the single source of truth for every `before` in the run:
+    screen, training and held-out alike.
+  * `measure_window` takes `template` and `initial_state` and builds its own compactor
+    via `before_compactor_for`, which deep-copies the template and *then* loads the
+    initial weights. A caller that passes the trained module still gets an untrained
+    compactor, so the bug is not merely fixed but made inexpressible.
+  * `measure_window` also accepts `trained_compactor`, used only to run the trained
+    weights through the same before-path a second time. Held-out windows compare that
+    result against `after`: it must match bitwise, and that recorded equality is the
+    standing evidence that the two scoring paths are deterministic. `correct_signature`
+    hashes each pass's `correct` dict, and `after_matches_before` records whether a
+    window's `after` collapsed onto its `before` -- the exact signature of the original
+    defect, now reported per window instead of being invisible.
+
+`measurement_integrity` collects the adjacent failure modes (weights never moved,
+no window's answers ever changed, the two forwards disagreeing) and `verdict` refuses to
+emit a threshold outcome at all when it fails. That is what stops a void measurement from
+being reported as `window_overfit` again.
 
 Reported separately for training windows and held-out windows. The training figure is
 recorded as context; `verdict` is decided on the held-out figure alone.
@@ -58,6 +107,7 @@ Run on the host (screening + 32 + 192 training steps + two evaluation passes):
 """
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -181,11 +231,38 @@ def dropped_blocks_of(manager, window_slots):
     return dropped
 
 
-def measure_window(manager, lines, row, start, compactor, n_probes, args, log_prefix="[e6b]"):
+def before_compactor_for(template, initial_state):
+    """A fresh compactor carrying the *initial* weights.
+
+    The name says exactly what the object is allowed to be, because the first version of
+    this script got that wrong and the mistake was invisible: the held-out `before` was
+    measured with the already-trained module, so `before` and `after` were the same
+    function evaluated twice and `recovered` was structurally zero.
+
+    `copy.deepcopy` plus an explicit `load_state_dict` means the returned module shares no
+    storage with the trainer regardless of what `template` is. Passing the live, trained
+    module as `template` still yields an untrained compactor, so the failure cannot be
+    reintroduced by a caller that forgets which object it is holding.
+    """
+    clone = copy.deepcopy(template)
+    clone.load_state_dict(copy.deepcopy(initial_state))
+    clone.eval()
+    return clone
+
+
+def measure_window(manager, lines, row, start, template, initial_state, n_probes, args,
+                   log_prefix="[e6b]", trained_compactor=None):
     """Build a window and measure every quantity the acceptance rule needs.
 
     One call = one fresh window state, so `no_memory`, `uncompacted` and `before` all
-    describe the same pool. Returns a dict, or None when the window is unusable.
+    describe the same pool.
+
+    `before` is always produced by a compactor built from `initial_state`, never by
+    `trained_compactor`. The two are separate parameters on purpose: `trained_compactor`
+    is used only for the `trained_as_before` diagnostic, which exists to make the
+    original defect visible in the report rather than merely fixed.
+
+    Returns a dict, or None when the window is unusable.
     """
     window_slots = E.WINDOW_BLOCKS * manager.block
     built = rebuild(manager, lines, start)
@@ -203,15 +280,35 @@ def measure_window(manager, lines, row, start, compactor, n_probes, args, log_pr
               % (log_prefix, row, start, len(dropped), len(probes)), flush=True)
         return None
 
+    before_compactor = before_compactor_for(template, initial_state)
     with torch.no_grad():
         no_mem = E.score_no_memory(manager, probes, args.max_probe_tokens)
         full = E.score_uncompacted(manager, probes, args.max_probe_tokens)
         # `candidate_pool` runs the compactor forward. Outside `no_grad` it builds a graph
         # that nothing ever frees; E6a leaked ~3.8 GB this way at the identity check and
         # the trainer then had no headroom. Measurement never needs gradients.
-        pool, mask = E.candidate_pool(manager, compactor, DEVICE)
+        pool, mask = E.candidate_pool(manager, before_compactor, DEVICE)
         before = E.score_probes(manager, probes, pool, args.max_probe_tokens, mask=mask)
-    del pool, mask
+        # Released before the second forward, not after both. Each pool is
+        # [32, 12800, 4096] fp16 = 3.12 GiB, so holding two at once would peak at
+        # 6.24 GiB -- the same envelope that OOM'd this run's first version.
+        del pool, mask
+        torch.cuda.empty_cache()
+
+        # Determinism evidence, not a measurement. Runs the *trained* compactor through
+        # the same before-path, so in the fixed version it must equal `after` bitwise --
+        # that equality is what proves the two scoring paths are deterministic, which is
+        # the premise that made the original bug's `before == after` meaningful. On the
+        # broken version `before` was this quantity, so it matched `after` because the
+        # baseline had silently drifted onto the trained weights.
+        trained_as_before = None
+        if trained_compactor is not None:
+            pool_t, mask_t = E.candidate_pool(manager, trained_compactor, DEVICE)
+            trained_as_before = E.score_probes(
+                manager, probes, pool_t, args.max_probe_tokens, mask=mask_t
+            )
+            del pool_t, mask_t
+            torch.cuda.empty_cache()
     torch.cuda.empty_cache()
 
     # `before` is passed twice: this call exists for its `n_lost` (which depends only on
@@ -229,10 +326,28 @@ def measure_window(manager, lines, row, start, compactor, n_probes, args, log_pr
         "no_memory": no_mem,
         "uncompacted": full,
         "before": before,
+        # The trained compactor's own `before`, kept only so the report can assert that
+        # this path and `after` agree bitwise. See the module docstring.
+        "trained_as_before": trained_as_before,
         "n_eligible": gap["n_eligible"],
         "n_lost": gap["n_lost"],
         "lost_questions": gap["lost_questions"],
     }
+
+
+def correct_signature(scored):
+    """A hashable fingerprint of which probes a scoring pass got right.
+
+    Two scoring passes with the same weights, pool and probes must produce the same
+    fingerprint. That equality is what makes the original defect detectable after the
+    fact: `before` and `after` sharing a fingerprint meant they were the same function
+    evaluated twice, so `recovered` could not be anything but zero.
+    """
+    if scored is None:
+        return None
+    return hashlib.md5(
+        json.dumps(sorted((str(k), bool(v)) for k, v in scored["correct"].items())).encode()
+    ).hexdigest()[:12]
 
 
 def evaluate_window(manager, lines, entry, compactor, args):
@@ -246,7 +361,9 @@ def evaluate_window(manager, lines, entry, compactor, args):
     particular must stay the pre-training measurement, because it is the denominator
     `lost` is defined against.
 
-    Only `after` is new, so only one scoring pass is needed here.
+    Only `after` is new, so only one scoring pass is needed here. The returned
+    `same_as_before` flag is the standing check that the trained compactor does *not*
+    reproduce the initial one: it must be False, or nothing was measured.
     """
     built = rebuild(manager, lines, entry["start"])
     if built is None:
@@ -260,7 +377,18 @@ def evaluate_window(manager, lines, entry, compactor, args):
     recovery = E.recovery_report(
         entry["uncompacted"], entry["before"], after, no_memory=entry["no_memory"]
     )
-    return {"recovery": recovery, "after": after}
+    return {
+        "recovery": recovery,
+        "after": after,
+        "after_signature": correct_signature(after),
+        "before_signature": correct_signature(entry["before"]),
+        # True would mean `after` is the initial compactor's result, i.e. training had no
+        # effect on this window -- or, in the original bug, that `before` was measured
+        # with the trained weights and the two sides collapsed into one evaluation.
+        "after_matches_before": (
+            correct_signature(after) == correct_signature(entry["before"])
+        ),
+    }
 
 
 # --- partitioning ------------------------------------------------------------
@@ -368,6 +496,7 @@ def aggregate(entries):
             "n_recovered": rec["n_recovered"],
             "recovery_rate": rec["recovery_rate"],
             "recovered_questions": rec["recovered_questions"],
+            "signatures": entry.get("signatures"),
         })
     return {
         "n_windows": len(entries),
@@ -375,23 +504,113 @@ def aggregate(entries):
         "n_lost": lost,
         "n_recovered": recovered,
         "recovery_rate": (recovered / lost) if lost else float("nan"),
+        # How many windows found `after` bitwise identical to `before`. On the broken
+        # version this was every window, because the two were the same evaluation.
+        "n_after_matches_before": sum(
+            1 for e in entries
+            if (e.get("signatures") or {}).get("after_matches_before")
+        ),
         "per_window": per_window,
     }
 
 
-def verdict(train_agg, held_agg, row_separated):
+def measurement_integrity(initial_state, compactor, train_agg, held_agg, stages,
+                          held_determinism):
+    """Sanity checks on whether this run measured anything, plus one caveat flag.
+
+    Be precise about what this can and cannot do, because overclaiming here would
+    recreate the problem it exists to catch. The original defect is fixed
+    *structurally*: `before` is built from `initial_state` via `before_compactor_for`,
+    so it cannot carry trained weights. These checks are a net for adjacent failures,
+    not the fix, and the broken run would in fact have passed the first three.
+
+    1. **Training moved the weights.** If `state_dict` came back bitwise equal to the
+       initial one, every step was skipped -- defect 6's NaN-gradient failure, where
+       `GradScaler` discarded every update and the run still looked healthy.
+    2. **Some window somewhere changed an answer.** If none did, the compactor is
+       functionally identical to the one it started as and every `recovered` is zero
+       for a reason unrelated to compression. Deliberately a disjunction over train and
+       held-out: a single window where training changes no answer is a real measurement
+       of nothing, and the pooled counts already account for it.
+    3. **The scoring path is deterministic.** Held-out windows run the trained compactor
+       through the before-path a second time; it must reproduce `after`. Two forwards
+       disagreeing would invalidate every signature comparison in the report. This is the
+       premise the original bug's collapse rested on, so it is checked, not assumed.
+
+    One caveat that cannot be turned into a pass/fail, only reported:
+    `held_all_unchanged` is True when every held-out window produced `after` identical to
+    `before`. With the fix that is the signature of a genuine negative result -- training
+    changed nothing on unseen windows -- but it is *also* what the original bug produced,
+    so the two are not distinguishable from this flag alone. It is recorded, and
+    `verdict` appends it as a caveat, rather than being silently folded into either
+    outcome.
+    """
+    identical = all(
+        torch.equal(initial_state[name], value)
+        for name, value in compactor.state_dict().items()
+    )
+    moved_answers = (
+        train_agg["n_windows"] - train_agg["n_after_matches_before"] > 0
+        or held_agg["n_windows"] - held_agg["n_after_matches_before"] > 0
+    )
+    determinism_checked = [
+        (e.get("signatures") or {}).get("trained_as_before_matches_after")
+        for e in held_determinism
+    ]
+    determinism_checked = [v for v in determinism_checked if v is not None]
+    held_all_unchanged = (
+        held_agg["n_windows"] > 0
+        and held_agg["n_after_matches_before"] == held_agg["n_windows"]
+    )
+    base = {
+        "weights_identical": identical,
+        "train_windows_changed": train_agg["n_windows"] - train_agg["n_after_matches_before"],
+        "held_windows_changed": held_agg["n_windows"] - held_agg["n_after_matches_before"],
+        "determinism_checked": len(determinism_checked),
+        "held_all_unchanged": held_all_unchanged,
+    }
+    if not stages:
+        return dict(base, ok=False, reason="no training stage ran; nothing was trained")
+    if identical:
+        return dict(base, ok=False,
+                    reason="trained state_dict is bitwise equal to the initial one; "
+                           "every update was discarded (NaN gradients?)")
+    if not moved_answers:
+        return dict(base, ok=False,
+                    reason="no window anywhere changed a single answer; `after` is the "
+                           "initial compactor, so `recovered` was not measured")
+    if determinism_checked and not all(determinism_checked):
+        return dict(base, ok=False,
+                    reason="two forward passes of the trained compactor disagreed; the "
+                           "scoring path is not deterministic and no signature "
+                           "comparison is meaningful")
+    return dict(base, ok=True,
+                reason="weights changed and at least one window changed an answer")
+
+
+def verdict(train_agg, held_agg, row_separated, integrity):
     """The single decision this experiment produces.
 
     Thresholds are stated up front rather than chosen after seeing the numbers:
 
+        integrity failed                  -> unmeasured: report the failure, not a verdict
         held-out lost == 0                -> undecidable: the fixture cannot resolve it
         held-out rate == 0                -> window_overfit: it learned E6a's window
         held-out rate >= 0.5, recovered>=2 -> generalises
         anything else                     -> partial
 
-    `partial` is a real outcome, not a cop-out: it is the case the next step has to be
-    chosen for, which is why the train figure is reported next to it.
+    `unmeasured` comes first on purpose. The first version's `window_overfit` came from a
+    comparison that could not produce a positive number, and the threshold table had no
+    way to express that, so a broken measurement was reported as a finding.
+
+    `held_all_unchanged` is appended as a caveat rather than folded into an outcome. It is
+    the signature of a genuine negative result AND the signature of the original defect,
+    and no flag can separate the two -- so the reader is told rather than reassured.
     """
+    if not integrity["ok"]:
+        return {"outcome": "unmeasured",
+                "reason": "measurement integrity check failed: " + integrity["reason"],
+                "thresholds": {"generalises_rate": 0.5, "generalises_min_recovered": 2}}
     if held_agg["n_lost"] == 0:
         outcome = "undecidable"
         reason = "no held-out window lost a probe the pool was required for"
@@ -409,6 +628,10 @@ def verdict(train_agg, held_agg, row_separated):
             held_agg["n_recovered"], held_agg["n_lost"])
     if outcome != "undecidable" and not row_separated:
         reason += "; held-out shares the training row, so this is a weaker test"
+    if integrity.get("held_all_unchanged"):
+        reason += ("; caveat: every held-out window produced `after` identical to "
+                   "`before`, so this is either a real null result or the defect "
+                   "resurfacing -- it cannot be told apart from this run alone")
     return {"outcome": outcome, "reason": reason,
             "thresholds": {"generalises_rate": 0.5, "generalises_min_recovered": 2}}
 
@@ -426,8 +649,6 @@ def train_window(manager, lines, entry, compactor, optimiser, stage, steps, args
     Retried at most once, so a deterministic failure still surfaces as an error instead
     of looping.
     """
-    import copy
-
     built = rebuild(manager, lines, entry["start"])
     if built is None:
         raise SystemExit("training window row %d start %d stopped building"
@@ -516,6 +737,13 @@ def main():
         gamma_max=float(cfg.carrier_gamma_max),
     ).to(device=DEVICE, dtype=torch.float32)
 
+    # The untrained weights, captured before any step runs. This is the single source of
+    # truth for every `before` measurement in the run -- screen, training and held-out.
+    # The first version had no such snapshot and measured the held-out `before` with the
+    # already-trained module, which made `recovered` structurally zero. Keeping the
+    # snapshot separate from `compactor` is what prevents that from being expressible.
+    initial_state = copy.deepcopy(compactor.state_dict())
+
     # Candidate windows, best-first from the offline text screen. That ranking only sees
     # how many answerable facts sit in the ten oldest blocks; whether the *reader* was
     # required for them is invisible offline, so every candidate still has to be
@@ -568,7 +796,7 @@ def main():
         tick = time.time()
         try:
             entry = measure_window(manager, cache[row], row, start, compactor,
-                                   args.probes, args, log_prefix="[e6b] screen")
+                                   initial_state, args.probes, args, log_prefix="[e6b] screen")
         except (RuntimeError, ValueError) as exc:
             print("[e6b] screen row %d start %-6d failed: %s" % (row, start, exc), flush=True)
             torch.cuda.empty_cache()
@@ -712,14 +940,24 @@ def main():
         result = evaluate_window(manager, cache[entry["row"]], entry, compactor, args)
         entry["recovery"] = result["recovery"]
         entry["after"] = result["after"]
-        print("[e6b]   train window %d/%d row %d start %-6d after %-4s recovery %d/%d"
+        entry["signatures"] = {
+            "before": result["before_signature"],
+            "after": result["after_signature"],
+            "after_matches_before": result["after_matches_before"],
+        }
+        print("[e6b]   train window %d/%d row %d start %-6d after %-4s recovery %d/%d "
+              "before_sig %s after_sig %s after==before %s"
               % (window_index + 1, len(train_entries), entry["row"], entry["start"],
                  "%d/%d" % (sum(bool(v) for v in result["after"]["correct"].values()),
                             result["after"]["n"]),
-                 result["recovery"]["n_recovered"], result["recovery"]["n_lost"]), flush=True)
+                 result["recovery"]["n_recovered"], result["recovery"]["n_lost"],
+                 result["before_signature"], result["after_signature"],
+                 result["after_matches_before"]), flush=True)
 
     # Held-out windows are re-measured with the wider probe set. Their hardness was
     # established at the training probe count; widening only sharpens the measurement.
+    # `before` still comes from `initial_state`: the wider probe set changes which
+    # questions are counted, never which weights define the baseline.
     print("[e6b] measuring %d held-out windows at %d probes"
           % (len(held_entries), args.eval_probes), flush=True)
     held_measured = []
@@ -728,10 +966,11 @@ def main():
         # against the probe set it was measured with.
         widened = measure_window(
             manager, cache[entry["row"]], entry["row"], entry["start"], compactor,
-            args.eval_probes,
+            initial_state, args.eval_probes,
             argparse.Namespace(min_probes=args.min_probes,
                                max_probe_tokens=args.max_probe_tokens),
             log_prefix="[e6b] held",
+            trained_compactor=compactor,
         )
         if widened is None:
             print("[e6b] held-out window row %d start %d unusable at %d probes"
@@ -747,17 +986,44 @@ def main():
         result = evaluate_window(manager, cache[entry["row"]], entry, compactor, args)
         entry["recovery"] = result["recovery"]
         entry["after"] = result["after"]
-        print("[e6b]   held window row %d start %-6d after %-4s recovery %d/%d"
+        # `trained_as_before` came from a *separate* forward pass over the trained
+        # compactor. It must reproduce `after` exactly; that is the determinism premise,
+        # stated as a check rather than assumed. It is deliberately allowed to differ from
+        # `before`, which is now the initial compactor's result.
+        # Two equalities get printed and both matter, in opposite directions.
+        # `trained_as_before == after` MUST hold: same weights, same pool, same probes,
+        # two independent forwards. It is the determinism premise, now checked.
+        # `after == before` must NOT normally hold: it would mean the trained compactor
+        # answers exactly as the untrained one on this window, which is the pooled
+        # `n_after_matches_before` the integrity check reads.
+        trained_sig = correct_signature(entry.get("trained_as_before"))
+        entry["signatures"] = {
+            "before": result["before_signature"],
+            "after": result["after_signature"],
+            "after_matches_before": result["after_matches_before"],
+            "trained_as_before": trained_sig,
+            "trained_as_before_matches_after": trained_sig == result["after_signature"],
+        }
+        print("[e6b]   held window row %d start %-6d after %-4s recovery %d/%d "
+              "before_sig %s after_sig %s trained_sig %s "
+              "after==before %s trained==after %s"
               % (entry["row"], entry["start"],
                  "%d/%d" % (sum(bool(v) for v in result["after"]["correct"].values()),
                             result["after"]["n"]),
-                 result["recovery"]["n_recovered"], result["recovery"]["n_lost"]), flush=True)
+                 result["recovery"]["n_recovered"], result["recovery"]["n_lost"],
+                 result["before_signature"], result["after_signature"], trained_sig,
+                 result["after_matches_before"], trained_sig == result["after_signature"]),
+              flush=True)
 
     train_agg = aggregate(train_entries)
     held_agg = aggregate(held_measured)
+    integrity = measurement_integrity(
+        initial_state, compactor, train_agg, held_agg, stages, held_measured
+    )
     report["train"] = train_agg
     report["held_out"] = held_agg
-    report["verdict"] = verdict(train_agg, held_agg, parts["row_separated"])
+    report["integrity"] = integrity
+    report["verdict"] = verdict(train_agg, held_agg, parts["row_separated"], integrity)
     report["probes"] = {
         "train": [{"window": [e["row"], e["start"]],
                    "questions": [p.question for p in e["probes"]]} for e in train_entries],
@@ -767,12 +1033,16 @@ def main():
     }
     json.dump(report, open(args.out, "w"), indent=2, default=str)
 
-    print("[e6b] train    recovery %d/%d = %.3f over %d windows"
+    print("[e6b] train    recovery %d/%d = %.3f over %d windows (%d changed an answer)"
           % (train_agg["n_recovered"], train_agg["n_lost"], train_agg["recovery_rate"],
-             train_agg["n_windows"]), flush=True)
-    print("[e6b] held-out recovery %d/%d = %.3f over %d windows"
+             train_agg["n_windows"],
+             train_agg["n_windows"] - train_agg["n_after_matches_before"]), flush=True)
+    print("[e6b] held-out recovery %d/%d = %.3f over %d windows (%d changed an answer)"
           % (held_agg["n_recovered"], held_agg["n_lost"], held_agg["recovery_rate"],
-             held_agg["n_windows"]), flush=True)
+             held_agg["n_windows"],
+             held_agg["n_windows"] - held_agg["n_after_matches_before"]), flush=True)
+    print("[e6b] integrity: %s -- %s"
+          % ("ok" if integrity["ok"] else "FAILED", integrity["reason"]), flush=True)
     print("[e6b] verdict: %s -- %s"
           % (report["verdict"]["outcome"], report["verdict"]["reason"]), flush=True)
     print("[e6b] checkpoint %s, report %s" % (args.ckpt, args.out), flush=True)
