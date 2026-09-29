@@ -45,7 +45,11 @@ def _coerce(value: Any, name: str) -> Any:
     if name == "select_weights":
         return {str(k): float(v) for k, v in dict(value or {}).items()}
     if name in _STR_FIELDS:
-        return str(value)
+        # `carrier_ckpt`, `anchor_text` and `stats_dir` are optional strings, and
+        # a YAML `null` must stay `None`: `str(None)` is the four-character string
+        # "None", which `_carrier_compactor` would then try to `torch.load` as a
+        # path, crashing the run on a config that looks unset.
+        return None if value is None else str(value)
     return value
 
 

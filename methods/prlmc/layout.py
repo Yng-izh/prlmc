@@ -105,15 +105,40 @@ class SlotLayout:
     copies of occupied content.
     """
 
-    def __init__(self, k_anchor: int, total: int):
+    def __init__(self, k_anchor: int, total: int, block: int, k_max: Optional[int] = None):
         if not 0 <= k_anchor < total:
             raise ValueError(f"k_anchor must be in [0, {total}), got {k_anchor}")
         self.k_anchor = int(k_anchor)
         self.total = int(total)
+        self.block = int(block)
+        # `k_max` is the addressable working-slot budget: how many distinct slots
+        # may occupy the region outside the Anchor. `None` means "whatever the
+        # Anchor leaves", which is the pre-E6c behaviour.
+        #
+        # It cannot be expressed by narrowing the pool: the fork derives
+        # `cache_position` from the config constants, so a shorter tensor would
+        # desynchronise the rotary offsets. The pool keeps its physical width and
+        # the budget alone shrinks, which grows the *masked* filler and leaves the
+        # Anchor, the block grid, and every offset untouched.
+        self.k_max = None if k_max is None else int(k_max)
+        if self.k_max is not None:
+            if self.k_max <= 0:
+                raise ValueError("k_max must be positive, got %d" % self.k_max)
+            # A write places one whole block at a time, so the budget must admit
+            # at least one. Rounded *down* to whole blocks so the effective budget
+            # is never looser than requested.
+            self.k_max = (self.k_max // self.block) * self.block
+            if self.k_max < self.block:
+                raise ValueError(
+                    "k_max leaves less than one %d-slot block of capacity" % self.block
+                )
 
     @property
     def working_capacity(self) -> int:
-        return self.total - self.k_anchor
+        budget = self.total - self.k_anchor
+        if self.k_max is not None:
+            budget = min(budget, self.k_max)
+        return budget
 
     def anchor_slice(self) -> slice:
         return slice(0, self.k_anchor)
@@ -139,11 +164,12 @@ class SlotLayout:
     def free_bounds(self, used: int) -> Tuple[int, int]:
         return self.k_anchor, self.total - used
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> Dict[str, Optional[int]]:
         return {
             "k_anchor": self.k_anchor,
             "total": self.total,
             "working_capacity": self.working_capacity,
+            "k_max": self.k_max,
         }
 
 
@@ -208,7 +234,11 @@ class ProtectedResidualMemory:
             # Anchor width must be a whole number of injection blocks, otherwise
             # the anchor write would straddle a block boundary.
             k_anchor = max(self.block, (k_anchor // self.block) * self.block)
-        self.layout = SlotLayout(k_anchor, self.total)
+        # `config.k_max` tightens the *working* budget without touching the pool:
+        # see `SlotLayout` for why the physical width can never shrink. This is
+        # the only place the layout is built, so one value here governs placement,
+        # the trigger, the active mask, and `budget.snapshot()` alike.
+        self.layout = SlotLayout(k_anchor, self.total, self.block, config.k_max)
 
         self.used = 0
         self.n_consolidated = 0

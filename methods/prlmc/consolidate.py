@@ -10,8 +10,13 @@ The operator families, in the order the experiments introduced them:
   * `svd_tokens` / `weighted_svd_tokens` -- principal directions scaled by their
     singular values. These emit K' brand-new vectors that lie off the native delta
     memory manifold. Kept only as a failed baseline; see EXPERIMENTS.md E4.
-  * `carrier_residual` -- reserved for the learned residual fusion (phase 3). Not
-    implemented here yet.
+  * `carrier_residual` -- **native carriers plus a bounded learned residual**. The
+    same blocks `select_blocks` would keep, fused by a shared block-level routing
+    distribution and corrected by `gamma * delta`. At initialisation `delta` is
+    exactly zero, so the operator is bit-identical to `select_blocks`; the output
+    never leaves the native manifold by more than a bounded fraction of the
+    carriers' own RMS. See `CarrierResidualCompactor` for the three structural
+    properties and `EXPERIMENTS.md` E6a/E6b for what training moves.
 
 Section 3.4 states the subtlety that governs this file:
 

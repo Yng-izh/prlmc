@@ -7,6 +7,7 @@ from methods.prlmc.consolidate import (
     CarrierResidualCompactor,
     select_block_compact,
     _select_block_indices,
+    _l2,
 )
 
 torch.manual_seed(0)
@@ -37,10 +38,33 @@ carriers = blocks.index_select(1, idx).reshape(L, TARGET, D)
 ok.append(("carrier set == select_blocks output", torch.equal(carriers, ref)))
 
 # --- 3. zeroed routing weights => still identity -----------------------------
+# With q and k zeroed the learned logits are identically zero at every position,
+# so `logits` collapses to the native cosine prior. The output must still be the
+# untouched carriers, because `up` is zero and no amount of routing can move a
+# zero residual. This is the check that catches an accidental LayerNorm or bias on
+# the output path: either would break the bitwise equality.
 with torch.no_grad():
     comp.q.weight.zero_(); comp.k.weight.zero_()
 zero_routed = comp(src, weights=w[0], target=TARGET, block=BLK, goal_direction=goal)
 ok.append(("identity with degenerate routing", torch.equal(ref, zero_routed)))
+
+# --- 3b. routing is [b_out, b], shared across layers -------------------------
+# Rebuild the routing distribution the way `forward` does and confirm its shape
+# and row-normalisation. A per-layer router would show up as a 3-D attention.
+with torch.no_grad():
+    blocks_v = src.view(L, B, BLK, D)
+    car_v = blocks_v.index_select(1, idx)
+    ref_layer = min(max(comp.reference_layer, 0), L - 1)
+    s_unit = _l2(blocks_v[ref_layer].mean(dim=1).to(torch.float32))
+    c_unit = _l2(car_v[ref_layer].mean(dim=1).to(torch.float32))
+    native = (c_unit @ s_unit.transpose(-1, -2)) / max(1e-6, float(comp.route_temperature))
+    learned = (comp.q(c_unit) @ comp.k(s_unit).transpose(-1, -2)) / max(1.0, comp.rank ** 0.5)
+    attn = torch.softmax(native + comp.route_scale * learned, dim=-1)
+ok.append(("routing is [b_out, b] and shared across layers",
+           tuple(attn.shape) == (TARGET // BLK, B)))
+ok.append(("routing rows sum to 1", bool(torch.allclose(attn.sum(dim=-1),
+                                                       torch.ones(TARGET // BLK), atol=1e-5))))
+print("  routing shape =", tuple(attn.shape))
 
 # --- 4. amplitude bound: an adversarial gamma_logit cannot exceed gamma_max ---
 with torch.no_grad():
@@ -63,25 +87,39 @@ sweep_max = max(
 ok.append(("gamma_max holds across the whole logit range", sweep_max <= 0.1 + TOL))
 print("  gamma sweep max = %.6f" % sweep_max)
 rel = float((big - ref).norm() / ref.norm())
-ok.append(("residual is small relative to carriers", rel < 0.5))
-print("  gamma = %.6f  relative residual = %.4f" % (g, rel))
+ok.append(("relative residual stays under gamma_max even with a huge up",
+           comp.last_residual_ratio <= 0.1 + TOL))
+print("  gamma = %.6f  relative residual = %.4f  last_residual_ratio = %.6f"
+      % (g, rel, comp.last_residual_ratio))
+
+# --- 4b. the bound is *relative*, not a coefficient bound --------------------
+# Scale `up` up by 1000x. A design that bounded only `alpha` would let the
+# residual blow past the carriers; the RMS normalisation has to hold the ratio at
+# gamma_max regardless of how large the learned residual's raw magnitude is.
+with torch.no_grad():
+    comp.up.weight.mul_(1000.0)
+    comp.gamma_logit.fill_(50.0)
+scaled = comp(src, weights=w[0], target=TARGET, block=BLK, goal_direction=goal)
+ok.append(("bound survives a 1000x up rescale",
+           comp.last_residual_ratio <= 0.1 + TOL))
+ok.append(("1000x up changes the output (bound, not a dead path)",
+           not torch.equal(scaled, ref)))
+print("  after 1000x up: gamma = %.6f  ratio = %.6f"
+      % (float(comp.gamma.detach()), comp.last_residual_ratio))
 
 # --- 5. carrier order is temporal, not score order ---------------------------
 mono = bool(torch.all(idx[1:] > idx[:-1]))
 ok.append(("carrier indices ascending (temporal order)", mono))
 print("  indices =", idx.tolist())
 
-# --- 6. temporal order of surviving blocks matches the source ----------------
-kept_ok = True
-for j, i in enumerate(idx.tolist()):
-    if not torch.equal(big[:, j * BLK : (j + 1) * BLK, :], big[:, j * BLK : (j + 1) * BLK, :]):
-        kept_ok = False
-# a stronger check: the *carrier* part of each output block must equal the source block
+# --- 6. each surviving output block is the source block it absorbed ----------
+# `ref` is the `select_blocks` result, which is the identity-at-init output, so
+# this reads directly: output block j must be *exactly* source block idx[j].
 carrier_part = ref.view(L, TARGET // BLK, BLK, D)
 src_blocks = src.view(L, B, BLK, D)
-for j, i in enumerate(idx.tolist()):
-    if not torch.equal(carrier_part[:, j], src_blocks[:, i]):
-        kept_ok = False
+kept_ok = all(
+    torch.equal(carrier_part[:, j], src_blocks[:, i]) for j, i in enumerate(idx.tolist())
+)
 ok.append(("each output block keeps its source block's content", kept_ok))
 
 # --- 7. target not a multiple of block must raise ----------------------------

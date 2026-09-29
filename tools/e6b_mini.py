@@ -161,11 +161,11 @@ disagree.
 Reported separately for training windows and held-out windows. The training figure is
 recorded as context; `verdict` is decided on the held-out figure alone.
 
-Run on the host (screening + 32 + 192 training steps, one evaluation pass per training
+Run on the host (screening + 32 + 768 training steps, one evaluation pass per training
 window at its own turn, then one more pass over every window at the end):
 
     /share/latent/mllm_env/bin/python /tmp/e6b_mini.py \
-        --steps-a-per-window 4 --steps-b-per-window 24 \
+        --steps-a-per-window 4 --steps-b-per-window 96 \
         --train-windows 8 --eval-windows 2 --out /tmp/e6b_mini_report.json
 """
 
@@ -913,7 +913,7 @@ def train_window(manager, lines, entry, compactor, optimiser, stage, steps, args
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--steps-a-per-window", type=int, default=4)
-    parser.add_argument("--steps-b-per-window", type=int, default=24)
+    parser.add_argument("--steps-b-per-window", type=int, default=96)
     parser.add_argument("--probes", type=int, default=20,
                         help="candidate probes per training window (E6a's count)")
     parser.add_argument("--eval-probes", type=int, default=60,

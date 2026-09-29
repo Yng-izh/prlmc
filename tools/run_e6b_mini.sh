@@ -8,7 +8,7 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 PRLMC_MEM_TRACE=0 \
 /share/latent/mllm_env/bin/python /tmp/e6b_mini.py \
   --steps-a-per-window 4 \
-  --steps-b-per-window 24 \
+  --steps-b-per-window 96 \
   --train-windows 8 \
   --eval-windows 2 \
   --probes 20 \
