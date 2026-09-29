@@ -4,7 +4,7 @@ LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation`
   - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
   - If you are not the owner of the model architecture class, please contact the model code owner to update it.
 Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:03<00:27,  3.86s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:19<01:05, 10.84s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:41<01:19, 15.84s/it]Loading checkpoint shards:  50%|█████     | 4/8 [01:05<01:16, 19.19s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:27<01:00, 20.17s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [01:51<00:42, 21.42s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [02:13<00:21, 21.66s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:19<00:00, 16.71s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:19<00:00, 17.47s/it]
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:18<02:12, 18.98s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:34<01:40, 16.67s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:55<01:34, 18.89s/it]Loading checkpoint shards:  50%|█████     | 4/8 [01:18<01:21, 20.30s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:40<01:03, 21.02s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [02:02<00:42, 21.36s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [02:23<00:21, 21.19s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:29<00:00, 16.44s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:29<00:00, 18.68s/it]
 [e6b] 66 candidate windows from /tmp/e6a_screen_data.json
 We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
@@ -17,10 +17,10 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [e6b] screen row 3 start 16750  ctx 8678ca61 dropped 10 probes 20  no-mem 0/20 full 9/20 select 3/20 lost 6  (29s)
 [e6b]   hard window 3/10
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[e6b] screen row 3 start 14470  ctx 8678ca61 dropped 10 probes 20  no-mem 0/20 full 6/20 select 1/20 lost 5  (30s)
+[e6b] screen row 3 start 14470  ctx 8678ca61 dropped 10 probes 20  no-mem 0/20 full 6/20 select 1/20 lost 5  (29s)
 [e6b]   hard window 4/10
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[e6b] screen row 3 start 17510  ctx 8678ca61 dropped 10 probes 20  no-mem 0/20 full 6/20 select 3/20 lost 4  (62s)
+[e6b] screen row 3 start 17510  ctx 8678ca61 dropped 10 probes 20  no-mem 0/20 full 6/20 select 3/20 lost 4  (29s)
 [e6b]   hard window 5/10
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b] screen row 2 start 3450   ctx 0875f57e dropped 10 probes 20  no-mem 0/20 full 9/20 select 7/20 lost 3  (29s)
@@ -38,8 +38,9 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b] screen row 2 start 3830   ctx 0875f57e dropped 10 probes 20  no-mem 0/20 full 9/20 select 3/20 lost 6  (29s)
 [e6b]   hard window 10/10
-[e6b] screened 11 candidates in 332s, 10 hard windows
+[e6b] screened 11 candidates in 300s, 10 hard windows
 [e6b] train rows [3] (8 windows), held rows [2] (2 windows), row-separated True
+[e6b] context-separated True (train ctx ['8678ca61'], held ctx ['0875f57e'])
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b] carrier_residual == select_blocks at init: True (max |d| = 0.000e+00)
 [e6b] stage A: 8 windows x 4 steps
@@ -55,7 +56,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.34GB reserved=33.18GB
 [mem] step 3 start               alloc=22.74GB reserved=33.20GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.20GB
-[e6b]   stage A window 1/8 row 3 start 17890  loss 1.4121 -> 1.2976 gamma 0.002373 residual 0.000139 route 0.017989 entropy 2.943206
+[e6b]   stage A window 1/8 row 3 start 17890  loss 1.4497 -> 1.2840 gamma 0.002373 residual 0.000177 route 0.018003 entropy 2.943206
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.99GB
 [mem] after teacher              alloc=21.54GB reserved=22.36GB
@@ -67,7 +68,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.35GB reserved=33.25GB
 [mem] step 3 start               alloc=22.74GB reserved=33.27GB
 [mem] step 3 before student      alloc=23.35GB reserved=33.27GB
-[e6b]   stage A window 2/8 row 3 start 17130  loss 1.3333 -> 1.1762 gamma 0.002381 residual 0.000277 route 0.017999 entropy 2.943261
+[e6b]   stage A window 2/8 row 3 start 17130  loss 1.2221 -> 1.1693 gamma 0.002381 residual 0.000307 route 0.018025 entropy 2.943261
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.53GB reserved=22.34GB
@@ -79,7 +80,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.34GB reserved=33.33GB
 [mem] step 3 start               alloc=22.74GB reserved=33.48GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.48GB
-[e6b]   stage A window 3/8 row 3 start 16750  loss 3.5055 -> 3.3596 gamma 0.002389 residual 0.000464 route 0.018006 entropy 2.942279
+[e6b]   stage A window 3/8 row 3 start 16750  loss 3.4724 -> 3.2323 gamma 0.002389 residual 0.000456 route 0.018037 entropy 2.942279
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.53GB reserved=22.40GB
@@ -91,7 +92,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.34GB reserved=33.29GB
 [mem] step 3 start               alloc=22.74GB reserved=33.40GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.40GB
-[e6b]   stage A window 4/8 row 3 start 14470  loss 1.7272 -> 1.6762 gamma 0.002398 residual 0.000702 route 0.018016 entropy 2.942117
+[e6b]   stage A window 4/8 row 3 start 14470  loss 1.6625 -> 1.7159 gamma 0.002397 residual 0.000656 route 0.018040 entropy 2.942117
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.53GB reserved=22.13GB
@@ -103,7 +104,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.34GB reserved=33.21GB
 [mem] step 3 start               alloc=22.73GB reserved=33.23GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.23GB
-[e6b]   stage A window 5/8 row 3 start 17510  loss 1.6258 -> 1.6434 gamma 0.002406 residual 0.000926 route 0.018022 entropy 2.938621
+[e6b]   stage A window 5/8 row 3 start 17510  loss 1.6373 -> 1.6794 gamma 0.002406 residual 0.000854 route 0.018038 entropy 2.938620
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.54GB reserved=22.36GB
@@ -115,7 +116,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.35GB reserved=33.27GB
 [mem] step 3 start               alloc=22.74GB reserved=33.40GB
 [mem] step 3 before student      alloc=23.35GB reserved=33.40GB
-[e6b]   stage A window 6/8 row 3 start 14850  loss 2.1785 -> 2.1412 gamma 0.002414 residual 0.001053 route 0.018032 entropy 2.941560
+[e6b]   stage A window 6/8 row 3 start 14850  loss 2.3002 -> 2.2506 gamma 0.002414 residual 0.001004 route 0.018049 entropy 2.941560
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.99GB
 [mem] after teacher              alloc=21.55GB reserved=22.40GB
@@ -127,7 +128,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.36GB reserved=33.33GB
 [mem] step 3 start               alloc=22.76GB reserved=33.44GB
 [mem] step 3 before student      alloc=23.36GB reserved=33.44GB
-[e6b]   stage A window 7/8 row 3 start 16370  loss 1.7821 -> 1.6714 gamma 0.002423 residual 0.001266 route 0.018052 entropy 2.941325
+[e6b]   stage A window 7/8 row 3 start 16370  loss 1.8147 -> 1.6958 gamma 0.002422 residual 0.001226 route 0.018074 entropy 2.941325
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.53GB reserved=22.42GB
@@ -139,7 +140,7 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 2 before student      alloc=23.34GB reserved=33.23GB
 [mem] step 3 start               alloc=22.74GB reserved=33.23GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.23GB
-[e6b]   stage A window 8/8 row 3 start 15230  loss 0.7882 -> 0.7709 gamma 0.002431 residual 0.001445 route 0.018082 entropy 2.943000
+[e6b]   stage A window 8/8 row 3 start 15230  loss 0.8105 -> 0.7686 gamma 0.002430 residual 0.001387 route 0.018115 entropy 2.943000
 [e6b] stage B: 8 windows x 24 steps
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
@@ -192,382 +193,398 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [mem] step 22 before student     alloc=23.34GB reserved=33.48GB
 [mem] step 23 start              alloc=22.74GB reserved=33.54GB
 [mem] step 23 before student     alloc=23.34GB reserved=33.54GB
-[e6b]   stage B window 1/8 row 3 start 17890  loss 4.4918 -> 4.1718 gamma 0.002502 residual 0.001960 route 0.018546 entropy 2.943206
+[e6b]   stage B window 1/8 row 3 start 17890  loss 4.4756 -> 4.1252 gamma 0.002502 residual 0.001977 route 0.018604 entropy 2.943206
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 1/3  sig fc330745a8df  (state at this point in the run)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
-[mem] after teacher              alloc=21.54GB reserved=22.36GB
-[mem] step 0 start               alloc=21.54GB reserved=22.36GB
-[mem] step 0 before student      alloc=22.14GB reserved=23.14GB
-[mem] step 1 start               alloc=22.74GB reserved=33.21GB
-[mem] step 1 before student      alloc=23.35GB reserved=33.21GB
-[mem] step 2 start               alloc=22.74GB reserved=33.25GB
-[mem] step 2 before student      alloc=23.35GB reserved=33.25GB
-[mem] step 3 start               alloc=22.74GB reserved=33.25GB
-[mem] step 3 before student      alloc=23.35GB reserved=33.25GB
-[mem] step 4 start               alloc=22.74GB reserved=33.27GB
-[mem] step 4 before student      alloc=23.35GB reserved=33.27GB
-[mem] step 5 start               alloc=22.74GB reserved=33.29GB
-[mem] step 5 before student      alloc=23.35GB reserved=33.29GB
-[mem] step 6 start               alloc=22.74GB reserved=33.35GB
-[mem] step 6 before student      alloc=23.35GB reserved=33.35GB
-[mem] step 7 start               alloc=22.74GB reserved=33.58GB
-[mem] step 7 before student      alloc=23.35GB reserved=33.58GB
+[mem] after teacher              alloc=21.54GB reserved=22.38GB
+[mem] step 0 start               alloc=21.54GB reserved=22.38GB
+[mem] step 0 before student      alloc=22.14GB reserved=23.09GB
+[mem] step 1 start               alloc=22.74GB reserved=33.16GB
+[mem] step 1 before student      alloc=23.35GB reserved=33.16GB
+[mem] step 2 start               alloc=22.74GB reserved=33.23GB
+[mem] step 2 before student      alloc=23.35GB reserved=33.23GB
+[mem] step 3 start               alloc=22.74GB reserved=33.21GB
+[mem] step 3 before student      alloc=23.35GB reserved=33.21GB
+[mem] step 4 start               alloc=22.74GB reserved=33.25GB
+[mem] step 4 before student      alloc=23.35GB reserved=33.25GB
+[mem] step 5 start               alloc=22.74GB reserved=33.33GB
+[mem] step 5 before student      alloc=23.35GB reserved=33.33GB
+[mem] step 6 start               alloc=22.74GB reserved=33.23GB
+[mem] step 6 before student      alloc=23.35GB reserved=33.23GB
+[mem] step 7 start               alloc=22.74GB reserved=33.42GB
+[mem] step 7 before student      alloc=23.35GB reserved=33.42GB
 [mem] step 8 start               alloc=22.74GB reserved=33.52GB
 [mem] step 8 before student      alloc=23.35GB reserved=33.52GB
 [mem] step 9 start               alloc=22.74GB reserved=33.46GB
 [mem] step 9 before student      alloc=23.35GB reserved=33.46GB
-[mem] step 10 start              alloc=22.74GB reserved=33.48GB
-[mem] step 10 before student     alloc=23.35GB reserved=33.48GB
-[mem] step 11 start              alloc=22.74GB reserved=33.44GB
-[mem] step 11 before student     alloc=23.35GB reserved=33.44GB
-[mem] step 12 start              alloc=22.74GB reserved=33.40GB
-[mem] step 12 before student     alloc=23.35GB reserved=33.40GB
-[mem] step 13 start              alloc=22.74GB reserved=33.40GB
-[mem] step 13 before student     alloc=23.35GB reserved=33.40GB
-[mem] step 14 start              alloc=22.74GB reserved=33.42GB
-[mem] step 14 before student     alloc=23.35GB reserved=33.42GB
-[mem] step 15 start              alloc=22.74GB reserved=33.60GB
-[mem] step 15 before student     alloc=23.35GB reserved=33.60GB
+[mem] step 10 start              alloc=22.74GB reserved=33.46GB
+[mem] step 10 before student     alloc=23.35GB reserved=33.46GB
+[mem] step 11 start              alloc=22.74GB reserved=33.48GB
+[mem] step 11 before student     alloc=23.35GB reserved=33.48GB
+[mem] step 12 start              alloc=22.74GB reserved=33.44GB
+[mem] step 12 before student     alloc=23.35GB reserved=33.44GB
+[mem] step 13 start              alloc=22.74GB reserved=33.63GB
+[mem] step 13 before student     alloc=23.35GB reserved=33.63GB
+[mem] step 14 start              alloc=22.74GB reserved=33.44GB
+[mem] step 14 before student     alloc=23.35GB reserved=33.44GB
+[mem] step 15 start              alloc=22.74GB reserved=33.40GB
+[mem] step 15 before student     alloc=23.35GB reserved=33.40GB
 [mem] step 16 start              alloc=22.74GB reserved=33.42GB
 [mem] step 16 before student     alloc=23.35GB reserved=33.42GB
-[mem] step 17 start              alloc=22.74GB reserved=33.46GB
-[mem] step 17 before student     alloc=23.35GB reserved=33.46GB
-[mem] step 18 start              alloc=22.74GB reserved=33.44GB
-[mem] step 18 before student     alloc=23.35GB reserved=33.44GB
-[mem] step 19 start              alloc=22.74GB reserved=33.42GB
-[mem] step 19 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 17 start              alloc=22.74GB reserved=33.44GB
+[mem] step 17 before student     alloc=23.35GB reserved=33.44GB
+[mem] step 18 start              alloc=22.74GB reserved=33.42GB
+[mem] step 18 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 19 start              alloc=22.74GB reserved=33.56GB
+[mem] step 19 before student     alloc=23.35GB reserved=33.56GB
 [mem] step 20 start              alloc=22.74GB reserved=33.42GB
 [mem] step 20 before student     alloc=23.35GB reserved=33.42GB
-[mem] step 21 start              alloc=22.74GB reserved=33.58GB
-[mem] step 21 before student     alloc=23.35GB reserved=33.58GB
-[mem] step 22 start              alloc=22.74GB reserved=33.52GB
-[mem] step 22 before student     alloc=23.35GB reserved=33.52GB
-[mem] step 23 start              alloc=22.74GB reserved=33.60GB
-[mem] step 23 before student     alloc=23.35GB reserved=33.60GB
-[e6b]   stage B window 2/8 row 3 start 17130  loss 3.8195 -> 3.4784 gamma 0.002591 residual 0.002158 route 0.019315 entropy 2.943247
+[mem] step 21 start              alloc=22.74GB reserved=33.44GB
+[mem] step 21 before student     alloc=23.35GB reserved=33.44GB
+[mem] step 22 start              alloc=22.74GB reserved=33.48GB
+[mem] step 22 before student     alloc=23.35GB reserved=33.48GB
+[mem] step 23 start              alloc=22.74GB reserved=33.40GB
+[mem] step 23 before student     alloc=23.35GB reserved=33.40GB
+[e6b]   stage B window 2/8 row 3 start 17130  loss 3.8064 -> 3.4581 gamma 0.002592 residual 0.002181 route 0.019410 entropy 2.943253
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[mem] before teacher             alloc=19.74GB reserved=19.95GB
-[mem] after teacher              alloc=21.53GB reserved=22.38GB
-[mem] step 0 start               alloc=21.53GB reserved=22.38GB
-[mem] step 0 before student      alloc=22.13GB reserved=23.16GB
-[mem] step 1 start               alloc=22.74GB reserved=33.23GB
-[mem] step 1 before student      alloc=23.34GB reserved=33.23GB
-[mem] step 2 start               alloc=22.74GB reserved=33.23GB
-[mem] step 2 before student      alloc=23.34GB reserved=33.23GB
-[mem] step 3 start               alloc=22.74GB reserved=33.25GB
-[mem] step 3 before student      alloc=23.34GB reserved=33.25GB
-[mem] step 4 start               alloc=22.74GB reserved=33.25GB
-[mem] step 4 before student      alloc=23.34GB reserved=33.25GB
-[mem] step 5 start               alloc=22.74GB reserved=33.31GB
-[mem] step 5 before student      alloc=23.34GB reserved=33.31GB
-[mem] step 6 start               alloc=22.74GB reserved=33.33GB
-[mem] step 6 before student      alloc=23.34GB reserved=33.33GB
-[mem] step 7 start               alloc=22.74GB reserved=33.40GB
-[mem] step 7 before student      alloc=23.34GB reserved=33.40GB
-[mem] step 8 start               alloc=22.74GB reserved=33.60GB
-[mem] step 8 before student      alloc=23.34GB reserved=33.60GB
-[mem] step 9 start               alloc=22.74GB reserved=33.48GB
-[mem] step 9 before student      alloc=23.34GB reserved=33.48GB
-[mem] step 10 start              alloc=22.74GB reserved=33.58GB
-[mem] step 10 before student     alloc=23.34GB reserved=33.58GB
-[mem] step 11 start              alloc=22.74GB reserved=33.44GB
-[mem] step 11 before student     alloc=23.34GB reserved=33.44GB
-[mem] step 12 start              alloc=22.74GB reserved=33.48GB
-[mem] step 12 before student     alloc=23.34GB reserved=33.48GB
-[mem] step 13 start              alloc=22.74GB reserved=33.50GB
-[mem] step 13 before student     alloc=23.34GB reserved=33.50GB
-[mem] step 14 start              alloc=22.74GB reserved=33.52GB
-[mem] step 14 before student     alloc=23.34GB reserved=33.52GB
-[mem] step 15 start              alloc=22.74GB reserved=33.48GB
-[mem] step 15 before student     alloc=23.34GB reserved=33.48GB
-[mem] step 16 start              alloc=22.74GB reserved=33.35GB
-[mem] step 16 before student     alloc=23.34GB reserved=33.35GB
-[mem] step 17 start              alloc=22.74GB reserved=33.46GB
-[mem] step 17 before student     alloc=23.34GB reserved=33.46GB
-[mem] step 18 start              alloc=22.74GB reserved=33.56GB
-[mem] step 18 before student     alloc=23.34GB reserved=33.56GB
-[mem] step 19 start              alloc=22.74GB reserved=33.56GB
-[mem] step 19 before student     alloc=23.34GB reserved=33.56GB
-[mem] step 20 start              alloc=22.74GB reserved=33.54GB
-[mem] step 20 before student     alloc=23.34GB reserved=33.54GB
-[mem] step 21 start              alloc=22.74GB reserved=33.54GB
-[mem] step 21 before student     alloc=23.34GB reserved=33.54GB
-[mem] step 22 start              alloc=22.74GB reserved=33.60GB
-[mem] step 22 before student     alloc=23.34GB reserved=33.60GB
-[mem] step 23 start              alloc=22.74GB reserved=33.60GB
-[mem] step 23 before student     alloc=23.34GB reserved=33.60GB
-[e6b]   stage B window 3/8 row 3 start 16750  loss 5.2118 -> 4.6621 gamma 0.002660 residual 0.002376 route 0.020125 entropy 2.942212
+[e6b]     immediate recovery 0/2  sig 7eab09a4b0a1  (state at this point in the run)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
 [mem] after teacher              alloc=21.53GB reserved=22.34GB
 [mem] step 0 start               alloc=21.53GB reserved=22.34GB
-[mem] step 0 before student      alloc=22.13GB reserved=23.07GB
-[mem] step 1 start               alloc=22.74GB reserved=33.21GB
-[mem] step 1 before student      alloc=23.34GB reserved=33.21GB
-[mem] step 2 start               alloc=22.74GB reserved=33.19GB
-[mem] step 2 before student      alloc=23.34GB reserved=33.19GB
+[mem] step 0 before student      alloc=22.13GB reserved=23.11GB
+[mem] step 1 start               alloc=22.74GB reserved=33.19GB
+[mem] step 1 before student      alloc=23.34GB reserved=33.19GB
+[mem] step 2 start               alloc=22.74GB reserved=33.21GB
+[mem] step 2 before student      alloc=23.34GB reserved=33.21GB
 [mem] step 3 start               alloc=22.74GB reserved=33.21GB
 [mem] step 3 before student      alloc=23.34GB reserved=33.21GB
-[mem] step 4 start               alloc=22.74GB reserved=33.21GB
-[mem] step 4 before student      alloc=23.34GB reserved=33.21GB
-[mem] step 5 start               alloc=22.74GB reserved=33.27GB
-[mem] step 5 before student      alloc=23.34GB reserved=33.27GB
-[mem] step 6 start               alloc=22.74GB reserved=33.14GB
-[mem] step 6 before student      alloc=23.34GB reserved=33.14GB
-[mem] step 7 start               alloc=22.74GB reserved=33.23GB
-[mem] step 7 before student      alloc=23.34GB reserved=33.23GB
-[mem] step 8 start               alloc=22.74GB reserved=33.46GB
-[mem] step 8 before student      alloc=23.34GB reserved=33.46GB
-[mem] step 9 start               alloc=22.74GB reserved=33.33GB
-[mem] step 9 before student      alloc=23.34GB reserved=33.33GB
-[mem] step 10 start              alloc=22.74GB reserved=33.56GB
-[mem] step 10 before student     alloc=23.34GB reserved=33.56GB
-[mem] step 11 start              alloc=22.74GB reserved=33.35GB
-[mem] step 11 before student     alloc=23.34GB reserved=33.35GB
-[mem] step 12 start              alloc=22.74GB reserved=33.46GB
-[mem] step 12 before student     alloc=23.34GB reserved=33.46GB
-[mem] step 13 start              alloc=22.74GB reserved=33.23GB
-[mem] step 13 before student     alloc=23.34GB reserved=33.23GB
-[mem] step 14 start              alloc=22.74GB reserved=33.25GB
-[mem] step 14 before student     alloc=23.34GB reserved=33.25GB
-[mem] step 15 start              alloc=22.74GB reserved=33.33GB
-[mem] step 15 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 4 start               alloc=22.74GB reserved=33.23GB
+[mem] step 4 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 5 start               alloc=22.74GB reserved=33.29GB
+[mem] step 5 before student      alloc=23.34GB reserved=33.29GB
+[mem] step 6 start               alloc=22.74GB reserved=33.31GB
+[mem] step 6 before student      alloc=23.34GB reserved=33.31GB
+[mem] step 7 start               alloc=22.74GB reserved=33.40GB
+[mem] step 7 before student      alloc=23.34GB reserved=33.40GB
+[mem] step 8 start               alloc=22.74GB reserved=33.58GB
+[mem] step 8 before student      alloc=23.34GB reserved=33.58GB
+[mem] step 9 start               alloc=22.74GB reserved=33.46GB
+[mem] step 9 before student      alloc=23.34GB reserved=33.46GB
+[mem] step 10 start              alloc=22.74GB reserved=33.50GB
+[mem] step 10 before student     alloc=23.34GB reserved=33.50GB
+[mem] step 11 start              alloc=22.74GB reserved=33.52GB
+[mem] step 11 before student     alloc=23.34GB reserved=33.52GB
+[mem] step 12 start              alloc=22.74GB reserved=33.63GB
+[mem] step 12 before student     alloc=23.34GB reserved=33.63GB
+[mem] step 13 start              alloc=22.74GB reserved=33.33GB
+[mem] step 13 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 14 start              alloc=22.74GB reserved=33.31GB
+[mem] step 14 before student     alloc=23.34GB reserved=33.31GB
+[mem] step 15 start              alloc=22.74GB reserved=33.48GB
+[mem] step 15 before student     alloc=23.34GB reserved=33.48GB
 [mem] step 16 start              alloc=22.74GB reserved=33.37GB
 [mem] step 16 before student     alloc=23.34GB reserved=33.37GB
-[mem] step 17 start              alloc=22.74GB reserved=33.56GB
-[mem] step 17 before student     alloc=23.34GB reserved=33.56GB
-[mem] step 18 start              alloc=22.74GB reserved=33.29GB
-[mem] step 18 before student     alloc=23.34GB reserved=33.29GB
-[mem] step 19 start              alloc=22.74GB reserved=33.37GB
-[mem] step 19 before student     alloc=23.34GB reserved=33.37GB
-[mem] step 20 start              alloc=22.74GB reserved=33.35GB
-[mem] step 20 before student     alloc=23.34GB reserved=33.35GB
-[mem] step 21 start              alloc=22.74GB reserved=33.63GB
-[mem] step 21 before student     alloc=23.34GB reserved=33.63GB
-[mem] step 22 start              alloc=22.74GB reserved=33.60GB
-[mem] step 22 before student     alloc=23.34GB reserved=33.60GB
-[mem] step 23 start              alloc=22.74GB reserved=33.54GB
-[mem] step 23 before student     alloc=23.34GB reserved=33.54GB
-[e6b]   stage B window 4/8 row 3 start 14470  loss 4.9673 -> 4.4607 gamma 0.002750 residual 0.002579 route 0.020903 entropy 2.942062
+[mem] step 17 start              alloc=22.74GB reserved=33.50GB
+[mem] step 17 before student     alloc=23.34GB reserved=33.50GB
+[mem] step 18 start              alloc=22.74GB reserved=33.50GB
+[mem] step 18 before student     alloc=23.34GB reserved=33.50GB
+[mem] step 19 start              alloc=22.74GB reserved=33.54GB
+[mem] step 19 before student     alloc=23.34GB reserved=33.54GB
+[mem] step 20 start              alloc=22.74GB reserved=33.46GB
+[mem] step 20 before student     alloc=23.34GB reserved=33.46GB
+[mem] step 21 start              alloc=22.74GB reserved=33.60GB
+[mem] step 21 before student     alloc=23.34GB reserved=33.60GB
+[mem] step 22 start              alloc=22.74GB reserved=33.52GB
+[mem] step 22 before student     alloc=23.34GB reserved=33.52GB
+[mem] step 23 start              alloc=22.74GB reserved=33.50GB
+[mem] step 23 before student     alloc=23.34GB reserved=33.50GB
+[e6b]   stage B window 3/8 row 3 start 16750  loss 5.2465 -> 4.7125 gamma 0.002661 residual 0.002406 route 0.020012 entropy 2.942227
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 0/6  sig 2f8cca029968  (state at this point in the run)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
-[mem] after teacher              alloc=21.53GB reserved=22.36GB
-[mem] step 0 start               alloc=21.52GB reserved=22.36GB
-[mem] step 0 before student      alloc=22.13GB reserved=23.14GB
-[mem] step 1 start               alloc=22.73GB reserved=33.25GB
-[mem] step 1 before student      alloc=23.34GB reserved=33.25GB
-[mem] step 2 start               alloc=22.73GB reserved=33.27GB
-[mem] step 2 before student      alloc=23.34GB reserved=33.27GB
-[mem] step 3 start               alloc=22.73GB reserved=33.29GB
-[mem] step 3 before student      alloc=23.34GB reserved=33.29GB
-[mem] step 4 start               alloc=22.73GB reserved=33.29GB
-[mem] step 4 before student      alloc=23.34GB reserved=33.29GB
-[mem] step 5 start               alloc=22.73GB reserved=33.33GB
-[mem] step 5 before student      alloc=23.34GB reserved=33.33GB
-[mem] step 6 start               alloc=22.73GB reserved=33.40GB
-[mem] step 6 before student      alloc=23.34GB reserved=33.40GB
-[mem] step 7 start               alloc=22.73GB reserved=33.42GB
-[mem] step 7 before student      alloc=23.34GB reserved=33.42GB
-[mem] step 8 start               alloc=22.73GB reserved=33.40GB
-[mem] step 8 before student      alloc=23.34GB reserved=33.40GB
-[mem] step 9 start               alloc=22.73GB reserved=33.46GB
-[mem] step 9 before student      alloc=23.34GB reserved=33.46GB
-[mem] step 10 start              alloc=22.73GB reserved=33.63GB
-[mem] step 10 before student     alloc=23.34GB reserved=33.63GB
-[mem] step 11 start              alloc=22.73GB reserved=33.52GB
-[mem] step 11 before student     alloc=23.34GB reserved=33.52GB
-[mem] step 12 start              alloc=22.73GB reserved=33.42GB
-[mem] step 12 before student     alloc=23.34GB reserved=33.42GB
-[mem] step 13 start              alloc=22.73GB reserved=33.54GB
-[mem] step 13 before student     alloc=23.34GB reserved=33.54GB
-[mem] step 14 start              alloc=22.73GB reserved=33.58GB
-[mem] step 14 before student     alloc=23.34GB reserved=33.58GB
-[mem] step 15 start              alloc=22.73GB reserved=33.60GB
-[mem] step 15 before student     alloc=23.34GB reserved=33.60GB
+[mem] after teacher              alloc=21.53GB reserved=22.38GB
+[mem] step 0 start               alloc=21.53GB reserved=22.38GB
+[mem] step 0 before student      alloc=22.13GB reserved=23.07GB
+[mem] step 1 start               alloc=22.74GB reserved=33.19GB
+[mem] step 1 before student      alloc=23.34GB reserved=33.19GB
+[mem] step 2 start               alloc=22.74GB reserved=33.21GB
+[mem] step 2 before student      alloc=23.34GB reserved=33.21GB
+[mem] step 3 start               alloc=22.74GB reserved=33.23GB
+[mem] step 3 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 4 start               alloc=22.74GB reserved=33.23GB
+[mem] step 4 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 5 start               alloc=22.74GB reserved=33.29GB
+[mem] step 5 before student      alloc=23.34GB reserved=33.29GB
+[mem] step 6 start               alloc=22.74GB reserved=33.23GB
+[mem] step 6 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 7 start               alloc=22.74GB reserved=33.40GB
+[mem] step 7 before student      alloc=23.34GB reserved=33.40GB
+[mem] step 8 start               alloc=22.74GB reserved=33.52GB
+[mem] step 8 before student      alloc=23.34GB reserved=33.52GB
+[mem] step 9 start               alloc=22.74GB reserved=33.42GB
+[mem] step 9 before student      alloc=23.34GB reserved=33.42GB
+[mem] step 10 start              alloc=22.74GB reserved=33.40GB
+[mem] step 10 before student     alloc=23.34GB reserved=33.40GB
+[mem] step 11 start              alloc=22.74GB reserved=33.29GB
+[mem] step 11 before student     alloc=23.34GB reserved=33.29GB
+[mem] step 12 start              alloc=22.74GB reserved=33.21GB
+[mem] step 12 before student     alloc=23.34GB reserved=33.21GB
+[mem] step 13 start              alloc=22.74GB reserved=33.29GB
+[mem] step 13 before student     alloc=23.34GB reserved=33.29GB
+[mem] step 14 start              alloc=22.74GB reserved=33.35GB
+[mem] step 14 before student     alloc=23.34GB reserved=33.35GB
+[mem] step 15 start              alloc=22.74GB reserved=33.31GB
+[mem] step 15 before student     alloc=23.34GB reserved=33.31GB
+[mem] step 16 start              alloc=22.74GB reserved=33.33GB
+[mem] step 16 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 17 start              alloc=22.74GB reserved=33.44GB
+[mem] step 17 before student     alloc=23.34GB reserved=33.44GB
+[mem] step 18 start              alloc=22.74GB reserved=33.54GB
+[mem] step 18 before student     alloc=23.34GB reserved=33.54GB
+[mem] step 19 start              alloc=22.74GB reserved=33.40GB
+[mem] step 19 before student     alloc=23.34GB reserved=33.40GB
+[mem] step 20 start              alloc=22.74GB reserved=33.40GB
+[mem] step 20 before student     alloc=23.34GB reserved=33.40GB
+[mem] step 21 start              alloc=22.74GB reserved=33.31GB
+[mem] step 21 before student     alloc=23.34GB reserved=33.31GB
+[mem] step 22 start              alloc=22.74GB reserved=33.33GB
+[mem] step 22 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 23 start              alloc=22.74GB reserved=33.40GB
+[mem] step 23 before student     alloc=23.34GB reserved=33.40GB
+[e6b]   stage B window 4/8 row 3 start 14470  loss 5.0557 -> 4.5281 gamma 0.002750 residual 0.002622 route 0.020481 entropy 2.942126
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 0/5  sig 4a3858c5aafe  (state at this point in the run)
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[mem] before teacher             alloc=19.74GB reserved=19.97GB
+[mem] after teacher              alloc=21.53GB reserved=22.28GB
+[mem] step 0 start               alloc=21.52GB reserved=22.28GB
+[mem] step 0 before student      alloc=22.13GB reserved=23.09GB
+[mem] step 1 start               alloc=22.73GB reserved=33.21GB
+[mem] step 1 before student      alloc=23.34GB reserved=33.21GB
+[mem] step 2 start               alloc=22.73GB reserved=33.37GB
+[mem] step 2 before student      alloc=23.34GB reserved=33.37GB
+[mem] step 3 start               alloc=22.73GB reserved=33.42GB
+[mem] step 3 before student      alloc=23.34GB reserved=33.42GB
+[mem] step 4 start               alloc=22.73GB reserved=33.44GB
+[mem] step 4 before student      alloc=23.34GB reserved=33.44GB
+[mem] step 5 start               alloc=22.73GB reserved=33.35GB
+[mem] step 5 before student      alloc=23.34GB reserved=33.35GB
+[mem] step 6 start               alloc=22.73GB reserved=33.23GB
+[mem] step 6 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 7 start               alloc=22.73GB reserved=33.33GB
+[mem] step 7 before student      alloc=23.34GB reserved=33.33GB
+[mem] step 8 start               alloc=22.73GB reserved=33.29GB
+[mem] step 8 before student      alloc=23.34GB reserved=33.29GB
+[mem] step 9 start               alloc=22.73GB reserved=33.19GB
+[mem] step 9 before student      alloc=23.34GB reserved=33.19GB
+[mem] step 10 start              alloc=22.73GB reserved=33.33GB
+[mem] step 10 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 11 start              alloc=22.73GB reserved=33.46GB
+[mem] step 11 before student     alloc=23.34GB reserved=33.46GB
+[mem] step 12 start              alloc=22.73GB reserved=33.35GB
+[mem] step 12 before student     alloc=23.34GB reserved=33.35GB
+[mem] step 13 start              alloc=22.73GB reserved=33.40GB
+[mem] step 13 before student     alloc=23.34GB reserved=33.40GB
+[mem] step 14 start              alloc=22.73GB reserved=33.27GB
+[mem] step 14 before student     alloc=23.34GB reserved=33.27GB
+[mem] step 15 start              alloc=22.73GB reserved=33.56GB
+[mem] step 15 before student     alloc=23.34GB reserved=33.56GB
 [mem] step 16 start              alloc=22.73GB reserved=33.63GB
 [mem] step 16 before student     alloc=23.34GB reserved=33.63GB
-[mem] step 17 start              alloc=22.73GB reserved=33.50GB
-[mem] step 17 before student     alloc=23.34GB reserved=33.50GB
-[mem] step 18 start              alloc=22.73GB reserved=33.48GB
-[mem] step 18 before student     alloc=23.34GB reserved=33.48GB
-[mem] step 19 start              alloc=22.73GB reserved=33.48GB
-[mem] step 19 before student     alloc=23.34GB reserved=33.48GB
+[mem] step 17 start              alloc=22.73GB reserved=33.63GB
+[mem] step 17 before student     alloc=23.34GB reserved=33.63GB
+[mem] step 18 start              alloc=22.73GB reserved=33.60GB
+[mem] step 18 before student     alloc=23.34GB reserved=33.60GB
+[mem] step 19 start              alloc=22.73GB reserved=33.42GB
+[mem] step 19 before student     alloc=23.34GB reserved=33.42GB
 [mem] step 20 start              alloc=22.73GB reserved=33.58GB
 [mem] step 20 before student     alloc=23.34GB reserved=33.58GB
-[mem] step 21 start              alloc=22.73GB reserved=33.52GB
-[mem] step 21 before student     alloc=23.34GB reserved=33.52GB
+[mem] step 21 start              alloc=22.73GB reserved=33.42GB
+[mem] step 21 before student     alloc=23.34GB reserved=33.42GB
 [mem] step 22 start              alloc=22.73GB reserved=33.63GB
 [mem] step 22 before student     alloc=23.34GB reserved=33.63GB
-[mem] step 23 start              alloc=22.73GB reserved=33.40GB
-[mem] step 23 before student     alloc=23.34GB reserved=33.40GB
-[e6b]   stage B window 5/8 row 3 start 17510  loss 4.0052 -> 3.6546 gamma 0.002811 residual 0.002704 route 0.021134 entropy 2.938509
+[mem] step 23 start              alloc=22.73GB reserved=32.91GB
+[mem] step 23 before student     alloc=23.34GB reserved=32.91GB
+[e6b]   stage B window 5/8 row 3 start 17510  loss 3.9916 -> 3.6896 gamma 0.002811 residual 0.002749 route 0.020853 entropy 2.938548
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 2/4  sig d1cc338ddadb  (state at this point in the run)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [mem] before teacher             alloc=19.74GB reserved=19.97GB
-[mem] after teacher              alloc=21.54GB reserved=22.40GB
-[mem] step 0 start               alloc=21.54GB reserved=22.40GB
-[mem] step 0 before student      alloc=22.14GB reserved=23.16GB
-[mem] step 1 start               alloc=22.74GB reserved=33.27GB
-[mem] step 1 before student      alloc=23.35GB reserved=33.27GB
-[mem] step 2 start               alloc=22.74GB reserved=33.25GB
-[mem] step 2 before student      alloc=23.35GB reserved=33.25GB
-[mem] step 3 start               alloc=22.74GB reserved=33.29GB
-[mem] step 3 before student      alloc=23.35GB reserved=33.29GB
-[mem] step 4 start               alloc=22.74GB reserved=33.27GB
-[mem] step 4 before student      alloc=23.35GB reserved=33.27GB
-[mem] step 5 start               alloc=22.74GB reserved=33.44GB
-[mem] step 5 before student      alloc=23.35GB reserved=33.44GB
-[mem] step 6 start               alloc=22.74GB reserved=33.27GB
-[mem] step 6 before student      alloc=23.35GB reserved=33.27GB
-[mem] step 7 start               alloc=22.74GB reserved=33.40GB
-[mem] step 7 before student      alloc=23.35GB reserved=33.40GB
-[mem] step 8 start               alloc=22.74GB reserved=33.54GB
-[mem] step 8 before student      alloc=23.35GB reserved=33.54GB
-[mem] step 9 start               alloc=22.74GB reserved=33.42GB
-[mem] step 9 before student      alloc=23.35GB reserved=33.42GB
-[mem] step 10 start              alloc=22.74GB reserved=33.42GB
-[mem] step 10 before student     alloc=23.35GB reserved=33.42GB
-[mem] step 11 start              alloc=22.74GB reserved=33.40GB
-[mem] step 11 before student     alloc=23.35GB reserved=33.40GB
-[mem] step 12 start              alloc=22.74GB reserved=33.31GB
-[mem] step 12 before student     alloc=23.35GB reserved=33.31GB
-[mem] step 13 start              alloc=22.74GB reserved=33.31GB
-[mem] step 13 before student     alloc=23.35GB reserved=33.31GB
-[mem] step 14 start              alloc=22.74GB reserved=33.46GB
-[mem] step 14 before student     alloc=23.35GB reserved=33.46GB
-[mem] step 15 start              alloc=22.74GB reserved=33.37GB
-[mem] step 15 before student     alloc=23.35GB reserved=33.37GB
-[mem] step 16 start              alloc=22.74GB reserved=33.60GB
-[mem] step 16 before student     alloc=23.35GB reserved=33.60GB
-[mem] step 17 start              alloc=22.74GB reserved=33.54GB
-[mem] step 17 before student     alloc=23.35GB reserved=33.54GB
-[mem] step 18 start              alloc=22.74GB reserved=33.42GB
-[mem] step 18 before student     alloc=23.35GB reserved=33.42GB
-[mem] step 19 start              alloc=22.74GB reserved=33.44GB
-[mem] step 19 before student     alloc=23.35GB reserved=33.44GB
-[mem] step 20 start              alloc=22.74GB reserved=33.56GB
-[mem] step 20 before student     alloc=23.35GB reserved=33.56GB
-[mem] step 21 start              alloc=22.74GB reserved=33.63GB
-[mem] step 21 before student     alloc=23.35GB reserved=33.63GB
-[mem] step 22 start              alloc=22.74GB reserved=33.58GB
-[mem] step 22 before student     alloc=23.35GB reserved=33.58GB
-[mem] step 23 start              alloc=22.74GB reserved=33.43GB
-[mem] step 23 before student     alloc=23.35GB reserved=33.43GB
-[e6b]   stage B window 6/8 row 3 start 14850  loss 4.4801 -> 4.0965 gamma 0.002884 residual 0.002784 route 0.022288 entropy 2.941606
+[mem] after teacher              alloc=21.54GB reserved=22.36GB
+[mem] step 0 start               alloc=21.54GB reserved=22.36GB
+[mem] step 0 before student      alloc=22.14GB reserved=23.07GB
+[mem] step 1 start               alloc=22.74GB reserved=33.21GB
+[mem] step 1 before student      alloc=23.35GB reserved=33.21GB
+[mem] step 2 start               alloc=22.74GB reserved=33.23GB
+[mem] step 2 before student      alloc=23.35GB reserved=33.23GB
+[mem] step 3 start               alloc=22.74GB reserved=33.23GB
+[mem] step 3 before student      alloc=23.35GB reserved=33.23GB
+[mem] step 4 start               alloc=22.74GB reserved=33.25GB
+[mem] step 4 before student      alloc=23.35GB reserved=33.25GB
+[mem] step 5 start               alloc=22.74GB reserved=33.29GB
+[mem] step 5 before student      alloc=23.35GB reserved=33.29GB
+[mem] step 6 start               alloc=22.74GB reserved=33.33GB
+[mem] step 6 before student      alloc=23.35GB reserved=33.33GB
+[mem] step 7 start               alloc=22.74GB reserved=33.56GB
+[mem] step 7 before student      alloc=23.35GB reserved=33.56GB
+[mem] step 8 start               alloc=22.74GB reserved=33.52GB
+[mem] step 8 before student      alloc=23.35GB reserved=33.52GB
+[mem] step 9 start               alloc=22.74GB reserved=33.44GB
+[mem] step 9 before student      alloc=23.35GB reserved=33.44GB
+[mem] step 10 start              alloc=22.74GB reserved=33.46GB
+[mem] step 10 before student     alloc=23.35GB reserved=33.46GB
+[mem] step 11 start              alloc=22.74GB reserved=33.46GB
+[mem] step 11 before student     alloc=23.35GB reserved=33.46GB
+[mem] step 12 start              alloc=22.74GB reserved=33.29GB
+[mem] step 12 before student     alloc=23.35GB reserved=33.29GB
+[mem] step 13 start              alloc=22.74GB reserved=33.42GB
+[mem] step 13 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 14 start              alloc=22.74GB reserved=33.35GB
+[mem] step 14 before student     alloc=23.35GB reserved=33.35GB
+[mem] step 15 start              alloc=22.74GB reserved=33.42GB
+[mem] step 15 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 16 start              alloc=22.74GB reserved=33.58GB
+[mem] step 16 before student     alloc=23.35GB reserved=33.58GB
+[mem] step 17 start              alloc=22.74GB reserved=33.60GB
+[mem] step 17 before student     alloc=23.35GB reserved=33.60GB
+[mem] step 18 start              alloc=22.74GB reserved=33.44GB
+[mem] step 18 before student     alloc=23.35GB reserved=33.44GB
+[mem] step 19 start              alloc=22.74GB reserved=33.42GB
+[mem] step 19 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 20 start              alloc=22.74GB reserved=33.33GB
+[mem] step 20 before student     alloc=23.35GB reserved=33.33GB
+[mem] step 21 start              alloc=22.74GB reserved=33.48GB
+[mem] step 21 before student     alloc=23.35GB reserved=33.48GB
+[mem] step 22 start              alloc=22.74GB reserved=33.42GB
+[mem] step 22 before student     alloc=23.35GB reserved=33.42GB
+[mem] step 23 start              alloc=22.74GB reserved=33.48GB
+[mem] step 23 before student     alloc=23.35GB reserved=33.48GB
+[e6b]   stage B window 6/8 row 3 start 14850  loss 4.5256 -> 4.1488 gamma 0.002883 residual 0.002817 route 0.022092 entropy 2.941420
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[mem] before teacher             alloc=19.74GB reserved=19.97GB
-[mem] after teacher              alloc=21.55GB reserved=22.36GB
-[mem] step 0 start               alloc=21.55GB reserved=22.36GB
-[mem] step 0 before student      alloc=22.15GB reserved=23.09GB
-[mem] step 1 start               alloc=22.76GB reserved=33.16GB
-[mem] step 1 before student      alloc=23.36GB reserved=33.16GB
-[mem] step 2 start               alloc=22.76GB reserved=33.21GB
-[mem] step 2 before student      alloc=23.36GB reserved=33.21GB
-[mem] step 3 start               alloc=22.76GB reserved=33.21GB
-[mem] step 3 before student      alloc=23.36GB reserved=33.21GB
-[mem] step 4 start               alloc=22.76GB reserved=33.25GB
-[mem] step 4 before student      alloc=23.36GB reserved=33.25GB
-[mem] step 5 start               alloc=22.76GB reserved=33.33GB
-[mem] step 5 before student      alloc=23.36GB reserved=33.33GB
-[mem] step 6 start               alloc=22.76GB reserved=33.23GB
-[mem] step 6 before student      alloc=23.36GB reserved=33.23GB
-[mem] step 7 start               alloc=22.76GB reserved=33.42GB
-[mem] step 7 before student      alloc=23.36GB reserved=33.42GB
-[mem] step 8 start               alloc=22.76GB reserved=33.54GB
-[mem] step 8 before student      alloc=23.36GB reserved=33.54GB
-[mem] step 9 start               alloc=22.76GB reserved=33.50GB
-[mem] step 9 before student      alloc=23.36GB reserved=33.50GB
-[mem] step 10 start              alloc=22.76GB reserved=33.60GB
-[mem] step 10 before student     alloc=23.36GB reserved=33.60GB
-[mem] step 11 start              alloc=22.76GB reserved=33.40GB
-[mem] step 11 before student     alloc=23.36GB reserved=33.40GB
-[mem] step 12 start              alloc=22.76GB reserved=33.23GB
-[mem] step 12 before student     alloc=23.36GB reserved=33.23GB
-[mem] step 13 start              alloc=22.76GB reserved=33.21GB
-[mem] step 13 before student     alloc=23.36GB reserved=33.21GB
-[mem] step 14 start              alloc=22.76GB reserved=33.27GB
-[mem] step 14 before student     alloc=23.36GB reserved=33.27GB
-[mem] step 15 start              alloc=22.76GB reserved=33.29GB
-[mem] step 15 before student     alloc=23.36GB reserved=33.29GB
-[mem] step 16 start              alloc=22.76GB reserved=33.52GB
-[mem] step 16 before student     alloc=23.36GB reserved=33.52GB
-[mem] step 17 start              alloc=22.76GB reserved=33.19GB
-[mem] step 17 before student     alloc=23.36GB reserved=33.19GB
-[mem] step 18 start              alloc=22.76GB reserved=33.31GB
-[mem] step 18 before student     alloc=23.36GB reserved=33.31GB
-[mem] step 19 start              alloc=22.76GB reserved=33.23GB
-[mem] step 19 before student     alloc=23.36GB reserved=33.23GB
-[mem] step 20 start              alloc=22.76GB reserved=33.29GB
-[mem] step 20 before student     alloc=23.36GB reserved=33.29GB
-[mem] step 21 start              alloc=22.76GB reserved=33.56GB
-[mem] step 21 before student     alloc=23.36GB reserved=33.56GB
-[mem] step 22 start              alloc=22.76GB reserved=33.42GB
-[mem] step 22 before student     alloc=23.36GB reserved=33.42GB
-[mem] step 23 start              alloc=22.76GB reserved=33.56GB
-[mem] step 23 before student     alloc=23.36GB reserved=33.56GB
-[e6b]   stage B window 7/8 row 3 start 16370  loss 3.8440 -> 3.4650 gamma 0.002957 residual 0.002899 route 0.023662 entropy 2.939281
+[e6b]     immediate recovery 0/3  sig 2729fd996dc3  (state at this point in the run)
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[mem] before teacher             alloc=19.74GB reserved=19.97GB
+[mem] before teacher             alloc=19.74GB reserved=19.99GB
+[mem] after teacher              alloc=21.55GB reserved=22.30GB
+[mem] step 0 start               alloc=21.55GB reserved=22.30GB
+[mem] step 0 before student      alloc=22.15GB reserved=23.11GB
+[mem] step 1 start               alloc=22.76GB reserved=33.35GB
+[mem] step 1 before student      alloc=23.36GB reserved=33.35GB
+[mem] step 2 start               alloc=22.76GB reserved=33.52GB
+[mem] step 2 before student      alloc=23.36GB reserved=33.52GB
+[mem] step 3 start               alloc=22.76GB reserved=33.52GB
+[mem] step 3 before student      alloc=23.36GB reserved=33.52GB
+[mem] step 4 start               alloc=22.76GB reserved=33.46GB
+[mem] step 4 before student      alloc=23.36GB reserved=33.46GB
+[mem] step 5 start               alloc=22.76GB reserved=33.29GB
+[mem] step 5 before student      alloc=23.36GB reserved=33.29GB
+[mem] step 6 start               alloc=22.76GB reserved=33.33GB
+[mem] step 6 before student      alloc=23.36GB reserved=33.33GB
+[mem] step 7 start               alloc=22.76GB reserved=33.40GB
+[mem] step 7 before student      alloc=23.36GB reserved=33.40GB
+[mem] step 8 start               alloc=22.76GB reserved=33.58GB
+[mem] step 8 before student      alloc=23.36GB reserved=33.58GB
+[mem] step 9 start               alloc=22.76GB reserved=33.44GB
+[mem] step 9 before student      alloc=23.36GB reserved=33.44GB
+[mem] step 10 start              alloc=22.76GB reserved=33.54GB
+[mem] step 10 before student     alloc=23.36GB reserved=33.54GB
+[mem] step 11 start              alloc=22.76GB reserved=33.54GB
+[mem] step 11 before student     alloc=23.36GB reserved=33.54GB
+[mem] step 12 start              alloc=22.76GB reserved=33.44GB
+[mem] step 12 before student     alloc=23.36GB reserved=33.44GB
+[mem] step 13 start              alloc=22.76GB reserved=33.58GB
+[mem] step 13 before student     alloc=23.36GB reserved=33.58GB
+[mem] step 14 start              alloc=22.76GB reserved=33.37GB
+[mem] step 14 before student     alloc=23.36GB reserved=33.37GB
+[mem] step 15 start              alloc=22.76GB reserved=33.50GB
+[mem] step 15 before student     alloc=23.36GB reserved=33.50GB
+[mem] step 16 start              alloc=22.76GB reserved=33.46GB
+[mem] step 16 before student     alloc=23.36GB reserved=33.46GB
+[mem] step 17 start              alloc=22.76GB reserved=33.52GB
+[mem] step 17 before student     alloc=23.36GB reserved=33.52GB
+[mem] step 18 start              alloc=22.76GB reserved=33.42GB
+[mem] step 18 before student     alloc=23.36GB reserved=33.42GB
+[mem] step 19 start              alloc=22.76GB reserved=33.60GB
+[mem] step 19 before student     alloc=23.36GB reserved=33.60GB
+[mem] step 20 start              alloc=22.76GB reserved=33.56GB
+[mem] step 20 before student     alloc=23.36GB reserved=33.56GB
+[mem] step 21 start              alloc=22.76GB reserved=33.52GB
+[mem] step 21 before student     alloc=23.36GB reserved=33.52GB
+[mem] step 22 start              alloc=22.76GB reserved=33.60GB
+[mem] step 22 before student     alloc=23.36GB reserved=33.60GB
+[mem] step 23 start              alloc=22.76GB reserved=33.54GB
+[mem] step 23 before student     alloc=23.36GB reserved=33.54GB
+[e6b]   stage B window 7/8 row 3 start 16370  loss 3.9101 -> 3.4976 gamma 0.002957 residual 0.002915 route 0.023425 entropy 2.939582
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 4/5  sig 6116024be6e6  (state at this point in the run)
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[mem] before teacher             alloc=19.74GB reserved=19.95GB
 [mem] after teacher              alloc=21.53GB reserved=22.42GB
 [mem] step 0 start               alloc=21.53GB reserved=22.42GB
 [mem] step 0 before student      alloc=22.14GB reserved=23.11GB
-[mem] step 1 start               alloc=22.74GB reserved=33.27GB
-[mem] step 1 before student      alloc=23.34GB reserved=33.27GB
+[mem] step 1 start               alloc=22.74GB reserved=33.23GB
+[mem] step 1 before student      alloc=23.34GB reserved=33.23GB
 [mem] step 2 start               alloc=22.74GB reserved=33.25GB
 [mem] step 2 before student      alloc=23.34GB reserved=33.25GB
-[mem] step 3 start               alloc=22.74GB reserved=33.25GB
-[mem] step 3 before student      alloc=23.34GB reserved=33.25GB
-[mem] step 4 start               alloc=22.74GB reserved=33.27GB
-[mem] step 4 before student      alloc=23.34GB reserved=33.27GB
-[mem] step 5 start               alloc=22.74GB reserved=33.31GB
-[mem] step 5 before student      alloc=23.34GB reserved=33.31GB
-[mem] step 6 start               alloc=22.74GB reserved=33.31GB
-[mem] step 6 before student      alloc=23.34GB reserved=33.31GB
-[mem] step 7 start               alloc=22.74GB reserved=33.44GB
-[mem] step 7 before student      alloc=23.34GB reserved=33.44GB
-[mem] step 8 start               alloc=22.74GB reserved=33.40GB
-[mem] step 8 before student      alloc=23.34GB reserved=33.40GB
-[mem] step 9 start               alloc=22.74GB reserved=33.52GB
-[mem] step 9 before student      alloc=23.34GB reserved=33.52GB
-[mem] step 10 start              alloc=22.74GB reserved=33.44GB
-[mem] step 10 before student     alloc=23.34GB reserved=33.44GB
-[mem] step 11 start              alloc=22.74GB reserved=33.48GB
-[mem] step 11 before student     alloc=23.34GB reserved=33.48GB
+[mem] step 3 start               alloc=22.74GB reserved=33.23GB
+[mem] step 3 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 4 start               alloc=22.74GB reserved=33.25GB
+[mem] step 4 before student      alloc=23.34GB reserved=33.25GB
+[mem] step 5 start               alloc=22.74GB reserved=33.33GB
+[mem] step 5 before student      alloc=23.34GB reserved=33.33GB
+[mem] step 6 start               alloc=22.74GB reserved=33.23GB
+[mem] step 6 before student      alloc=23.34GB reserved=33.23GB
+[mem] step 7 start               alloc=22.74GB reserved=33.40GB
+[mem] step 7 before student      alloc=23.34GB reserved=33.40GB
+[mem] step 8 start               alloc=22.74GB reserved=33.60GB
+[mem] step 8 before student      alloc=23.34GB reserved=33.60GB
+[mem] step 9 start               alloc=22.74GB reserved=33.42GB
+[mem] step 9 before student      alloc=23.34GB reserved=33.42GB
+[mem] step 10 start              alloc=22.74GB reserved=33.63GB
+[mem] step 10 before student     alloc=23.34GB reserved=33.63GB
+[mem] step 11 start              alloc=22.74GB reserved=33.44GB
+[mem] step 11 before student     alloc=23.34GB reserved=33.44GB
 [mem] step 12 start              alloc=22.74GB reserved=33.60GB
 [mem] step 12 before student     alloc=23.34GB reserved=33.60GB
-[mem] step 13 start              alloc=22.74GB reserved=33.48GB
-[mem] step 13 before student     alloc=23.34GB reserved=33.48GB
-[mem] step 14 start              alloc=22.74GB reserved=33.50GB
-[mem] step 14 before student     alloc=23.34GB reserved=33.50GB
-[mem] step 15 start              alloc=22.74GB reserved=33.56GB
-[mem] step 15 before student     alloc=23.34GB reserved=33.56GB
-[mem] step 16 start              alloc=22.74GB reserved=33.44GB
-[mem] step 16 before student     alloc=23.34GB reserved=33.44GB
-[mem] step 17 start              alloc=22.74GB reserved=33.42GB
-[mem] step 17 before student     alloc=23.34GB reserved=33.42GB
-[mem] step 18 start              alloc=22.74GB reserved=33.46GB
-[mem] step 18 before student     alloc=23.34GB reserved=33.46GB
-[mem] step 19 start              alloc=22.74GB reserved=33.58GB
-[mem] step 19 before student     alloc=23.34GB reserved=33.58GB
+[mem] step 13 start              alloc=22.74GB reserved=33.44GB
+[mem] step 13 before student     alloc=23.34GB reserved=33.44GB
+[mem] step 14 start              alloc=22.74GB reserved=33.37GB
+[mem] step 14 before student     alloc=23.34GB reserved=33.37GB
+[mem] step 15 start              alloc=22.74GB reserved=33.33GB
+[mem] step 15 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 16 start              alloc=22.74GB reserved=33.33GB
+[mem] step 16 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 17 start              alloc=22.74GB reserved=33.35GB
+[mem] step 17 before student     alloc=23.34GB reserved=33.35GB
+[mem] step 18 start              alloc=22.74GB reserved=33.33GB
+[mem] step 18 before student     alloc=23.34GB reserved=33.33GB
+[mem] step 19 start              alloc=22.74GB reserved=33.31GB
+[mem] step 19 before student     alloc=23.34GB reserved=33.31GB
 [mem] step 20 start              alloc=22.74GB reserved=33.46GB
 [mem] step 20 before student     alloc=23.34GB reserved=33.46GB
-[mem] step 21 start              alloc=22.74GB reserved=33.46GB
-[mem] step 21 before student     alloc=23.34GB reserved=33.46GB
-[mem] step 22 start              alloc=22.74GB reserved=33.42GB
-[mem] step 22 before student     alloc=23.34GB reserved=33.42GB
-[mem] step 23 start              alloc=22.74GB reserved=33.54GB
-[mem] step 23 before student     alloc=23.34GB reserved=33.54GB
-[e6b]   stage B window 8/8 row 3 start 15230  loss 3.4012 -> 3.1865 gamma 0.003024 residual 0.002970 route 0.024022 entropy 2.941823
+[mem] step 21 start              alloc=22.74GB reserved=33.52GB
+[mem] step 21 before student     alloc=23.34GB reserved=33.52GB
+[mem] step 22 start              alloc=22.74GB reserved=33.60GB
+[mem] step 22 before student     alloc=23.34GB reserved=33.60GB
+[mem] step 23 start              alloc=22.74GB reserved=33.60GB
+[mem] step 23 before student     alloc=23.34GB reserved=33.60GB
+[e6b]   stage B window 8/8 row 3 start 15230  loss 3.3743 -> 3.1534 gamma 0.003023 residual 0.002983 route 0.023868 entropy 2.941714
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[e6b]     immediate recovery 1/2  sig 12ef495df209  (state at this point in the run)
 [e6b] evaluating 8 training windows
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b]   train window 1/8 row 3 start 17890  after 4/20 recovery 1/3 before_sig 0ef8614df3ff after_sig fc330745a8df after==before False
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[e6b]   train window 2/8 row 3 start 17130  after 2/20 recovery 0/2 before_sig f6e6fcb1c1a9 after_sig f6e6fcb1c1a9 after==before True
+[e6b]   train window 2/8 row 3 start 17130  after 3/20 recovery 0/2 before_sig f6e6fcb1c1a9 after_sig 7eab09a4b0a1 after==before False
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b]   train window 3/8 row 3 start 16750  after 3/20 recovery 0/6 before_sig 3f01a68a06d9 after_sig 3f01a68a06d9 after==before True
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b]   train window 4/8 row 3 start 14470  after 1/20 recovery 0/5 before_sig 4a3858c5aafe after_sig 4a3858c5aafe after==before True
 [e6a] 19 writes, used=4864 slots, window=4864 slots
-[e6b]   train window 5/8 row 3 start 17510  after 4/20 recovery 1/4 before_sig 1257a82e2dd9 after_sig 0f6116dde9f0 after==before False
+[e6b]   train window 5/8 row 3 start 17510  after 5/20 recovery 2/4 before_sig 1257a82e2dd9 after_sig d1cc338ddadb after==before False
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b]   train window 6/8 row 3 start 14850  after 4/20 recovery 0/3 before_sig dad38d4e58ca after_sig a1cf245ddb25 after==before False
 [e6a] 19 writes, used=4864 slots, window=4864 slots
@@ -581,9 +598,21 @@ We detected that you are passing `past_key_values` as a tuple and this is deprec
 [e6b]   held window row 2 start 3450   after 15/60 recovery 1/7 before_sig eccdd1dbb065 after_sig aa6548baaeb5 trained_sig aa6548baaeb5 after==before False trained==after True
 [e6a] 19 writes, used=4864 slots, window=4864 slots
 [e6b]   held window row 2 start 3830   after 10/60 recovery 1/9 before_sig 881af8cdb20d after_sig 32c87572a483 trained_sig 32c87572a483 after==before False trained==after True
-[e6b] train    recovery 6/30 = 0.200 over 8 windows (5 changed an answer)
+[e6b] train    recovery 7/30 = 0.233 over 8 windows (6 changed an answer)
 [e6b] held-out recovery 2/16 = 0.125 over 2 windows (2 changed an answer)
 [e6b] integrity: ok -- weights changed and at least one window changed an answer
 [e6b] verdict: partial -- held-out recovery 2/16, below the 0.5 threshold
+[e6b] retention: immediate 8/30 = 0.267 -> final 7/30 = 0.233 over 8 windows (net -1)
+[e6b]   window row 3 start 17890  immediate 1/3 final 1/3 delta +0
+[e6b]   window row 3 start 17130  immediate 0/2 final 0/2 delta +0
+[e6b]   window row 3 start 16750  immediate 0/6 final 0/6 delta +0
+[e6b]   window row 3 start 14470  immediate 0/5 final 0/5 delta +0
+[e6b]   window row 3 start 17510  immediate 2/4 final 2/4 delta +0
+[e6b]   window row 3 start 14850  immediate 0/3 final 0/3 delta +0
+[e6b]   window row 3 start 16370  immediate 4/5 final 3/5 delta -1
+[e6b]   window row 3 start 15230  immediate 1/2 final 1/2 delta +0
+[e6b]   never learned (zero even while latest): [[3, 17130, 2], [3, 16750, 6], [3, 14470, 5], [3, 14850, 3]]
+[e6b] retention control: last window immediate_sig == final_sig: True
+[e6b] retention reading: retained -- all 7 recovered probes survived to the end of the run, so no later window took a recovery away; the per-window budget remains a candidate constraint
 [e6b] checkpoint /tmp/e6b_mini_ckpt.pt, report /tmp/e6b_mini_report.json
 EXIT=0

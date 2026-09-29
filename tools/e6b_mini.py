@@ -97,10 +97,73 @@ no window's answers ever changed, the two forwards disagreeing) and `verdict` re
 emit a threshold outcome at all when it fails. That is what stops a void measurement from
 being reported as `window_overfit` again.
 
+Retention: immediate vs final recovery
+--------------------------------------
+Every training window is now scored **twice**: once immediately after its own Stage B
+steps, and once at the end, after every window has been trained. Same probes, same
+denominator, same window.
+
+Why this is the measurement that was missing. The training loop is strictly sequential:
+
+    Stage A:  window 1 x4, window 2 x4, ... window 8 x4
+    Stage B:  window 1 x24, window 2 x24, ... window 8 x24
+
+Window i+1 starts from window i's weights and shares one `AdamW` with it. Nothing
+interleaves and nothing replays. So a window that ends the run at 0/5 was scored exactly
+once, at the very end, and three explanations fit that single number equally well:
+
+    A. 24 steps per window was too few to learn it at all
+    B. the compactor cannot express the correction
+    C. it learned inside its own 24 steps and later windows overwrote it
+
+The prior round compared A against B and left C untouched, because the run never recorded
+the one quantity that separates them. It is recorded now.
+
+How to read it, stated before the numbers exist:
+
+    immediate low, and close to final   -> A. raise the per-window budget
+    immediate high, final collapsed     -> C. change the schedule, not the budget.
+                                           More steps would only overwrite more thoroughly.
+
+One thing to hold onto while reading: given 8 windows, one shared `AdamW` and 520k
+parameters, C is the *default* behaviour of this schedule, not a hypothesis that needs to
+pass a test. The training windows are visited in the order the offline text screen ranked
+them (`tools/e6b_mini.py:756`), which is not a difficulty order, so "the last two windows
+did best" carries no difficulty signal either way. The useful output is therefore the
+size of the gap, not whether a gap exists.
+
+`--skip-immediate` turns the measurement off and reproduces the previous behaviour
+exactly; it costs one extra forward-only evaluation per training window.
+
+The retention read is recorded in `report["retention"]` and turned into a follow-up
+statement in `report["retention_reading"]`. It never changes `verdict`, which still depends
+on the held-out figure alone. Keeping the two apart is deliberate: `verdict` answers "did
+this checkpoint transfer", retention answers "is the schedule or the budget the reason the
+training numbers look the way they do", and merging them would let a scheduling artefact
+masquerade as a generalisation result.
+
+The one constraint that separates the two is checked, not assumed. The last training
+window is trained last, so nothing runs after it and its immediate and final signatures
+must agree bitwise (`retention["last_window_unchanged"]`). A mismatch means the rebuild or
+the scoring path is not reproducible, and the run says so out loud.
+
+Partitioning is by `context_hash`, not row id
+---------------------------------------------
+`partition` now refuses a held-out window whose fact-lines digest matches a training
+window's, in addition to the existing row-id and fact-line checks. The parquet's rows 4-7
+repeat rows 0-3 byte for byte, so "train on row 3, evaluate on row 7" is a same-context
+split reported as a clean hold-out. This round the two tests agree (train row 3, held row
+2, disjoint digests), so nothing is contaminated -- but the row-id test alone would not
+have detected it, and a wider screen is exactly what turns that into a leak. The report
+records `context_separated` alongside `row_separated` and warns in the log when they
+disagree.
+
 Reported separately for training windows and held-out windows. The training figure is
 recorded as context; `verdict` is decided on the held-out figure alone.
 
-Run on the host (screening + 32 + 192 training steps + two evaluation passes):
+Run on the host (screening + 32 + 192 training steps, one evaluation pass per training
+window at its own turn, then one more pass over every window at the end):
+
     /share/latent/mllm_env/bin/python /tmp/e6b_mini.py \
         --steps-a-per-window 4 --steps-b-per-window 24 \
         --train-windows 8 --eval-windows 2 --out /tmp/e6b_mini_report.json
@@ -168,9 +231,17 @@ DEVICE = "cuda:0"
 def context_hash(lines):
     """Short digest of a window's fact lines.
 
-    The parquet has 8 rows but only 4 distinct contexts (0/4, 1/5, 2/6, 3/7 are
-    byte-identical). Printing the digest makes a duplicate row visible in the log
-    instead of silently inflating the apparent diversity of the training set.
+    Two jobs, and the second one is load-bearing.
+
+    Logging: the parquet has 8 rows but only 4 distinct contexts (0/4, 1/5, 2/6, 3/7 are
+    byte-identical). Printing the digest makes a duplicate row visible in the log instead
+    of silently inflating the apparent diversity of the training set.
+
+    Partitioning: `partition` compares these digests rather than row ids. The digest is
+    over the *whole row's* fact lines, so it is a row-content fingerprint -- two rows that
+    repeat each other hash the same, which is precisely the case the row-id test misses.
+    Without it, "train on row 3, evaluate on row 7" would be a same-context split reported
+    as a clean hold-out.
     """
     return hashlib.md5("\n".join(lines).encode()).hexdigest()[:8]
 
@@ -350,6 +421,87 @@ def correct_signature(scored):
     ).hexdigest()[:12]
 
 
+def retention_block(train_entries, last_immediate_signature, final_signatures):
+    """Immediate-vs-final recovery for every training window. The measurement that
+    separates "budget too small" from "later windows overwrote this one".
+
+    Read per window, not pooled, because the question is about a *per-window* trajectory:
+    pooling would let a window that never moved hide behind one that collapsed. The
+    pooled totals are reported alongside, and `--verdict`-level reading stays on the
+    held-out figure as before.
+
+    `delta = final - immediate`. Negative means the window was better right after its own
+    steps than at the end of the run: something later took it away. Zero means training on
+    the other windows neither helped nor hurt this one.
+
+    The last training window is trained last, so nothing runs after it and its immediate
+    and final measurements must agree bitwise. That is not a hope; it is checked, and
+    reported as `last_window_unchanged`. A mismatch means the window rebuild or the
+    scoring path is not reproducible and every other delta in this table is suspect.
+    """
+    rows = []
+    for entry in train_entries:
+        immediate = entry.get("immediate")
+        final = entry["recovery"]
+        if immediate is None:
+            rows.append({
+                "row": entry["row"], "start": entry["start"],
+                "immediate": None, "final": None, "delta": None,
+                "immediate_recovered": None, "final_recovered": final["n_recovered"],
+                "n_lost": final["n_lost"], "immediate_signature": None,
+                "final_signature": entry.get("signatures", {}).get("after"),
+            })
+            continue
+        rec_i = immediate["recovery"]
+        rows.append({
+            "row": entry["row"], "start": entry["start"],
+            "immediate": rec_i["recovery_rate"],
+            "final": final["recovery_rate"],
+            "delta": final["recovery_rate"] - rec_i["recovery_rate"],
+            "immediate_recovered": rec_i["n_recovered"],
+            "final_recovered": final["n_recovered"],
+            "n_lost": final["n_lost"],
+            "immediate_signature": immediate["after_signature"],
+            "final_signature": entry.get("signatures", {}).get("after"),
+        })
+
+    measured = [r for r in rows if r["immediate"] is not None]
+    lost = sum(r["n_lost"] for r in measured)
+    immediate_recovered = sum(r["immediate_recovered"] for r in measured)
+    final_recovered = sum(r["final_recovered"] for r in measured)
+    zeroed = [
+        r for r in measured
+        if r["immediate_recovered"] > 0 and r["final_recovered"] == 0
+    ]
+    # Windows that were already at zero the moment their own steps finished. These are
+    # the only ones that speak to explanation A (budget) rather than C (overwriting).
+    never = [r for r in measured if r["immediate_recovered"] == 0]
+
+    last_unchanged = None
+    if last_immediate_signature is not None and final_signatures:
+        last_unchanged = (last_immediate_signature == final_signatures[-1])
+
+    return {
+        "enabled": bool(measured),
+        "per_window": rows,
+        "n_windows_measured": len(measured),
+        "immediate_recovered": immediate_recovered,
+        "final_recovered": final_recovered,
+        "n_lost": lost,
+        "immediate_rate": (immediate_recovered / lost) if lost else float("nan"),
+        "final_rate": (final_recovered / lost) if lost else float("nan"),
+        "net_change": final_recovered - immediate_recovered,
+        "windows_zeroed_after_own_steps": [
+            [r["row"], r["start"], r["immediate_recovered"], r["final_recovered"]]
+            for r in zeroed
+        ],
+        "windows_never_learned": [
+            [r["row"], r["start"], r["n_lost"]] for r in never
+        ],
+        "last_window_unchanged": last_unchanged,
+    }
+
+
 def evaluate_window(manager, lines, entry, compactor, args):
     """Re-build a measured window and score it with the *trained* compactor.
 
@@ -400,11 +552,19 @@ def overlaps(a, b):
 def partition(hard, args, require_other_rows=False):
     """Split screened hard windows into training and held-out groups.
 
-    Two constraints, both about making held-out mean something:
+    Three constraints, all about making held-out mean something:
 
       * held-out rows must differ from every training row, because the parquet's 8 rows
         are only 4 distinct contexts (0/4, 1/5, 2/6, 3/7 are byte-identical) and a
         same-row split would evaluate on training text;
+      * held-out *contexts* must differ from every training context. Comparing row ids is
+        not enough: rows 4-7 repeat rows 0-3 byte for byte, so "row 3 trains, row 7
+        evaluates" is a same-context split wearing a different row number. `context_hash`
+        is the digest of the window's fact lines, computed in `measure_window`, and it is
+        what actually has to be disjoint. This round the two happen to agree (train row 3,
+        held row 2) so nothing is contaminated -- but the row-id test alone would not have
+        caught it, and the next run with a wider screen is where that becomes a leak
+        rather than a latent hazard;
       * within a row, no two selected windows may share a fact line, so a held-out
         window cannot inherit a fact that a training window already taught.
 
@@ -418,6 +578,9 @@ def partition(hard, args, require_other_rows=False):
     silently produce a same-row held-out set. The final call uses the fallback, so a run
     that genuinely cannot find a second row still produces a (weaker, honestly labelled)
     result instead of nothing.
+
+    The returned `context_separated` is the fact; `row_separated` is the weaker proxy the
+    report used to print alone.
     """
     by_row = {}
     for entry in hard:
@@ -437,6 +600,7 @@ def partition(hard, args, require_other_rows=False):
         train.append(entry)
 
     train_line_sets = [e["line_set"] for e in train]
+    train_contexts = {e["context_hash"] for e in train}
     eval_rows = [r for r in sorted(by_row) if r not in train_rows]
     row_separated = True
     held = []
@@ -444,6 +608,10 @@ def partition(hard, args, require_other_rows=False):
         for entry in by_row[row]:
             if len(held) >= args.eval_windows:
                 break
+            if entry["context_hash"] in train_contexts:
+                # Same fact text under a different row id. Held-out would be scoring the
+                # identical context the training windows wrote.
+                continue
             if any(overlaps(entry["line_set"], s) for s in train_line_sets):
                 continue
             held.append(entry)
@@ -464,12 +632,21 @@ def partition(hard, args, require_other_rows=False):
                 continue
             held.append(entry)
 
+    # The real isolation test, as opposed to the row-id proxy above. A held-out window
+    # that shares a context with any training window is not held out, whatever its row
+    # number says -- the parquet's rows 4-7 are byte-identical to 0-3.
+    held_contexts = {e["context_hash"] for e in held}
+    context_separated = not (held_contexts & train_contexts)
+
     return {
         "train": train,
         "held": held,
         "train_row": train_row,
         "held_rows": sorted({e["row"] for e in held}),
         "row_separated": row_separated,
+        "train_contexts": sorted(train_contexts),
+        "held_contexts": sorted(held_contexts),
+        "context_separated": context_separated,
     }
 
 
@@ -588,7 +765,55 @@ def measurement_integrity(initial_state, compactor, train_agg, held_agg, stages,
                 reason="weights changed and at least one window changed an answer")
 
 
-def verdict(train_agg, held_agg, row_separated, integrity):
+def retention_reading(retention):
+    """Turn immediate-vs-final into the one follow-up it licenses.
+
+    Pre-registered, so the rule is not chosen after seeing the numbers:
+
+        not measured                              -> not_measured
+        some window recovered, then went to zero   -> overwrites   (C)
+        every window was already zero at its own
+          last step                               -> budget       (A or B, still merged)
+        every recovery survived to the end         -> retained
+
+    `overwrites` and `retained` both resolve without further information: the first names
+    the schedule, the second names the per-window budget, as the binding constraint. That
+    is the whole content of the reading -- it is recorded, not acted on here, and it says
+    nothing about what to spend next.
+
+    `budget` deliberately does **not** separate A from B. A window that recovers nothing
+    even while it is the most recent thing trained cannot tell "24 steps was too few"
+    apart from "the compactor cannot express it" -- both look identical from here, and
+    that distinction needs the 220-step paired run, not this measurement. Claiming
+    otherwise would repeat the mistake the original `window_overfit` made.
+
+    Purely a follow-up statement. It never changes `verdict`, whose outcome stays on the
+    held-out figure alone, exactly as before.
+    """
+    if not retention["enabled"]:
+        return {"reading": "not_measured",
+                "reason": "no training window was measured immediately after its own steps"}
+    zeroed = retention["windows_zeroed_after_own_steps"]
+    if zeroed:
+        return {"reading": "overwrites",
+                "reason": "%d window(s) recovered inside their own steps and ended at zero: "
+                          "%s. The schedule, not the per-window budget, is the binding "
+                          "constraint -- more steps per window would overwrite more "
+                          "thoroughly" % (len(zeroed), zeroed)}
+    if retention["immediate_recovered"] == 0:
+        return {"reading": "budget",
+                "reason": "every window was already at zero the moment its own Stage B "
+                          "steps finished, so nothing was taken away by a later window; "
+                          "24 steps per window (or the compactor's expressiveness, which "
+                          "this cannot separate) is the constraint"}
+    return {"reading": "retained",
+            "reason": "all %d recovered probes survived to the end of the run, so no "
+                      "later window took a recovery away; the per-window budget remains "
+                      "a candidate constraint"
+                      % (retention["final_recovered"],)}
+
+
+def verdict(train_agg, held_agg, row_separated, integrity, context_separated=True):
     """The single decision this experiment produces.
 
     Thresholds are stated up front rather than chosen after seeing the numbers:
@@ -627,7 +852,14 @@ def verdict(train_agg, held_agg, row_separated, integrity):
         reason = "held-out recovery %d/%d, below the 0.5 threshold" % (
             held_agg["n_recovered"], held_agg["n_lost"])
     if outcome != "undecidable" and not row_separated:
+        # The fallback drew held-out windows from the training row itself, so the
+        # contexts necessarily collide; the row message is the accurate one.
         reason += "; held-out shares the training row, so this is a weaker test"
+    elif outcome != "undecidable" and not context_separated:
+        # The dangerous case: different row ids, identical fact text. Parquet rows 4-7
+        # repeat 0-3 byte for byte, so this would otherwise read as a clean hold-out.
+        reason += ("; a held-out context is byte-identical to a training context (rows "
+                   "4-7 repeat 0-3), so this is not a test of transfer")
     if integrity.get("held_all_unchanged"):
         reason += ("; caveat: every held-out window produced `after` identical to "
                    "`before`, so this is either a real null result or the defect "
@@ -706,6 +938,9 @@ def main():
     parser.add_argument("--seed", type=int, default=None,
                         help="unset by default so the run matches E6a's unseeded behaviour")
     parser.add_argument("--screen-only", action="store_true")
+    parser.add_argument("--skip-immediate", action="store_true",
+                        help="do not measure each training window right after its own "
+                             "Stage B steps; reproduces the pre-retention behaviour")
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -827,6 +1062,13 @@ def main():
     print("[e6b] train rows %s (%d windows), held rows %s (%d windows), row-separated %s"
           % ([parts["train_row"]], len(train_entries), parts["held_rows"],
              len(held_entries), parts["row_separated"]), flush=True)
+    print("[e6b] context-separated %s (train ctx %s, held ctx %s)"
+          % (parts["context_separated"], parts["train_contexts"], parts["held_contexts"]),
+          flush=True)
+    if not parts["context_separated"]:
+        print("[e6b] WARNING: a held-out window shares its fact-lines digest with a "
+              "training window; the rows differ but the context does not (parquet rows "
+              "4-7 repeat 0-3). This is a same-context split.", flush=True)
     if len(train_entries) < args.train_windows:
         print("[e6b] WARNING: only %d training windows found (wanted %d)"
               % (len(train_entries), args.train_windows), flush=True)
@@ -872,6 +1114,7 @@ def main():
             "seed": args.seed,
             "steps_a_per_window": args.steps_a_per_window,
             "steps_b_per_window": args.steps_b_per_window,
+            "immediate_recovery_measured": not args.skip_immediate,
             "probes_per_train_window": args.probes,
             "probes_per_held_window": args.eval_probes,
         },
@@ -880,6 +1123,11 @@ def main():
             "train_row": parts["train_row"],
             "held_rows": parts["held_rows"],
             "row_separated": parts["row_separated"],
+            # The constraint that actually matters: rows 4-7 of the parquet repeat rows
+            # 0-3 byte for byte, so disjoint row ids do not imply disjoint contexts.
+            "context_separated": parts["context_separated"],
+            "train_contexts": parts["train_contexts"],
+            "held_contexts": parts["held_contexts"],
             "train_windows": [(e["row"], e["start"]) for e in train_entries],
             "held_windows": [(e["row"], e["start"]) for e in held_entries],
         },
@@ -923,6 +1171,54 @@ def main():
                      trained["initial_loss"], trained["final_loss"], state["gamma"],
                      state["residual_ratio"], state["route_scale"], state["routing_entropy"]),
                   flush=True)
+
+            # --- retention: this window's own score, before any later window runs ---
+            #
+            # Placed here and nowhere else, for three reasons that are all load-bearing.
+            #
+            # 1. It must run on the weights as they are *right now*. `train_window` has
+            #    returned and `_pool_in_place` has restored `model.memory` in its `finally`
+            #    (methods/prlmc/probes.py:914), so the pool is back to a clean window
+            #    state. Nothing from the training injection is still live.
+            # 2. It must rebuild the pool through the full `evaluate_window` path —
+            #    `rebuild` then `candidate_pool` with the current compactor. Reusing the
+            #    training pass's pool handle, or scoring against the pre-training
+            #    compactor, is exactly the shape of the defect that made the first
+            #    version's held-out `recovered` structurally zero. The baseline `before`
+            #    that `lost` is defined against stays `entry["before"]`, measured at
+            #    screen time with `initial_state`.
+            # 3. It costs one forward-only pass per window. Measured against a 224-step
+            #    run that is noise, and it is the only quantity that can tell "24 steps
+            #    was too few" apart from "later windows overwrote this one".
+            if stage == "B" and not args.skip_immediate:
+                # The extra forward is the only thing this change adds to the run, and the
+                # run already OOM'd once at a window boundary (the 3.12 GiB `_InjectSlice`
+                # gradient). Clear the cache first so the steady state is the one E6a ran
+                # in, and retry once after another clear rather than lose a two-hour run.
+                # No rollback is needed: this pass is forward-only and touches no weights.
+                release()
+                for attempt in (1, 2):
+                    try:
+                        immediate = evaluate_window(
+                            manager, cache[entry["row"]], entry, compactor, args
+                        )
+                        break
+                    except torch.OutOfMemoryError:
+                        if attempt == 2:
+                            raise
+                        print("[e6b]     immediate measurement OOM; clearing and retrying "
+                              "row %d start %d" % (entry["row"], entry["start"]), flush=True)
+                        release()
+                entry["immediate"] = {
+                    "recovery": immediate["recovery"],
+                    "after_signature": immediate["after_signature"],
+                }
+                print("[e6b]     immediate recovery %d/%d  sig %s  (state at this point "
+                      "in the run)"
+                      % (immediate["recovery"]["n_recovered"],
+                         immediate["recovery"]["n_lost"],
+                         immediate["after_signature"]), flush=True)
+
     report["stages"] = stages
     if stages:
         last = stages[-1]
@@ -1017,13 +1313,40 @@ def main():
 
     train_agg = aggregate(train_entries)
     held_agg = aggregate(held_measured)
+
+    # --- retention read ---
+    #
+    # Computed here because it needs `entry["recovery"]` (the final measurement) to sit
+    # next to `entry["immediate"]` (the measurement taken inside the loop, right after that
+    # window's own Stage B steps). Both are already in hand; nothing is re-run.
+    #
+    # The signature of the last training window is the control. It was trained last, so
+    # no later window can have touched it: its immediate and final measurements must be
+    # bit-identical. If they are not, the rebuild or the scoring path is not reproducible
+    # and every other delta in this table is meaningless -- which is a stronger statement
+    # than the train/held-out determinism check, since those two windows are disjoint.
+    final_signatures = [
+        (e.get("signatures") or {}).get("after") for e in train_entries
+    ]
+    last_immediate_signature = None
+    if train_entries and train_entries[-1].get("immediate"):
+        last_immediate_signature = train_entries[-1]["immediate"]["after_signature"]
+    retention = retention_block(
+        train_entries, last_immediate_signature, final_signatures
+    )
+    report["retention"] = retention
+    report["retention_reading"] = retention_reading(retention)
+
     integrity = measurement_integrity(
         initial_state, compactor, train_agg, held_agg, stages, held_measured
     )
     report["train"] = train_agg
     report["held_out"] = held_agg
     report["integrity"] = integrity
-    report["verdict"] = verdict(train_agg, held_agg, parts["row_separated"], integrity)
+    report["verdict"] = verdict(
+        train_agg, held_agg, parts["row_separated"], integrity,
+        context_separated=parts["context_separated"],
+    )
     report["probes"] = {
         "train": [{"window": [e["row"], e["start"]],
                    "questions": [p.question for p in e["probes"]]} for e in train_entries],
@@ -1045,6 +1368,42 @@ def main():
           % ("ok" if integrity["ok"] else "FAILED", integrity["reason"]), flush=True)
     print("[e6b] verdict: %s -- %s"
           % (report["verdict"]["outcome"], report["verdict"]["reason"]), flush=True)
+
+    # Retention, printed last because it is the reading that decides what to do next --
+    # and because it is the only number in this run that the pre-retention versions could
+    # not produce. Per window, not pooled: pooling would let a window that never moved
+    # hide behind one that collapsed.
+    if retention["enabled"]:
+        print("[e6b] retention: immediate %d/%d = %.3f -> final %d/%d = %.3f over %d "
+              "windows (net %+d)"
+              % (retention["immediate_recovered"], retention["n_lost"],
+                 retention["immediate_rate"], retention["final_recovered"],
+                 retention["n_lost"], retention["final_rate"],
+                 retention["n_windows_measured"], retention["net_change"]), flush=True)
+        for row in retention["per_window"]:
+            print("[e6b]   window row %d start %-6d immediate %d/%d final %d/%d delta %+d"
+                  % (row["row"], row["start"], row["immediate_recovered"], row["n_lost"],
+                     row["final_recovered"], row["n_lost"],
+                     row["final_recovered"] - row["immediate_recovered"]), flush=True)
+        if retention["windows_zeroed_after_own_steps"]:
+            print("[e6b]   zeroed after their own steps: %s"
+                  % retention["windows_zeroed_after_own_steps"], flush=True)
+        if retention["windows_never_learned"]:
+            print("[e6b]   never learned (zero even while latest): %s"
+                  % retention["windows_never_learned"], flush=True)
+        print("[e6b] retention control: last window immediate_sig == final_sig: %s"
+              % retention["last_window_unchanged"], flush=True)
+        if retention["last_window_unchanged"] is False:
+            print("[e6b] WARNING: the last training window's immediate and final "
+                  "signatures differ, but nothing was trained after it. The window rebuild "
+                  "or the scoring path is not reproducible; read no delta in this table.",
+                  flush=True)
+        print("[e6b] retention reading: %s -- %s"
+              % (report["retention_reading"]["reading"],
+                 report["retention_reading"]["reason"]), flush=True)
+    else:
+        print("[e6b] retention: not measured (--skip-immediate)", flush=True)
+
     print("[e6b] checkpoint %s, report %s" % (args.ckpt, args.out), flush=True)
 
 
