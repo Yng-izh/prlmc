@@ -1061,6 +1061,7 @@ def train_carrier_compactor(
     use_checkpoint: bool = True,
     compactor: Optional[object] = None,
     ckpt_out: Optional[str] = None,
+    optimiser: Optional[object] = None,
 ) -> Dict[str, float]:
     """Phase 4: train the carrier residual against the reader.
 
@@ -1151,7 +1152,12 @@ def train_carrier_compactor(
     # precise for a small module.
     compactor = compactor.to(device=device)
 
-    optimiser = torch.optim.AdamW(compactor.parameters(), lr=lr)
+    # A caller-supplied optimiser is reused across stages and windows. E6b-mini
+    # trains one shared checkpoint against several windows, so AdamW's moments must
+    # survive the window switch; rebuilding per window would restart the momentum
+    # and make the "one shared checkpoint" claim false.
+    if optimiser is None:
+        optimiser = torch.optim.AdamW(compactor.parameters(), lr=lr)
     try:
         scaler = torch.amp.GradScaler("cuda", enabled=bool(use_amp))
     except (AttributeError, TypeError):

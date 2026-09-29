@@ -21,10 +21,11 @@
 | E5c | E5b + active mask | 真正 K→K' 的无训练 compaction baseline | 已完成，**EM 23.00**（与 E5a 不再相同） |
 | E5d | E5c，但 filler 不受限 | 排除 E5c 的两个开关混淆 | 已完成，**EM 24.00**，与 E5c 逐条 97/100 相同 |
 | E6 | `carrier_residual` | learned fusion 是否超过 selection | 已完成，**EM 24.00**；无 ckpt，初始化即恒等，故仅验证接线 |
-| E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 首轮指标因打分跨度错误全部作废；跨度修复后筛出硬窗口 `lost = 3`，待训练 |
+| E6a | 离线单窗口 overfit | 训练链能否跑通（不读 MemoryAgentBench 指标） | 已完成，单窗口 220 步恢复 2/3 |
+| E6b-mini | 离线多窗口共享 checkpoint | 单窗口恢复能否泛化到未见窗口 | 已完成，**训练 7/30、held-out 0/16，判为 `window_overfit`** |
 | E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 |
 
-线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链；首轮打分跨度错误使全部指标作废，修复后筛出 `lost = 3` 的硬窗口。
+线性读法：E1 发现触发器不触发 → E2 标定阈值 → E3 修触发器后首次测 accuracy → **发现 accuracy 归零，根因未分离** → E4 定位到 compactor → E5a/E5b 用原生 block 选择把 accuracy 恢复到 26.00 → E5c 打开 active mask，free region 真正移出 reader 视野，EM 23.00 → E5d 放开 filler 限制以排除开关混淆，与 E5c 逐条 97/100 相同 → E6 把 compactor 换成 `carrier_residual`，因未训练而与 E5c 逐条 98/100 相同 → E6a 用离线单窗口 overfit 验证训练链；首轮打分跨度错误使全部指标作废，修复后筛出 `lost = 3` 的硬窗口并训练到恢复 2/3 → E6b-mini 把单窗口扩到 8 训练 + 2 held-out，**held-out 恢复 0/16，单窗口成绩不泛化**。
 
 ---
 
@@ -1293,6 +1294,199 @@ CUDA_VISIBLE_DEVICES=9 PRLMC_GRAD_TRACE=1 python /tmp/e6a_overfit.py \
 
 ---
 
+## E6b-mini — 多窗口共享 checkpoint：单窗口成绩能否泛化
+
+### 目的与形态
+
+E6a 已经证明**在单个硬窗口上**训练可以把 `recovery_rate` 推到 2/3。E6b-mini 只问一件事：
+
+> 换一个没见过的硬窗口，同一个 checkpoint 还能恢复吗？
+
+这是一次**判定性**实验，不是尺度放大：它与 E6a 的唯一变量是**窗口数量**。
+结构、loss、selector、trigger、gate 全部逐字不动——同一个 `CarrierResidualCompactor`、
+同一份 `_stage_weights`、同一个 `_select_block_indices`、同样 19→9、`lr 1e-3`、
+`gamma_max 0.05`。这样无论结果正负都只有一种解释。
+
+硬窗口定义沿用 E6a：`uncompacted` 答对、原生 `select_blocks` 丢掉。
+**没有为了凑数量塞入普通窗口。**
+
+### 配置
+
+| 项 | 值 |
+|---|---|
+| 训练窗口 | 8（parquet row 3） |
+| held-out 窗口 | 2（parquet row 2） |
+| 每窗口 probe 数 | 训练 20，held-out 60 |
+| Stage A | 8 窗口 × 4 步 = 32 |
+| Stage B | 8 窗口 × 24 步 = 192 |
+| 合计 | 224 步，`forward_calls 459` |
+| `window_blocks` / `target_blocks` | 19 / 9 |
+| `lr` / `gamma_max` | 1e-3 / 0.05 |
+| `seed` | `None`（与 E6a 一致，不引入新变量） |
+| 优化器 | 单个 `AdamW` 实例跨全部窗口与两个阶段复用 |
+
+`probes.py` 为此新增可选参数 `optimiser=None`：不传时行为与原版逐字节相同；
+传入时复用调用方实例，使 AdamW 的动量跨窗口存活。否则每个窗口都是重新拟合，
+"共享 checkpoint"就是假的。
+
+### 三处设计决策
+
+1. **Stage A 也摊到 8 个窗口。** 方案只固定 Stage B 的 loss，未规定 Stage A。
+   Stage A 是"别弄坏 reader"的预热，若只跑单窗口就退化成 E6a 的预拟合，
+   "一个共享 checkpoint"只对 B 成立。两个阶段都把步数按窗口均分。
+
+2. **held-out 用 60 probes，训练用 20。** 评估是纯 forward，宽 probe 集不额外付费。
+   E6a 的 `lost` 分母只有 3，`recovery_rate` 只能取 0、1/3、2/3、1，
+   分辨不出"泛化"与"背下这个窗口"。
+
+3. **训练与验证按 parquet 行分离。** 该文件有 8 行，但**只有 4 个不同 context**
+   （0↔4、1↔5、2↔6、3↔7 逐字节相同，正文 `ctx` 摘要为 `8678ca61` 与 `0875f57e`）。
+   同行切分等于在训练文本上评估。同行内还要求任意两个窗口的**事实行区间不重叠**。
+   筛选循环特意用 `require_other_rows=True`，否则某行一旦凑够窗口就会提前停止，
+   静默产出同行的"held-out"。
+
+### 硬窗口筛选结果
+
+11 个候选筛出 10 个硬窗口，用时 303 s，29–34 s/窗口。
+
+| row | start | `uncompacted` | `select_blocks` | `lost` |
+|---|---|---|---|---|
+| 3 | 17890 | 6/20 | 3/20 | 3 |
+| 3 | 17130 | 4/20 | 2/20 | 2 |
+| 3 | 16750 | 9/20 | 3/20 | 6 |
+| 3 | 14470 | 6/20 | 1/20 | 5 |
+| 3 | 17510 | 6/20 | 3/20 | 4 |
+| 2 | 3450 | 9/20 | 7/20 | 3 |
+| 3 | 14850 | 7/20 | 4/20 | 3 |
+| 3 | 16370 | 7/20 | 2/20 | 5 |
+| 3 | 15230 | 10/20 | 8/20 | 2 |
+| 2 | 3830 | 9/20 | 3/20 | 6 |
+
+每个窗口 `no_memory 0/20` 均成立：答案不可能来自预训练权重，只能来自池。
+`carrier_residual == select_blocks at init: True (max |d| = 0.000e+00)`，
+所以 `before` 就是原生 selection 的分数。
+
+划分结果：训练 row 3（8 窗口），held-out row 2（2 窗口），`row_separated: True`。
+
+### 结果
+
+**`verdict: window_overfit`** —— 训练恢复 7/30，held-out 恢复 **0/16**。
+
+| 集合 | 窗口数 | `lost` | 恢复 | `recovery_rate` |
+|---|---|---|---|---|
+| 训练 | 8 | 30 | 7 | 0.233 |
+| **held-out** | **2** | **16** | **0** | **0.000** |
+
+逐窗口（训练侧极不均匀，8 个窗口里 4 个为 0）：
+
+| row | start | `lost` | 恢复 | rate |
+|---|---|---|---|---|
+| 3 | 17890 | 3 | 1 | 0.33 |
+| 3 | 17130 | 2 | 0 | 0 |
+| 3 | 16750 | 6 | 0 | 0 |
+| 3 | 14470 | 5 | 0 | 0 |
+| 3 | 17510 | 4 | 2 | 0.50 |
+| 3 | 14850 | 3 | 0 | 0 |
+| 3 | 16370 | 5 | 3 | 0.60 |
+| 3 | 15230 | 2 | 1 | 0.50 |
+
+| row | start | `lost` | 恢复 | rate |
+|---|---|---|---|---|
+| 2 | 3450 | 7 | 0 | 0.0 |
+| 2 | 3830 | 9 | 0 | 0.0 |
+
+判定门槛在脚本中先定后用，不看结果再挑：held-out `lost = 0` → `undecidable`；
+`recovered = 0` → `window_overfit`；`rate ≥ 0.5` 且 `recovered ≥ 2` → `generalises`；
+其余 → `partial`。
+
+```text
+verdict: {'outcome': 'window_overfit',
+          'reason': 'held-out recovered nothing while training recovered 7/30',
+          'thresholds': {'generalises_rate': 0.5, 'generalises_min_recovered': 2}}
+```
+
+### 训练轨迹
+
+内部量跨 16 个窗口单调上升，**从未回退**：
+
+| 量 | Stage A 首 → 末 | Stage B 首 → 末 | 末值 |
+|---|---|---|---|
+| `gamma` | 0.002373 → 0.002429 | 0.002498 → **0.003025** | 预算的 6.1% |
+| `residual_ratio` | 0.000139 → 0.001295 | 0.001816 → **0.002993** | — |
+| `route_scale` | 0.017988 → 0.018123 | 0.018611 → **0.024066** | — |
+| `routing_entropy` | 2.9432 | 2.9432 → 2.9413 | 基本不变 |
+| `forward_calls`（累计） | 19 → 75 | 123 → 459 | — |
+
+Stage B 的 `gold` 与 `kd` 在 **8/8** 个窗口全部下降
+（`gold` 如 4.2685 → 3.7935、3.4408 → 3.2096）。
+`hidden` **没有一致方向**：8 个窗口中 5 个下降、3 个上升，
+与 E6a 单窗口的"反向"读数一致——说明它不是一个可靠的验收量。
+
+### 读数
+
+**这不是过拟合，是表达能力不足。** 判据如下。
+
+窗口级过拟合的特征是"训练强、held-out 弱"。实测训练侧只有 23%，且**8 个窗口中
+4 个完全为零**。恢复只发生在 4 个窗口上，是"在少数窗口上碰巧有效"，
+不是"学得很好但不能泛化"。held-out 归零是这一更根本问题的下游表现。
+
+对照 E6a 单窗口：那里 220 步拿到 2/3。这里每窗口 24 步，训练侧就崩到 7/30。
+**这也与过拟合假说不符**——过拟合不会因为在更多窗口上训练而把训练侧自身拉低。
+
+`gamma` 与 `residual_ratio` 在 16 个窗口间单调涨到 0.003025 / 0.002993，
+从未因换窗口而塌陷，说明优化器没有在窗口间打架、量级在稳定增长。
+**但量级增长没有换来功能恢复。** 这是本轮最重要的负面证据：
+carrier residual 目前的表达力，不足以把被丢弃 block 的信息搬回 carrier。
+
+一个必须写明的读数限制：held-out 的 `lost` 为 7 与 9，分母比训练窗口（2–6）大得多，
+因为它用了 60 probes 而训练用 20。分母放大是为了让 rate 有分辨力，
+但也意味着 held-out 测的是更宽的探针集。**0/16 不能单独当作"泛化完全失败"的终局证据**，
+它与此处更强的证据（训练侧仅 23%、半数为零）方向一致、相互加强。
+
+### 下一步含义
+
+按既定诊断纪律，这里要动的是**架构或目标**，不是继续加窗口、不是调
+`gamma`/trigger/selector。多窗口泛化失败时第一个嫌疑是 `L_hidden`——
+本轮**没有**删除它，正是为了不让"多窗口"与"改 objective"两个变量同时变动。
+
+### 复现方式
+
+```text
+E6A_NEED_MB=21000 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+/share/latent/mllm_env/bin/python /tmp/e6b_mini.py \
+  --steps-a-per-window 4 --steps-b-per-window 24 \
+  --train-windows 8 --eval-windows 2 \
+  --probes 20 --eval-probes 60 --max-probe-tokens 256 \
+  --lr 1e-3 --gamma-max 0.05 --min-probes 4 --min-lost 2 \
+  --max-screen 66 --screen-budget-min 100 \
+  --candidates /tmp/e6a_screen_data.json \
+  --out /tmp/e6b_mini_report.json --ckpt /tmp/e6b_mini_ckpt.pt
+```
+
+驱动 `tools/e6b_mini.py`、启动脚本 `tools/run_e6b_mini.sh`、
+完整报告 `runs/e6b_mini_report.json`。运行在 v100-2 gpu9，`EXIT=0`。
+
+### 附：本轮显存
+
+第一次实现在 Stage B 窗口 3 第 3 步 OOM（**缺陷 13**）：`probe_loss.backward()`
+处请求 3.12 GiB，`of which 3.12 GiB is free`。修复后本轮到 `EXIT=0`，全程无 OOM。
+
+### 附：与 E6a 的口径差异（不可直接相比）
+
+| 项 | E6a 220 步 | E6b-mini |
+|---|---|---|
+| 窗口数 | 1 | 8 训练 + 2 held-out |
+| 每窗口步数 | 220（Stage B） | 24（Stage B） |
+| 训练 probe 数 | 20 | 20 |
+| 评估 probe 数 | 20 | 训练 20 / held-out 60 |
+| 报告口径 | 单窗口 `recovery_rate` | 汇总 `recovered / lost` |
+
+E6b-mini 的 24 步/窗口是**刻意压低**的：目的是在有限机时内暴露"跨窗口是否成立"，
+不是复现 E6a 的绝对水平。因此"7/30 低于 2/3"本身不构成对 E6a 的否证，
+构成否证的是 **held-out = 0/16**。
+
+---
+
 ## 参数清单
 
 ### 三次运行共用的固定参数
@@ -1434,6 +1628,32 @@ E3 之前修复的问题，按发现顺序：
     （**3.12 GiB**，读全宽就是必须的），当时只剩 3.09 GiB，**差 30 MB**。
     **修复**：副本存到 CPU，`restore()` 时再传回；每步多一次 604 MB 拷贝，
     峰值让出 604 MB。
+
+13. **多窗口训练在窗口边界因分配器碎片 OOM（E6b-mini 首次运行）。**
+     崩在 Stage B 窗口 3 第 3 步的 `probe_loss.backward()`：
+     请求 3.12 GiB，`of which 3.12 GiB is free`。
+
+     诊断由数字决定，不是猜的：`reserved` 从 Stage A 窗口 1 第 1 步就冲到
+     **33.15 GB**，此后 119 步一直钉在 33.6 GB 天花板；`alloc` 稳定在
+     22.73/23.33 GB，**完全持平**——没有增长，故不是泄漏。崩溃瞬间活分配
+     27.45 GiB、**缓存 766.85 MiB 未分配**，请求 3.12 GiB、空闲 3.12 GiB。
+     那 766 MiB 缓存就是全部缺口。
+
+     E6a 在同一包络内跑完 236 步无 OOM，因为它**全程只有一个窗口**，
+     probe 集固定、激活形状固定，分配器很快进入稳定态。E6b-mini 每个窗口的
+     probe 由该窗口事实行构造，token 长度逐窗口变化，形状一变，上一个窗口
+     的缓存块就对不上新请求。
+
+     **修复**：窗口边界调用 `release()` 清空缓存，把分配器拉回单一形状族的
+     稳态；`train_window()` 在 OOM 时先回滚 `compactor.state_dict()` 与
+     `optimiser.state_dict()` 再重试**一次**——窗口有 24 步，OOM 可能落在中途，
+     不回滚会把部分窗口训练两遍，污染"共享 checkpoint"这个前提。修复后
+     `EXIT=0`。
+
+     **同轮排除的误判**：OOM 文本里那句
+     `try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` 是
+     **无条件打印**的。在 v100-2 上实测（`tools/alloc_probe.py`），
+     设置该变量后同一句话照样出现，故它不能作为"变量未生效"的证据。
 
 ---
 

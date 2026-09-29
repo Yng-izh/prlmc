@@ -1,0 +1,1268 @@
+{
+  "design": {
+    "structure_changed": false,
+    "loss_changed": false,
+    "selector_changed": false,
+    "trigger": "not engaged",
+    "gate": "not engaged",
+    "window_blocks": 19,
+    "target_blocks": 9,
+    "lr": 0.001,
+    "gamma_max": 0.05,
+    "seed": null,
+    "steps_a_per_window": 4,
+    "steps_b_per_window": 24,
+    "probes_per_train_window": 20,
+    "probes_per_held_window": 60
+  },
+  "identity_at_init": true,
+  "partition": {
+    "train_row": 3,
+    "held_rows": [
+      2
+    ],
+    "row_separated": true,
+    "train_windows": [
+      [
+        3,
+        17890
+      ],
+      [
+        3,
+        17130
+      ],
+      [
+        3,
+        16750
+      ],
+      [
+        3,
+        14470
+      ],
+      [
+        3,
+        17510
+      ],
+      [
+        3,
+        14850
+      ],
+      [
+        3,
+        16370
+      ],
+      [
+        3,
+        15230
+      ]
+    ],
+    "held_windows": [
+      [
+        2,
+        3450
+      ],
+      [
+        2,
+        3830
+      ]
+    ]
+  },
+  "screened": 11,
+  "hard_windows": 10,
+  "stages": [
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 17890,
+      "steps": 4,
+      "initial_loss": 1.397811580619291,
+      "final_loss": 1.247663297123727,
+      "gamma": 0.002372827846556902,
+      "residual_ratio": 0.0001392944370274731,
+      "route_scale": 0.017988312989473343,
+      "routing_entropy": 2.9432058334350586,
+      "forward_calls": 19,
+      "components": {
+        "gold": [
+          3.842690682411194,
+          3.802463059127331
+        ],
+        "kd": [
+          1.3975276427343488,
+          1.2473951132968069
+        ],
+        "hidden": [
+          0.002838254242669791,
+          0.002675860095769167
+        ],
+        "carrier": [
+          0.0,
+          4.852111032960238e-06
+        ],
+        "stats": [
+          5.62303375772899e-06,
+          5.630311989079928e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 17130,
+      "steps": 4,
+      "initial_loss": 1.2837544182156397,
+      "final_loss": 1.1381765492446267,
+      "gamma": 0.0023805161472409964,
+      "residual_ratio": 0.00029195778624291954,
+      "route_scale": 0.01799786277115345,
+      "routing_entropy": 2.943260669708252,
+      "forward_calls": 27,
+      "components": {
+        "gold": [
+          3.5429906114935874,
+          3.39525835365057
+        ],
+        "kd": [
+          1.2834135439246892,
+          1.137848636880517
+        ],
+        "hidden": [
+          0.003400405519641936,
+          0.0032639675657264887
+        ],
+        "carrier": [
+          7.209341220004717e-06,
+          1.4022703908267431e-05
+        ],
+        "stats": [
+          5.6402432164759375e-06,
+          5.666857305186568e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 16750,
+      "steps": 4,
+      "initial_loss": 3.4448519058748843,
+      "final_loss": 3.28248300808802,
+      "gamma": 0.002388691296800971,
+      "residual_ratio": 0.0004757015346256707,
+      "route_scale": 0.018010636791586876,
+      "routing_entropy": 2.942279100418091,
+      "forward_calls": 35,
+      "components": {
+        "gold": [
+          3.578318165242672,
+          3.527746360003948
+        ],
+        "kd": [
+          3.4444717854261397,
+          3.2820896290242674
+        ],
+        "hidden": [
+          0.003783311869483441,
+          0.003907927928958088
+        ],
+        "carrier": [
+          1.6757272533141077e-05,
+          2.472153937560506e-05
+        ],
+        "stats": [
+          5.676727141690208e-06,
+          5.705845978809521e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 14470,
+      "steps": 4,
+      "initial_loss": 1.6858842971364811,
+      "final_loss": 1.6821753624279336,
+      "gamma": 0.002397439908236265,
+      "residual_ratio": 0.0007037949381468631,
+      "route_scale": 0.01802671141922474,
+      "routing_entropy": 2.942117214202881,
+      "forward_calls": 43,
+      "components": {
+        "gold": [
+          4.398454701900482,
+          4.427660423517227
+        ],
+        "kd": [
+          1.6854750348255039,
+          1.681764053553343
+        ],
+        "hidden": [
+          0.00406375911552459,
+          0.004074561316519976
+        ],
+        "carrier": [
+          2.772070911305491e-05,
+          3.7377885746536776e-05
+        ],
+        "stats": [
+          5.716425675927894e-06,
+          5.7477182053844444e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 17510,
+      "steps": 4,
+      "initial_loss": 1.6765487859295263,
+      "final_loss": 1.6805298267933448,
+      "gamma": 0.00240544555708766,
+      "residual_ratio": 0.0009041263940018821,
+      "route_scale": 0.018041234463453293,
+      "routing_entropy": 2.9386203289031982,
+      "forward_calls": 51,
+      "components": {
+        "gold": [
+          3.3491699904203416,
+          3.3637262344360352
+        ],
+        "kd": [
+          1.6761276959441602,
+          1.6801205119118094
+        ],
+        "hidden": [
+          0.004169059440027922,
+          0.0040415684459730985
+        ],
+        "carrier": [
+          4.068874113727361e-05,
+          5.04231356899254e-05
+        ],
+        "stats": [
+          5.758362476626644e-06,
+          5.786168458143948e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 14850,
+      "steps": 4,
+      "initial_loss": 2.1747890626385016,
+      "final_loss": 2.1708450165283377,
+      "gamma": 0.002412879839539528,
+      "residual_ratio": 0.0009643082896774201,
+      "route_scale": 0.018058475106954575,
+      "routing_entropy": 2.9415602684020996,
+      "forward_calls": 59,
+      "components": {
+        "gold": [
+          3.5930832386016847,
+          3.5645226508378984
+        ],
+        "kd": [
+          2.174423419684172,
+          2.170429462753236
+        ],
+        "hidden": [
+          0.0036017004982568323,
+          0.004091957991477102
+        ],
+        "carrier": [
+          5.3570111049339175e-05,
+          6.241536175366491e-05
+        ],
+        "stats": [
+          5.79466995986877e-06,
+          5.8219889069732744e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 16370,
+      "steps": 4,
+      "initial_loss": 1.7752942538790284,
+      "final_loss": 1.7653215905406885,
+      "gamma": 0.0024209385737776756,
+      "residual_ratio": 0.0011785267200616347,
+      "route_scale": 0.018084816634655,
+      "routing_entropy": 2.9413251876831055,
+      "forward_calls": 67,
+      "components": {
+        "gold": [
+          3.26352519094944,
+          3.187282556295395
+        ],
+        "kd": [
+          1.7749552249908447,
+          1.7650105725973844
+        ],
+        "hidden": [
+          0.0033239362936001273,
+          0.0030360330711118877
+        ],
+        "carrier": [
+          6.51862210361287e-05,
+          7.297417323570698e-05
+        ],
+        "stats": [
+          5.83183600610937e-06,
+          5.860943474544911e-06
+        ]
+      }
+    },
+    {
+      "stage": "A",
+      "row": 3,
+      "start": 15230,
+      "steps": 4,
+      "initial_loss": 0.7458441104050507,
+      "final_loss": 0.764577742037991,
+      "gamma": 0.00242886645719409,
+      "residual_ratio": 0.001294740282980744,
+      "route_scale": 0.018122514709830284,
+      "routing_entropy": 2.942999839782715,
+      "forward_calls": 75,
+      "components": {
+        "gold": [
+          3.0951110810041427,
+          3.161461353302002
+        ],
+        "kd": [
+          0.745527231041342,
+          0.764241061359644
+        ],
+        "hidden": [
+          0.0030922038364224135,
+          0.003283348062541336
+        ],
+        "carrier": [
+          7.541566446889192e-05,
+          8.227884245570749e-05
+        ],
+        "stats": [
+          5.8706809795694426e-06,
+          5.899392363062361e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 17890,
+      "steps": 24,
+      "initial_loss": 4.409911023541635,
+      "final_loss": 4.216447115895654,
+      "gamma": 0.0024982052855193615,
+      "residual_ratio": 0.0018160973920295475,
+      "route_scale": 0.018611038103699684,
+      "routing_entropy": 2.9432058334350586,
+      "forward_calls": 123,
+      "components": {
+        "gold": [
+          3.7176814556121824,
+          3.5916304737329483
+        ],
+        "kd": [
+          1.3838397290557622,
+          1.2490555956959724
+        ],
+        "hidden": [
+          0.003053654555696994,
+          0.002824600110761821
+        ],
+        "carrier": [
+          8.439530211035162e-05,
+          0.00012518966104835272
+        ],
+        "stats": [
+          5.909044830332277e-06,
+          6.241029495868133e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 17130,
+      "steps": 24,
+      "initial_loss": 3.8067587201684456,
+      "final_loss": 3.4928561854032885,
+      "gamma": 0.0025872387923300266,
+      "residual_ratio": 0.0020605526695533713,
+      "route_scale": 0.019403867423534393,
+      "routing_entropy": 2.9432480335235596,
+      "forward_calls": 171,
+      "components": {
+        "gold": [
+          3.2613105177879333,
+          3.0198382318019865
+        ],
+        "kd": [
+          1.090234585478902,
+          0.9454650308936834
+        ],
+        "hidden": [
+          0.003244303376413882,
+          0.002762757986783981
+        ],
+        "carrier": [
+          0.00012708234135061502,
+          0.00018056959379464388
+        ],
+        "stats": [
+          6.259317615331383e-06,
+          6.693804607493803e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 16750,
+      "steps": 24,
+      "initial_loss": 5.205738204987028,
+      "final_loss": 4.622861415611906,
+      "gamma": 0.0026608456391841173,
+      "residual_ratio": 0.0023310496122923878,
+      "route_scale": 0.020195767283439636,
+      "routing_entropy": 2.9421892166137695,
+      "forward_calls": 219,
+      "components": {
+        "gold": [
+          3.482223865389824,
+          3.1652342289686204
+        ],
+        "kd": [
+          3.4463475881144405,
+          2.9145735785365106
+        ],
+        "hidden": [
+          0.003312599076889455,
+          0.0032734403910581024
+        ],
+        "carrier": [
+          0.00018302752869203687,
+          0.0002582346787676215
+        ],
+        "stats": [
+          6.712793037877418e-06,
+          7.0800992943986785e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 14470,
+      "steps": 24,
+      "initial_loss": 5.0200001344017435,
+      "final_loss": 4.455769994044185,
+      "gamma": 0.002750722924247384,
+      "residual_ratio": 0.002598830736040141,
+      "route_scale": 0.020712388679385185,
+      "routing_entropy": 2.94207501411438,
+      "forward_calls": 267,
+      "components": {
+        "gold": [
+          4.268501877784729,
+          3.793536651134491
+        ],
+        "kd": [
+          1.5021945018321277,
+          1.3237229779362678
+        ],
+        "hidden": [
+          0.003877603483851999,
+          0.003545133280567825
+        ],
+        "carrier": [
+          0.00026206683833152056,
+          0.0003437856794334948
+        ],
+        "stats": [
+          7.10053245711606e-06,
+          7.566476597276051e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 17510,
+      "steps": 24,
+      "initial_loss": 4.016878268026257,
+      "final_loss": 3.7456712048812184,
+      "gamma": 0.00281175272539258,
+      "residual_ratio": 0.0027445386578961216,
+      "route_scale": 0.02099134400486946,
+      "routing_entropy": 2.938600778579712,
+      "forward_calls": 315,
+      "components": {
+        "gold": [
+          3.187285450100899,
+          3.0401499450206755
+        ],
+        "kd": [
+          1.6584066286683083,
+          1.4101955501362682
+        ],
+        "hidden": [
+          0.0037198254372924565,
+          0.004021679470315576
+        ],
+        "carrier": [
+          0.00034738564863801,
+          0.00042317452607676387
+        ],
+        "stats": [
+          7.588252174173249e-06,
+          7.905953680165112e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 14850,
+      "steps": 24,
+      "initial_loss": 4.500955098150298,
+      "final_loss": 4.129165538655471,
+      "gamma": 0.0028851127717643976,
+      "residual_ratio": 0.0028169502794061886,
+      "route_scale": 0.022278042510151863,
+      "routing_entropy": 2.941481113433838,
+      "forward_calls": 363,
+      "components": {
+        "gold": [
+          3.4407992869615556,
+          3.2096277117729186
+        ],
+        "kd": [
+          2.119644117355347,
+          1.838434775173664
+        ],
+        "hidden": [
+          0.0031227685278281568,
+          0.0029551891318988057
+        ],
+        "carrier": [
+          0.000426344369770959,
+          0.0004950781003572047
+        ],
+        "stats": [
+          7.921989890746772e-06,
+          8.32387559057679e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 16370,
+      "steps": 24,
+      "initial_loss": 3.901007717163375,
+      "final_loss": 3.4998779818603545,
+      "gamma": 0.0029588788747787476,
+      "residual_ratio": 0.0029251714104367144,
+      "route_scale": 0.023630715906620026,
+      "routing_entropy": 2.9388511180877686,
+      "forward_calls": 411,
+      "components": {
+        "gold": [
+          3.036596712470055,
+          2.7222848385572433
+        ],
+        "kd": [
+          1.7281837072223425,
+          1.5544503156095744
+        ],
+        "hidden": [
+          0.0029404640488792213,
+          0.0033868194092065095
+        ],
+        "carrier": [
+          0.0004987547872588038,
+          0.0005825691623613238
+        ],
+        "stats": [
+          8.346894901478663e-06,
+          8.754964255786035e-06
+        ]
+      }
+    },
+    {
+      "stage": "B",
+      "row": 3,
+      "start": 15230,
+      "steps": 24,
+      "initial_loss": 3.383592614344179,
+      "final_loss": 3.1387416453473636,
+      "gamma": 0.003025023965165019,
+      "residual_ratio": 0.002992942014104539,
+      "route_scale": 0.024065745994448662,
+      "routing_entropy": 2.9413223266601562,
+      "forward_calls": 459,
+      "components": {
+        "gold": [
+          2.999249744415283,
+          2.811996826529503
+        ],
+        "kd": [
+          0.7680726572871208,
+          0.6528423674404621
+        ],
+        "hidden": [
+          0.002770320256240666,
+          0.0029091939562931658
+        ],
+        "carrier": [
+          0.0005866751307621598,
+          0.000650653732009232
+        ],
+        "stats": [
+          8.775158676144201e-06,
+          9.150769983534701e-06
+        ]
+      }
+    }
+  ],
+  "final_state": {
+    "gamma": 0.003025023965165019,
+    "residual_ratio": 0.002992942014104539,
+    "route_scale": 0.024065745994448662,
+    "routing_entropy": 2.9413223266601562,
+    "forward_calls": 459
+  },
+  "train": {
+    "n_windows": 8,
+    "n_eligible": 55,
+    "n_lost": 30,
+    "n_recovered": 7,
+    "recovery_rate": 0.23333333333333334,
+    "per_window": [
+      {
+        "row": 3,
+        "start": 17890,
+        "n_probes": 20,
+        "n_eligible": 6,
+        "n_lost": 3,
+        "n_recovered": 1,
+        "recovery_rate": 0.3333333333333333,
+        "recovered_questions": [
+          "What sport is Charlie Manuel associated with?"
+        ]
+      },
+      {
+        "row": 3,
+        "start": 17130,
+        "n_probes": 20,
+        "n_eligible": 4,
+        "n_lost": 2,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      },
+      {
+        "row": 3,
+        "start": 16750,
+        "n_probes": 20,
+        "n_eligible": 9,
+        "n_lost": 6,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      },
+      {
+        "row": 3,
+        "start": 14470,
+        "n_probes": 20,
+        "n_eligible": 6,
+        "n_lost": 5,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      },
+      {
+        "row": 3,
+        "start": 17510,
+        "n_probes": 20,
+        "n_eligible": 6,
+        "n_lost": 4,
+        "n_recovered": 2,
+        "recovery_rate": 0.5,
+        "recovered_questions": [
+          "In what city was Blur founded?",
+          "What is the country of citizenship of Laurent de Gouvion Saint-Cyr?"
+        ]
+      },
+      {
+        "row": 3,
+        "start": 14850,
+        "n_probes": 20,
+        "n_eligible": 7,
+        "n_lost": 3,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      },
+      {
+        "row": 3,
+        "start": 16370,
+        "n_probes": 20,
+        "n_eligible": 7,
+        "n_lost": 5,
+        "n_recovered": 3,
+        "recovery_rate": 0.6,
+        "recovered_questions": [
+          "What religion is Jean-Jacques Bertrand affiliated with?",
+          "What sport is Umar Gul associated with?",
+          "What sport is Belfast Celtic F.C. associated with?"
+        ]
+      },
+      {
+        "row": 3,
+        "start": 15230,
+        "n_probes": 20,
+        "n_eligible": 10,
+        "n_lost": 2,
+        "n_recovered": 1,
+        "recovery_rate": 0.5,
+        "recovered_questions": [
+          "In what city did Tove Jansson work?"
+        ]
+      }
+    ]
+  },
+  "held_out": {
+    "n_windows": 2,
+    "n_eligible": 41,
+    "n_lost": 16,
+    "n_recovered": 0,
+    "recovery_rate": 0.0,
+    "per_window": [
+      {
+        "row": 2,
+        "start": 3450,
+        "n_probes": 60,
+        "n_eligible": 22,
+        "n_lost": 7,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      },
+      {
+        "row": 2,
+        "start": 3830,
+        "n_probes": 60,
+        "n_eligible": 19,
+        "n_lost": 9,
+        "n_recovered": 0,
+        "recovery_rate": 0.0,
+        "recovered_questions": []
+      }
+    ]
+  },
+  "verdict": {
+    "outcome": "window_overfit",
+    "reason": "held-out recovered nothing while training recovered 7/30",
+    "thresholds": {
+      "generalises_rate": 0.5,
+      "generalises_min_recovered": 2
+    }
+  },
+  "probes": {
+    "train": [
+      {
+        "window": [
+          3,
+          17890
+        ],
+        "questions": [
+          "What is the country of citizenship of Malcolm Forbes?",
+          "What religion is Hans Frank affiliated with?",
+          "What sport is Jamie Ward associated with?",
+          "Who is John Lightfoot employed by?",
+          "What sport is 2010 African Women's Championship associated with?",
+          "What sport is New Firm associated with?",
+          "What is the country of citizenship of Nikolai Gogol?",
+          "What is the country of citizenship of Richie Sexson?",
+          "Who developed Xbox Live Vision?",
+          "What is the country of citizenship of Grant Wood?",
+          "Who created Girls?",
+          "What position does Sami Khedira play?",
+          "Who founded Epicureanism?",
+          "What sport is Charlie Manuel associated with?",
+          "Who is Victor Turner employed by?",
+          "What is the country of citizenship of Henry Ford?",
+          "In what city was Ford Motor Company founded?",
+          "In what country was Multi-Coloured Swap Shop created?",
+          "Who developed Heavy Rain?",
+          "What is the country of citizenship of Steven Levitan?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          17130
+        ],
+        "questions": [
+          "What is the country of citizenship of John Milton?",
+          "What is the country of citizenship of Emmanuel Mounier?",
+          "What is the country of citizenship of Georges Bataille?",
+          "What religion is Johann Sebastian Bach affiliated with?",
+          "Who is Kim Gordon married to?",
+          "Who founded Eni?",
+          "Who is the author of Jurassic Park?",
+          "What religion is Leo IX affiliated with?",
+          "Who is Ashton Carter employed by?",
+          "What religion is Cochinchina affiliated with?",
+          "What sport is Bobby Abreu associated with?",
+          "What is the country of citizenship of Alanis Morissette?",
+          "In what city was Open Mike Eagle born?",
+          "What is the country of citizenship of R. B. Bennett?",
+          "In what country was Backstreet Boys created?",
+          "Who performed Frank Underwood?",
+          "In what country was underground hip hop created?",
+          "What language does Naoki Urasawa speak?",
+          "Who is the author of Beloved?",
+          "What sport is Selangor FA associated with?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          16750
+        ],
+        "questions": [
+          "Who performed Unforgettable?",
+          "What is the country of citizenship of Robert Silverberg?",
+          "What religion is Ed Macauley affiliated with?",
+          "Who is CM Punk married to?",
+          "In what city was Habib Bourguiba born?",
+          "What language does Mike DeWine speak?",
+          "Who developed Crysis 2?",
+          "In what city did Plato die?",
+          "In what city was Seventh-day Adventist Church founded?",
+          "Who is Donald Hall employed by?",
+          "Who created Gavroche?",
+          "Who created Leela?",
+          "What language does Charles Brabin speak?",
+          "What continent is Greece located in?",
+          "In what city was Ville Valo born?",
+          "Who is F. Scott Fitzgerald married to?",
+          "What religion is Samuel Taylor Coleridge affiliated with?",
+          "What sport is Western International League associated with?",
+          "Who developed Windows Server 2008 R2?",
+          "In what country was The Brothers Four created?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          14470
+        ],
+        "questions": [
+          "What is the country of citizenship of Justinian I?",
+          "What sport is association football manager associated with?",
+          "What is the country of citizenship of Bill Finger?",
+          "Who founded Democratic Party?",
+          "In what city did B. F. Skinner die?",
+          "What is the country of citizenship of Dave Burrell?",
+          "In what city was Cecilia Cheung born?",
+          "What religion is Mahmud I affiliated with?",
+          "What sport is Luka Modri\u0107 associated with?",
+          "Who performed Folsom Prison Blues?",
+          "What religion is Lanfranc affiliated with?",
+          "What sport is Essex County Cricket Club associated with?",
+          "In what city was Amanda Palmer born?",
+          "Who performed Like a Virgin?",
+          "Who is Slobodan Milo\u0161evi\u0107 married to?",
+          "In what city did Hugo Gernsback die?",
+          "Who created Feluda?",
+          "Who is Robert Venturi married to?",
+          "In what country was Cold War Kids created?",
+          "What position does Joakim Noah play?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          17510
+        ],
+        "questions": [
+          "What language does Lena Dunham speak?",
+          "Who created Futurama?",
+          "What continent is Chile located in?",
+          "In what city was Blur founded?",
+          "Who is Doris Kearns Goodwin employed by?",
+          "What religion is Th\u00e9r\u00e8se of Lisieux affiliated with?",
+          "What religion is Zhiyi affiliated with?",
+          "Who is the author of Richard II?",
+          "In what city was Paul Butterfield born?",
+          "Who founded Chanel?",
+          "What sport is Artur Boruc associated with?",
+          "What is the country of citizenship of Joe Nickell?",
+          "Who is the author of The Heidi Chronicles?",
+          "Who performed The Wall?",
+          "What continent is Malta located in?",
+          "Who developed Mac Pro?",
+          "What language does Richard Price speak?",
+          "In what city did Pius XII die?",
+          "Who developed File Explorer?",
+          "What is the country of citizenship of Laurent de Gouvion Saint-Cyr?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          14850
+        ],
+        "questions": [
+          "What sport is Lyngby Boldklub associated with?",
+          "What is the country of citizenship of John Fowles?",
+          "Who is Michael Scheuer employed by?",
+          "In what city did Gary Gygax die?",
+          "What is the country of citizenship of Ted Mosby?",
+          "What is Paramahansa Yogananda famous for?",
+          "In what country was The Moving Picture World created?",
+          "Who is Stan Lee married to?",
+          "Who developed Tu-134?",
+          "Who is Leon Allen White employed by?",
+          "In what country was Nyugat created?",
+          "What continent is Z\u00fcrich located in?",
+          "Who is Sigmund Freud employed by?",
+          "Who is Mike Pompeo employed by?",
+          "What continent is Czech Republic located in?",
+          "What is the country of citizenship of Thierry Mugler?",
+          "In what country was Emery created?",
+          "What sport is Damon Stoudamire associated with?",
+          "What religion is Mother Angelica affiliated with?",
+          "In what city was Elon Musk born?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          16370
+        ],
+        "questions": [
+          "Who is the author of psychoanalysis?",
+          "What sport is Glasgow City F.C. associated with?",
+          "In what city did Geoffrey Chaucer die?",
+          "In what country was Shudder to Think created?",
+          "Who is Bruno Bettelheim employed by?",
+          "Who is the author of Naruto?",
+          "Who is the author of Allegory of the Cave?",
+          "What is the country of citizenship of Simon Coveney?",
+          "What sport is Copa del Rey associated with?",
+          "What is the country of citizenship of Steve Buscemi?",
+          "What religion is Jean-Jacques Bertrand affiliated with?",
+          "What position does Mario Chalmers play?",
+          "What sport is Umar Gul associated with?",
+          "What religion is Paolo Sarpi affiliated with?",
+          "Who is Oscar Wilde married to?",
+          "In what city did J. D. Salinger die?",
+          "What sport is Belfast Celtic F.C. associated with?",
+          "In what city did Alan Jay Lerner die?",
+          "In what city was Oleg Gordievsky born?",
+          "What religion is University of San Diego affiliated with?"
+        ]
+      },
+      {
+        "window": [
+          3,
+          15230
+        ],
+        "questions": [
+          "Who created Jacob Black?",
+          "In what city was Toni Morrison born?",
+          "In what city did Tove Jansson work?",
+          "What language does Michelangelo speak?",
+          "What is the country of citizenship of Ivar Aasen?",
+          "Who developed C#?",
+          "What sport is Altrincham F.C. associated with?",
+          "In what city was Vikram Bhatt born?",
+          "What is the country of citizenship of Dennis Edwards?",
+          "Who is Eminem married to?",
+          "What is the country of citizenship of Kido Takayoshi?",
+          "What is Herman Melville famous for?",
+          "What is the country of citizenship of Gerard Joling?",
+          "What language does Michael Lewis speak?",
+          "Who developed Blue Screen of Death?",
+          "What language does William Golding speak?",
+          "What is the country of citizenship of Duncan Sheik?",
+          "What is the country of citizenship of Wayne LaPierre?",
+          "What religion is Austrian Empire affiliated with?",
+          "What language does Little Richard speak?"
+        ]
+      }
+    ],
+    "held_out": [
+      {
+        "window": [
+          2,
+          3450
+        ],
+        "questions": [
+          "What sport is Big League World Series associated with?",
+          "Who founded Scientology?",
+          "What continent is Madrid located in?",
+          "What position does Aaron Harang play?",
+          "Who created Lemuel Gulliver?",
+          "What is the country of citizenship of Shonda Rhimes?",
+          "What language does Joel Surnow speak?",
+          "What sport is 2004 NBA Draft associated with?",
+          "Who is the author of Ruy Blas?",
+          "Who performed Will Schuester?",
+          "In what city did Nadezhda Krupskaya die?",
+          "What is the capital of Australia?",
+          "Who is Larry Page employed by?",
+          "Who is Kathryn Bigelow married to?",
+          "Who developed Ju 88?",
+          "Who is Porter Goss employed by?",
+          "In what city did Noel Pemberton Billing work?",
+          "Who performed Drive My Car?",
+          "What sport is Santiago Morning associated with?",
+          "Who is the author of The Vicar of Wakefield?",
+          "What position does Bruce Arena play?",
+          "Who created Punk'd?",
+          "What position does Pepe Reina play?",
+          "In what country was The Canterbury Tales created?",
+          "What is the country of citizenship of John Evelyn?",
+          "What is the country of citizenship of Charles de Gaulle?",
+          "What language does Alex Raymond speak?",
+          "In what city did J. M. E. McTaggart die?",
+          "What religion is Johannes Trithemius affiliated with?",
+          "What religion is First Epistle of John affiliated with?",
+          "What is the country of citizenship of Bob Iger?",
+          "In what country was association football created?",
+          "Who is the author of The Monk?",
+          "What continent is San Francisco located in?",
+          "What sport is Petco Park associated with?",
+          "Who developed AppleScript?",
+          "What position does Nate Robinson play?",
+          "What sport is Rinus Michels associated with?",
+          "What religion is Adrian IV affiliated with?",
+          "In what language was National Review written?",
+          "What is the capital of United Kingdom?",
+          "Who founded Italdesign Giugiaro?",
+          "What language does Ari Vatanen speak?",
+          "What sport is Wakefield F.C. associated with?",
+          "Who created Wizard of Oz?",
+          "Who is the author of Madame Bovary?",
+          "What sport is Silvio Berlusconi associated with?",
+          "In what language was Uncanny X-Men written?",
+          "Who is Bill Mantlo employed by?",
+          "What language does Christopher Robin Milne speak?",
+          "Who is the author of The Maze Runner?",
+          "Who is Sigmund Freud employed by?",
+          "Who is Prince Andrew, Duke of York married to?",
+          "In what city did Gamal Abdel Nasser die?",
+          "What is the country of citizenship of Emma Darwin?",
+          "Who performed Rocket Man?",
+          "What religion is Natalie Portman affiliated with?",
+          "Who performed Beatles for Sale?",
+          "What is the country of citizenship of Ambrose Bierce?",
+          "Who is the author of The Normal Heart?"
+        ],
+        "answers": [
+          "association football",
+          "L. Ron Hubbard",
+          "Africa",
+          "starting pitcher",
+          "Jonathan Swift",
+          "United States of America",
+          "English",
+          "association football",
+          "Mary Baker Eddy",
+          "The Game",
+          "Moscow",
+          "Oderzo",
+          "University of Edinburgh",
+          "Seth Cohen",
+          "Nintendo",
+          "Central Intelligence Agency",
+          "Washington, D.C",
+          "Madonna",
+          "association football",
+          "James Agee",
+          "left fielder",
+          "Andy Hamilton",
+          "midfielder",
+          "England",
+          "Poland",
+          "India",
+          "English",
+          "Rizal Park",
+          "Church of Scotland",
+          "Christianity",
+          "United States of America",
+          "Italy",
+          "Al Gore",
+          "Africa",
+          "baseball",
+          "Apple Inc",
+          "flanker",
+          "association football",
+          "Methodism",
+          "Japanese",
+          "Rupnagar",
+          "Dhirubhai Ambani",
+          "Finnish",
+          "association football",
+          "Ambrose Bierce",
+          "Samuel Taylor Coleridge",
+          "baseball",
+          "English",
+          "Marvel Comics",
+          "English",
+          "James Dashner",
+          "University of California, Los Angeles",
+          "Mahidol Adulyadej",
+          "Cairo",
+          "People's Republic of China",
+          "Ayumi Hamasaki",
+          "interdenominational organization",
+          "Madonna",
+          "Switzerland",
+          "Larry Kramer"
+        ]
+      },
+      {
+        "window": [
+          2,
+          3830
+        ],
+        "questions": [
+          "In what city did H. P. Lovecraft die?",
+          "What position does Vinny Testaverde play?",
+          "What is the country of citizenship of Charles IV of France?",
+          "In what country was hardcore punk created?",
+          "Who is the author of The Chronicles of Amber?",
+          "What is the country of citizenship of Colin Irwin?",
+          "Who founded Distinguished Service Order?",
+          "Who created Aslan?",
+          "What is the country of citizenship of Pat Nixon?",
+          "In what country was op\u00e9ra comique created?",
+          "Who created Legolas?",
+          "What sport is Alta IF associated with?",
+          "What religion is Joseph I affiliated with?",
+          "Who founded Chicago?",
+          "Who performed And I Love Her?",
+          "What is the country of citizenship of Edie Brickell?",
+          "What sport is Graeme Hick associated with?",
+          "In what city was Pete Seeger born?",
+          "What is the country of citizenship of Bharathan?",
+          "What is the country of citizenship of Burt Rutan?",
+          "In what city did Thomas Hardy die?",
+          "In what city was Sigmund Freud born?",
+          "What religion is Louis XV of France affiliated with?",
+          "Who is Philip Pullman employed by?",
+          "What religion is Peter the Venerable affiliated with?",
+          "Who is Anna Magdalena Bach married to?",
+          "What is Montesquieu famous for?",
+          "What is the country of citizenship of University of Coimbra?",
+          "Who is George Santayana employed by?",
+          "Who is the author of The Brothers Karamazov?",
+          "What position does Hakeem Olajuwon play?",
+          "What is the country of citizenship of Nicky Hopkins?",
+          "What continent is Romania located in?",
+          "Who is Dave Filoni employed by?",
+          "Who developed B-47 Stratojet?",
+          "What sport is Atl\u00e9tico Choloma associated with?",
+          "Who is Blake Shelton married to?",
+          "Who created phenomenology?",
+          "Who is Katherine Mansfield married to?",
+          "Who founded University of Utah?",
+          "What sport is John Aloisi associated with?",
+          "What is the country of citizenship of Alan Thicke?",
+          "Who is the author of The Second Coming?",
+          "In what country was ESPN created?",
+          "What language does Carey Hart speak?",
+          "What sport is Anorthosis Famagusta FC associated with?",
+          "In what city did Andr\u00e9 Breton work?",
+          "What sport is UEFA Euro 2000 qualifying associated with?",
+          "Who is the director of Chicago Symphony Orchestra?",
+          "In what language was The Wheel of Time written?",
+          "What sport is split-finger fastball associated with?",
+          "What continent is Japan located in?",
+          "In what city was Martin Luther King Jr. born?",
+          "What position does Mike Matheny play?",
+          "What sport is 1949 World Series associated with?",
+          "In what city was Jari Kurri born?",
+          "Who is Eddard Stark married to?",
+          "Who is the author of Dancing at Lughnasa?",
+          "Who created Caliban?",
+          "What position does Giovani dos Santos play?"
+        ],
+        "answers": [
+          "Providence",
+          "midfielder",
+          "Kingdom of Italy",
+          "United States of America",
+          "R. L. Stine",
+          "Israel",
+          "John III of Sweden",
+          "Charles Sturridge",
+          "Argentina",
+          "France",
+          "Garry Shandling",
+          "baseball",
+          "Methodism",
+          "Bill Gore",
+          "The Beatles",
+          "United States of America",
+          "association football",
+          "London",
+          "Venezuela",
+          "United States of America",
+          "Dorchester",
+          "P\u0159\u00edbor",
+          "Christian Science",
+          "University of Cambridge",
+          "Religious Society of Friends",
+          "Robert Baratheon",
+          "Battle of Raszyn",
+          "United States of America",
+          "University of Chicago",
+          "Neil Simon",
+          "center",
+          "France",
+          "Europe",
+          "British Broadcasting Corporation",
+          "Panasonic Corporation",
+          "association football",
+          "Miranda Lambert",
+          "Laurence Olivier",
+          "John V Palaiologos",
+          "Daisaku Ikeda",
+          "association football",
+          "Japan",
+          "Terrance Dicks",
+          "United States of America",
+          "English",
+          "savate",
+          "Paris",
+          "Gaelic football",
+          "Brian Epstein",
+          "English",
+          "cricket",
+          "Europe",
+          "Atlanta",
+          "closer",
+          "cricket",
+          "Helsinki",
+          "Mina Harker",
+          "Guru Nanak",
+          "William Shakespeare",
+          "goaltender"
+        ]
+      }
+    ]
+  }
+}
