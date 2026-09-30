@@ -289,6 +289,19 @@ class ProtectedResidualMemory:
         self._active_mask_used: Optional[int] = None
         self._active_mask_count = 0
 
+        self._carrier: Optional[CarrierResidualCompactor] = None
+        self.compactor_errors = 0
+        # A trained checkpoint is validated here rather than on the first
+        # compaction. `compact_with_report` wraps the operator call in a broad
+        # `except` so one bad forward cannot kill a long run, and a load failure
+        # raised inside that block is swallowed the same way: the write frees
+        # nothing, `_place` falls through to `_evict_oldest`, and the carrier arm
+        # degenerates into the eviction arm -- precisely the comparison the
+        # three-arm run exists to make. Loading at construction turns a missing
+        # file, a foreign state_dict and a shape mismatch into a startup error.
+        if getattr(config, "carrier_ckpt", None):
+            self._carrier_compactor()
+
     # -- helpers ------------------------------------------------------------
 
     @property
@@ -327,6 +340,8 @@ class ProtectedResidualMemory:
         self.write_count = 0
         self.peak_used = 0
         self.made_room_for_write = False
+        # `compactor_errors` is deliberately not reset: it counts operator
+        # failures for the whole run, and a reset would hide a persistent one.
         self.last_snapshot = CapacitySnapshot(budget_slots=self.layout.working_capacity)
         self.importance = ImportanceTracker(self.cfg.importance_weights)
         self._active_mask_used = None
@@ -1122,6 +1137,11 @@ class ProtectedResidualMemory:
         try:
             compacted = self._run_compactor(source, weights, target)
         except Exception as error:  # noqa: BLE001 - a failed compaction must not kill the run
+            # Counted as well as reported: a compaction that raised freed zero
+            # slots, so `_place` evicts instead, and a run whose operator fails
+            # every time is an eviction run wearing a carrier label. The count
+            # reaches `stats()` and therefore every stats line.
+            self.compactor_errors += 1
             return {**empty, "reason_skipped": f"compactor_error: {error!r}"}
 
         if compacted.shape[1] != target:
@@ -1203,15 +1223,15 @@ class ProtectedResidualMemory:
         return self.compactor(source, weights, target)
 
     def _carrier_compactor(self):
-        """Lazily build the phase-3 compactor, then reuse it.
+        """Build the phase-3 compactor, then reuse it.
 
-        Built on first compaction rather than in `__init__` so that configs which
-        never select `carrier_residual` do not pay for the module, and so that a
-        checkpoint path is only read once. The module lives on the model's device
-        and dtype-agnostic in fp32; the forward casts back to the pool dtype at
-        the end.
+        The module is built on first use so that configs which never select
+        `carrier_residual` do not pay for it. When a checkpoint is configured the
+        first use is `__init__`, deliberately: see the comment there. The module
+        lives on the model's device and dtype-agnostic in fp32; the forward casts
+        back to the pool dtype at the end.
         """
-        existing = getattr(self, "_carrier", None)
+        existing = self._carrier
         if existing is not None:
             return existing
 
@@ -1225,12 +1245,8 @@ class ProtectedResidualMemory:
 
         ckpt = getattr(self.cfg, "carrier_ckpt", None)
         if ckpt:
-            state = torch.load(ckpt, map_location=self._memory.device)
-            if isinstance(state, dict) and "state_dict" in state:
-                state = state["state_dict"]
-            carrier.load_state_dict(state)
+            self._load_carrier_state(carrier, ckpt)
             carrier.trained = True  # noqa: attribute set for parity with LearnedCompactor
-            print(f"[prlmc] carrier_residual: loaded {ckpt}")
         else:
             # No checkpoint: the module is at initialisation, where `up` is zero
             # and the output equals the selected carriers bit for bit. That is a
@@ -1244,6 +1260,72 @@ class ProtectedResidualMemory:
         carrier.eval()
         self._carrier = carrier
         return carrier
+
+    def _load_carrier_state(self, carrier: "CarrierResidualCompactor", ckpt: str) -> None:
+        """Load a carrier checkpoint or raise a message that names the file.
+
+        Every failure mode here is a configuration error, not a runtime one, and
+        the caller wraps the operator call in a broad `except`. Raising is
+        therefore the only way these reach a reader: left to `compact_with_report`
+        they become a `compactor_error` string in a per-write record, the write
+        frees nothing, and the arm quietly evicts instead.
+        """
+        try:
+            raw = torch.load(ckpt, map_location=self._memory.device)
+        except Exception as error:
+            raise RuntimeError(
+                "carrier_ckpt %r could not be read (%s: %s); the carrier arm would "
+                "otherwise evict instead of compact" % (ckpt, type(error).__name__, error)
+            ) from error
+
+        state = raw
+        if isinstance(raw, dict) and "state_dict" in raw:
+            state = raw["state_dict"]
+        if not isinstance(state, dict):
+            raise RuntimeError(
+                "carrier_ckpt %r holds %s, not a state_dict; expected the mapping "
+                "written by the training script under a 'state_dict' key"
+                % (ckpt, type(raw).__name__)
+            )
+
+        target = carrier.state_dict()
+        missing = sorted(set(target) - set(state))
+        unexpected = sorted(set(state) - set(target))
+        if missing or unexpected:
+            raise RuntimeError(
+                "carrier_ckpt %r does not match this carrier: missing %s, unexpected %s. "
+                "A checkpoint from a different rank or block width cannot be fused."
+                % (ckpt, missing or "none", unexpected or "none")
+            )
+        for name, value in state.items():
+            if not torch.is_tensor(value):
+                raise RuntimeError(
+                    "carrier_ckpt %r entry %r is %s, not a tensor"
+                    % (ckpt, name, type(value).__name__)
+                )
+            if tuple(value.shape) != tuple(target[name].shape):
+                raise RuntimeError(
+                    "carrier_ckpt %r entry %r has shape %s, expected %s; check "
+                    "carrier_rank and the training template"
+                    % (ckpt, name, tuple(value.shape), tuple(target[name].shape))
+                )
+
+        carrier.load_state_dict(state, strict=True)
+        # `gamma_max` is a plain attribute, not a parameter, so it is absent from
+        # the state_dict the trainer writes and cannot be restored from the file.
+        # The effective gate is `gamma_max * sigmoid(gamma_logit)`, so a YAML
+        # value other than the training one rescales every learned residual
+        # silently. It is printed instead, which is all that is verifiable: the
+        # file does not record the value it was trained under.
+        print(
+            "[prlmc] carrier_residual: gamma_max %.6g x sigmoid(%.6g) = effective gamma %.6g"
+            % (
+                carrier.gamma_max,
+                float(carrier.gamma_logit.detach()),
+                float(carrier.gamma.detach()),
+            )
+        )
+        print(f"[prlmc] carrier_residual: loaded {ckpt}")
 
     def _window_importance(self, start: int, window: int) -> Optional[torch.Tensor]:
         """Importance weights for the sliding window, or None when unused.
@@ -1285,6 +1367,7 @@ class ProtectedResidualMemory:
             "n_consolidated": self.n_consolidated,
             "residual_slots": max(0, self.used - self.n_consolidated),
             "compaction_count": self.compaction_count,
+            "compactor_errors": self.compactor_errors,
             "evicted_blocks": self.evicted_blocks,
             "skipped_chunks": self.skipped_chunks,
             "writes": self.write_count,
