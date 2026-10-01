@@ -1044,6 +1044,40 @@ def _stage_weights(stage: str) -> CompactObjective:
     return objective
 
 
+# --- teacher-pass cache (E6d/E6e: 200 teacher forwards per arm -> 8) ---------
+#
+# The teacher pass is a pure function of (window pool, probe batches): it runs
+# under `no_grad` over the *uncompacted* pool, and neither the compactor's
+# weights nor the optimiser enter it. E6b/E6c train each window in one
+# contiguous call, so the pass amortises. The E6d interleave arm calls this
+# function 200 times (24 rounds x 8 windows) against pools that rebuild to the
+# identical bytes each time a window returns -- `rebuild` zeroes the pool and
+# rewrites the same fact lines from the same start -- so 192 of those 200
+# teacher passes recompute bit-identical targets. At ~10-15 min per pass that
+# is ~30 h of pure waste per arm.
+#
+# The cache is keyed by a caller-supplied token: e6d/e6e pass
+# (row, start, context_hash-of-lines), which identifies the rebuilt pool up to
+# bit identity. Callers that do not pass a key keep the exact old behaviour.
+# Correctness argument: if the key matches, the pool bytes match (same lines,
+# same start, deterministic write path) and the batches match (same tokenizer,
+# same probes, same max_probe_tokens), so the teacher tensors are the same
+# values; the copies below hand each caller a private tensor, so no later
+# in-place mutation can leak between cache hits.
+_TEACHER_CACHE: dict = {}
+
+
+def clear_teacher_cache() -> None:
+    """Drop every cached teacher pass. Call between unrelated fixtures."""
+    _TEACHER_CACHE.clear()
+
+
+def _cache_key(key, max_probe_tokens, device):
+    if key is None:
+        return None
+    return (tuple(key), int(max_probe_tokens), str(device))
+
+
 def train_carrier_compactor(
     manager,
     probes: Sequence[Probe],
@@ -1062,6 +1096,7 @@ def train_carrier_compactor(
     compactor: Optional[object] = None,
     ckpt_out: Optional[str] = None,
     optimiser: Optional[object] = None,
+    teacher_cache_key: Optional[Sequence] = None,
 ) -> Dict[str, float]:
     """Phase 4: train the carrier residual against the reader.
 
@@ -1215,15 +1250,30 @@ def train_carrier_compactor(
     # raises. Teacher and student therefore both run at the same width, which also
     # keeps the rotary offsets identical to the ones the reader sees at inference.
     _mem("before teacher", device)
-    with torch.no_grad(), differentiable_memory(manager.model, manager._memory.to(device).detach()):
-        teacher_logits = []
-        teacher_hidden = []
-        for input_ids, n_prefix, _ in batches:
-            logits, hidden = _forward_with_hidden(
-                manager.model, input_ids, reader_layers, enable_grad=False
+    cache_token = _cache_key(teacher_cache_key, max_probe_tokens, device)
+    cached = _TEACHER_CACHE.get(cache_token) if cache_token is not None else None
+    if cached is not None:
+        # Private copies: the student loop never mutates these tensors, but a
+        # caller that holds onto them after a hit would otherwise alias the
+        # cache entry, and any in-place use would corrupt the next hit.
+        teacher_logits = [t.clone() for t in cached[0]]
+        teacher_hidden = [[h.clone() for h in hs] for hs in cached[1]]
+        _mem("teacher cache hit", device)
+    else:
+        with torch.no_grad(), differentiable_memory(manager.model, manager._memory.to(device).detach()):
+            teacher_logits = []
+            teacher_hidden = []
+            for input_ids, n_prefix, _ in batches:
+                logits, hidden = _forward_with_hidden(
+                    manager.model, input_ids, reader_layers, enable_grad=False
+                )
+                teacher_logits.append(logits[:, n_prefix - 1 : -1, :].detach())
+                teacher_hidden.append([h.detach() for h in hidden])
+        if cache_token is not None:
+            _TEACHER_CACHE[cache_token] = (
+                [t.detach().clone() for t in teacher_logits],
+                [[h.detach().clone() for h in hs] for hs in teacher_hidden],
             )
-            teacher_logits.append(logits[:, n_prefix - 1 : -1, :].detach())
-            teacher_hidden.append([h.detach() for h in hidden])
     _mem("after teacher", device)
 
     history: List[float] = []

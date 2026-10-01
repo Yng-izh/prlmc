@@ -880,6 +880,14 @@ def train_window(manager, lines, entry, compactor, optimiser, stage, steps, args
 
     Retried at most once, so a deterministic failure still surfaces as an error instead
     of looping.
+
+    The teacher pass is cached across calls: `rebuild` rewrites the identical
+    pool bytes for the same (lines, start) every time, so a window returning
+    in an interleaved schedule reuses its teacher tensors instead of re-running
+    a ~10-min 8B forward over the same probe set. The cache key is
+    (row, start, context_hash of lines), which pins pool identity; the OOM
+    rollback path deliberately leaves the cache alone -- a retried window has
+    the same pool and the same probes, so the hit is exactly what we want.
     """
     built = rebuild(manager, lines, entry["start"])
     if built is None:
@@ -897,6 +905,10 @@ def train_window(manager, lines, entry, compactor, optimiser, stage, steps, args
                 window_blocks=E.WINDOW_BLOCKS, target_blocks=E.TARGET_BLOCKS,
                 max_probe_tokens=args.max_probe_tokens, compactor=compactor,
                 optimiser=optimiser,
+                teacher_cache_key=(
+                    entry["row"], entry["start"], entry["context_hash"],
+                    int(getattr(args, "probes", 0)),
+                ),
             )
             return trained
         except torch.OutOfMemoryError:
