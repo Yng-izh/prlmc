@@ -46,7 +46,7 @@ Reader-A：`M̃_l = M_l + α_l · W_up^(l) σ(W_down^(l) M_l)`，逐层残差，
 | no_memory | 0.000（gold_loss 8.186099028587341） | 机器下限 |
 | frozen_full | 0.300（6/20） | 天花板 |
 | uncompacted | 0.300 | 与 frozen_full 逐条一致 |
-| native_select | 0.300 | 未训练，恢复 0 个 lost |
+| native_select | 0.150 | 未训练，恢复 0 个 lost |
 | svd_frozen | 0.000（gold_loss 3.3203 同档） | lost 6 个全灭 |
 | overkill（g4） | **0.500（10/20）** | recovery **3/3**，gate **pass True** |
 
