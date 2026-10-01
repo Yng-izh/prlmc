@@ -1,0 +1,323 @@
+{
+  "window": {
+    "row": 3,
+    "start": 17890
+  },
+  "window_slots": 4864,
+  "target_slots": 2304,
+  "used_slots": 4864,
+  "dropped_blocks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "n_probes": 20,
+  "gamma_max": 0.2,
+  "probes": [
+    {
+      "q": "What is the country of citizenship of Malcolm Forbes?",
+      "a": "United States of America"
+    },
+    {
+      "q": "What religion is Hans Frank affiliated with?",
+      "a": "Taoism"
+    },
+    {
+      "q": "What sport is Jamie Ward associated with?",
+      "a": "wushu"
+    },
+    {
+      "q": "Who is John Lightfoot employed by?",
+      "a": "University of Cambridge"
+    },
+    {
+      "q": "What sport is 2010 African Women's Championship associated with?",
+      "a": "association football"
+    },
+    {
+      "q": "What sport is New Firm associated with?",
+      "a": "baseball"
+    },
+    {
+      "q": "What is the country of citizenship of Nikolai Gogol?",
+      "a": "Russian Empire"
+    },
+    {
+      "q": "What is the country of citizenship of Richie Sexson?",
+      "a": "Kenya"
+    },
+    {
+      "q": "Who developed Xbox Live Vision?",
+      "a": "Apple Inc"
+    },
+    {
+      "q": "What is the country of citizenship of Grant Wood?",
+      "a": "Grand Duchy of Lithuania"
+    },
+    {
+      "q": "Who created Girls?",
+      "a": "Lena Dunham"
+    },
+    {
+      "q": "What position does Sami Khedira play?",
+      "a": "starting pitcher"
+    },
+    {
+      "q": "Who founded Epicureanism?",
+      "a": "Joaquim Maria Machado de Assis"
+    },
+    {
+      "q": "What sport is Charlie Manuel associated with?",
+      "a": "association football"
+    },
+    {
+      "q": "Who is Victor Turner employed by?",
+      "a": "University of Chicago"
+    },
+    {
+      "q": "What is the country of citizenship of Henry Ford?",
+      "a": "New Zealand"
+    },
+    {
+      "q": "In what city was Ford Motor Company founded?",
+      "a": "Bangkok"
+    },
+    {
+      "q": "In what country was Multi-Coloured Swap Shop created?",
+      "a": "India"
+    },
+    {
+      "q": "Who developed Heavy Rain?",
+      "a": "Polyphony Digital"
+    },
+    {
+      "q": "What is the country of citizenship of Steven Levitan?",
+      "a": "Hungary"
+    }
+  ],
+  "branches_requested": [
+    "svd_adapter"
+  ],
+  "no_memory": {
+    "accuracy": 0.0,
+    "gold_loss": 8.186099028587341,
+    "n": 20,
+    "correct": {
+      "What is the country of citizenship of Malcolm Forbes?": false,
+      "What religion is Hans Frank affiliated with?": false,
+      "What sport is Jamie Ward associated with?": false,
+      "Who is John Lightfoot employed by?": false,
+      "What sport is 2010 African Women's Championship associated with?": false,
+      "What sport is New Firm associated with?": false,
+      "What is the country of citizenship of Nikolai Gogol?": false,
+      "What is the country of citizenship of Richie Sexson?": false,
+      "Who developed Xbox Live Vision?": false,
+      "What is the country of citizenship of Grant Wood?": false,
+      "Who created Girls?": false,
+      "What position does Sami Khedira play?": false,
+      "Who founded Epicureanism?": false,
+      "What sport is Charlie Manuel associated with?": false,
+      "Who is Victor Turner employed by?": false,
+      "What is the country of citizenship of Henry Ford?": false,
+      "In what city was Ford Motor Company founded?": false,
+      "In what country was Multi-Coloured Swap Shop created?": false,
+      "Who developed Heavy Rain?": false,
+      "What is the country of citizenship of Steven Levitan?": false
+    }
+  },
+  "frozen_full": {
+    "accuracy": 0.3,
+    "gold_loss": 2.640101484581828,
+    "n": 20,
+    "correct": {
+      "What is the country of citizenship of Malcolm Forbes?": true,
+      "What religion is Hans Frank affiliated with?": false,
+      "What sport is Jamie Ward associated with?": false,
+      "Who is John Lightfoot employed by?": true,
+      "What sport is 2010 African Women's Championship associated with?": true,
+      "What sport is New Firm associated with?": false,
+      "What is the country of citizenship of Nikolai Gogol?": false,
+      "What is the country of citizenship of Richie Sexson?": false,
+      "Who developed Xbox Live Vision?": false,
+      "What is the country of citizenship of Grant Wood?": false,
+      "Who created Girls?": true,
+      "What position does Sami Khedira play?": false,
+      "Who founded Epicureanism?": false,
+      "What sport is Charlie Manuel associated with?": true,
+      "Who is Victor Turner employed by?": true,
+      "What is the country of citizenship of Henry Ford?": false,
+      "In what city was Ford Motor Company founded?": false,
+      "In what country was Multi-Coloured Swap Shop created?": false,
+      "Who developed Heavy Rain?": false,
+      "What is the country of citizenship of Steven Levitan?": false
+    }
+  },
+  "uncompacted": {
+    "accuracy": 0.3,
+    "gold_loss": 2.640101484581828,
+    "n": 20,
+    "correct": {
+      "What is the country of citizenship of Malcolm Forbes?": true,
+      "What religion is Hans Frank affiliated with?": false,
+      "What sport is Jamie Ward associated with?": false,
+      "Who is John Lightfoot employed by?": true,
+      "What sport is 2010 African Women's Championship associated with?": true,
+      "What sport is New Firm associated with?": false,
+      "What is the country of citizenship of Nikolai Gogol?": false,
+      "What is the country of citizenship of Richie Sexson?": false,
+      "Who developed Xbox Live Vision?": false,
+      "What is the country of citizenship of Grant Wood?": false,
+      "Who created Girls?": true,
+      "What position does Sami Khedira play?": false,
+      "Who founded Epicureanism?": false,
+      "What sport is Charlie Manuel associated with?": true,
+      "Who is Victor Turner employed by?": true,
+      "What is the country of citizenship of Henry Ford?": false,
+      "In what city was Ford Motor Company founded?": false,
+      "In what country was Multi-Coloured Swap Shop created?": false,
+      "Who developed Heavy Rain?": false,
+      "What is the country of citizenship of Steven Levitan?": false
+    }
+  },
+  "svd_frozen": {
+    "accuracy": 0.0,
+    "gold_loss": 13.725861263275146,
+    "n": 20,
+    "correct": {
+      "What is the country of citizenship of Malcolm Forbes?": false,
+      "What religion is Hans Frank affiliated with?": false,
+      "What sport is Jamie Ward associated with?": false,
+      "Who is John Lightfoot employed by?": false,
+      "What sport is 2010 African Women's Championship associated with?": false,
+      "What sport is New Firm associated with?": false,
+      "What is the country of citizenship of Nikolai Gogol?": false,
+      "What is the country of citizenship of Richie Sexson?": false,
+      "Who developed Xbox Live Vision?": false,
+      "What is the country of citizenship of Grant Wood?": false,
+      "Who created Girls?": false,
+      "What position does Sami Khedira play?": false,
+      "Who founded Epicureanism?": false,
+      "What sport is Charlie Manuel associated with?": false,
+      "Who is Victor Turner employed by?": false,
+      "What is the country of citizenship of Henry Ford?": false,
+      "In what city was Ford Motor Company founded?": false,
+      "In what country was Multi-Coloured Swap Shop created?": false,
+      "Who developed Heavy Rain?": false,
+      "What is the country of citizenship of Steven Levitan?": false
+    }
+  },
+  "svd_adapter": {
+    "identity_at_init": true,
+    "train": {
+      "steps": 24,
+      "lr": 0.001,
+      "kd_weight": 0.5,
+      "hidden_weight": 0.1,
+      "n_batches": 20,
+      "loss": [
+        28.55371561050415,
+        24.120420455932617,
+        27.586501598358154,
+        22.337485313415527,
+        21.79383807182312,
+        19.11595196723938,
+        16.601337575912474,
+        14.365753078460694,
+        12.29678521156311,
+        11.184489989280701,
+        10.359448838233948,
+        9.96277277469635,
+        9.713205027580262,
+        9.280985808372497,
+        8.892574977874755,
+        8.654126381874084,
+        8.435588479042053,
+        8.051804971694946,
+        7.692007648944855,
+        7.4537078738212585,
+        7.47020390033722,
+        7.440865588188172,
+        7.537984085083008,
+        6.847103691101074
+      ],
+      "final_loss": 6.847103691101074
+    },
+    "after": {
+      "accuracy": 0.0,
+      "gold_loss": 3.3202644169330595,
+      "n": 20,
+      "correct": {
+        "What is the country of citizenship of Malcolm Forbes?": false,
+        "What religion is Hans Frank affiliated with?": false,
+        "What sport is Jamie Ward associated with?": false,
+        "Who is John Lightfoot employed by?": false,
+        "What sport is 2010 African Women's Championship associated with?": false,
+        "What sport is New Firm associated with?": false,
+        "What is the country of citizenship of Nikolai Gogol?": false,
+        "What is the country of citizenship of Richie Sexson?": false,
+        "Who developed Xbox Live Vision?": false,
+        "What is the country of citizenship of Grant Wood?": false,
+        "Who created Girls?": false,
+        "What position does Sami Khedira play?": false,
+        "Who founded Epicureanism?": false,
+        "What sport is Charlie Manuel associated with?": false,
+        "Who is Victor Turner employed by?": false,
+        "What is the country of citizenship of Henry Ford?": false,
+        "In what city was Ford Motor Company founded?": false,
+        "In what country was Multi-Coloured Swap Shop created?": false,
+        "Who developed Heavy Rain?": false,
+        "What is the country of citizenship of Steven Levitan?": false
+      }
+    }
+  },
+  "recovery": {
+    "svd_frozen": {
+      "n_eligible": 6,
+      "n_full_correct": 6,
+      "n_lost": 6,
+      "n_recovered": 0,
+      "recovery_rate": 0.0,
+      "lost_questions": [
+        "What is the country of citizenship of Malcolm Forbes?",
+        "Who is John Lightfoot employed by?",
+        "What sport is 2010 African Women's Championship associated with?",
+        "Who created Girls?",
+        "What sport is Charlie Manuel associated with?",
+        "Who is Victor Turner employed by?"
+      ],
+      "recovered_questions": []
+    },
+    "svd_adapter": {
+      "n_eligible": 6,
+      "n_full_correct": 6,
+      "n_lost": 6,
+      "n_recovered": 0,
+      "recovery_rate": 0.0,
+      "lost_questions": [
+        "What is the country of citizenship of Malcolm Forbes?",
+        "Who is John Lightfoot employed by?",
+        "What sport is 2010 African Women's Championship associated with?",
+        "Who created Girls?",
+        "What sport is Charlie Manuel associated with?",
+        "Who is Victor Turner employed by?"
+      ],
+      "recovered_questions": []
+    }
+  },
+  "gate": {
+    "min_lost": 3,
+    "pass": false,
+    "svd_adapter": {
+      "n_lost": 6,
+      "n_recovered": 0,
+      "pass": false
+    }
+  }
+}
