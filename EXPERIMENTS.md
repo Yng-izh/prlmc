@@ -29,7 +29,7 @@
 | E6-gate | 压缩门（g1→g2q） | lost-probe 恢复是否 6/6，判定项目继续/停止 | **FAIL**（2026-10-01，最佳 3/6 @ rank 256）；SVD 信息可读，瓶颈在解码侧容量/优化，非信息销毁 | [E6-gate-g2.md](experiments/E6-gate-g2.md) |
 | E6d | 三臂顺序消融（种子 0） | 连续窗口训练是否是遗忘原因 | 已完成（2026-10-02），interleave **56/160（+30）** vs forward 37（+11）vs reverse 33（+7），遗忘事件 6 vs 50 vs 42 | [E6d.md](experiments/E6d.md) |
 | E6e | 凶手探针 | 遗忘发生时哪组参数在动 | 已完成（2026-10-02），预注册三选项全不成立，判为漂移压过信号的临界翻转，非定向覆盖 | [E6e.md](experiments/E6e.md) |
-| E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 | — |
+| E7 | 内容路由稀疏 residual experts | 主动知识分工（阶段 A 干扰图 → B oracle 上界 → C 内容路由） | 设计定稿（2026-10-02，正文 [E7_PLAN.md](E7_PLAN.md)），未开始运行 | [E7_PLAN.md](E7_PLAN.md) |
 
 ## 固定参考文件
 
