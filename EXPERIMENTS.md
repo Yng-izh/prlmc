@@ -27,6 +27,8 @@
 | E6b-mini | 离线多窗口共享 checkpoint | 单窗口恢复能否泛化到未见窗口 | 已完成（**2026-09-29 重跑，前一轮作废**），训练 7/30 = 0.233、held-out 2/16 = 0.125，判为 `partial` | [E6b-mini.md](experiments/E6b-mini.md) |
 | E6c | 训练档容量压力测试 | 50% 预算下训练过的 compactor 三臂对比 | **训练侧已完成**（2026-09-30，8×96 步），训练 5/30 = 0.167、held-out 3/16 = 0.188，retention reading 翻转为 `overwrites`；三臂 bench 未运行 | [E6c.md](experiments/E6c.md) |
 | E6-gate | 压缩门（g1→g2q） | lost-probe 恢复是否 6/6，判定项目继续/停止 | **FAIL**（2026-10-01，最佳 3/6 @ rank 256）；SVD 信息可读，瓶颈在解码侧容量/优化，非信息销毁 | [E6-gate-g2.md](experiments/E6-gate-g2.md) |
+| E6d | 三臂顺序消融（种子 0） | 连续窗口训练是否是遗忘原因 | 已完成（2026-10-02），interleave **56/160（+30）** vs forward 37（+11）vs reverse 33（+7），遗忘事件 6 vs 50 vs 42 | [E6d.md](experiments/E6d.md) |
+| E6e | 凶手探针 | 遗忘发生时哪组参数在动 | 已完成（2026-10-02），预注册三选项全不成立，判为漂移压过信号的临界翻转，非定向覆盖 | [E6e.md](experiments/E6e.md) |
 | E7 | E6 + adaptive trigger | 恢复完整 Ours | 未开始，依赖 E6 的训练 | — |
 
 ## 固定参考文件
