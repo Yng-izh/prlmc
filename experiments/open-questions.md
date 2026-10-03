@@ -63,6 +63,28 @@
    `_compacted_pool` 宽度越界（窗口只剩 18 block 时仍请求 19 block，
    `new_used` 变负，产出 13056 宽）。
 
+10. **E7a 干扰矩阵的 seed 1 缺失**：GPU0 被宿主机进程挤占，seed 1 的
+    24 步矩阵在功能臂 3/8 处 OOM 死亡。seed 0/2 的矩阵 64 格仅 3 格差、
+    harmed 逐条相同，判读不受影响；seed 1 重跑在 GPU9 进行中
+    （PID 68484），产物 `/tmp/e7a_interference_seed1_s24.json`。
+
+11. **内容相似度带宽只在单 context 上测过**：E7a-sim 判"停止门槛 1
+    触发"依据的是 row 3 同一篇文章的 8 窗——事实模板同质（人物-运动、
+    机构-城市），reader 表征带宽 0.9976-0.9991。跨 context（不同 row
+    的窗口）带宽未测。该判决限定于当前 fixture；阶段 B/C 若要复活
+    内容路由，前提是先证跨 context 带宽非平。
+
+12. **checkpoint 的 `initialized=1` 与纯文本前向不兼容**
+    （E7a-sim 过程中发现）：加载即置位的 buffer 使每次前向把
+    12824 slot memory 池拼进 cache_position，短文本批直接维度错位
+    崩溃（23 vs 12824）。复位 `initialized=0` 后才是纯文本编码路径。
+    任何想复用 reader 做 embedding 的后续实验都会踩到这颗雷。
+
+13. **宿主机 GPU 竞争**：v100-2 的卡被容器外进程长期占用
+    （每卡 9-18 GB，容器内不可见不可杀），单卡 fp16 reader（16 GB）
+    已无处安放，E7a-sim 被迫双卡分片 + `lm_head→Identity`。后续
+    训练实验需按 13 GB 可用预算规划，或等待窗口期。
+
 ---
 
 [← 索引：EXPERIMENTS.md](../EXPERIMENTS.md)
