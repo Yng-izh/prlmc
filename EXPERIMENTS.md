@@ -36,7 +36,8 @@
 | S0 | 残差子空间方案诊断 1：功能敏感子空间扰动验证 | lost probes 的 margin Jacobian 子空间是否真实承载可操作功能信号（soft filter/hard projection 的目标是否真实） | 已完成（2026-10-03），以 E6d interleave ckpt 为基点，sketch rank 13 满秩；敏感方向救回 6.625/13 lost、低敏感 0.25、随机 0，separation 0.490 单调上升 → **PASS**；附带确认初始 compactor（up=0）是数学死区（rank 0），S0 必须用 warm-up ckpt | [S0.md](experiments/S0.md) |
 | S0-分区 | 敏感子空间内部功能结构 | 子空间是否按内容主题分区 | 已完成（2026-10-03），非主题聚类：**公共轴 6 探针**（被 7–8/8 方向救，两两余弦 0.63）+ 专属尾迹 5 + 不可达 2（方向存在但增益不够）；Gram top1 占 58.8%、top2 72.6%；S0b 救回的 7 个恰为公共轴+1 尾迹 | [S0.md](experiments/S0.md) |
 | S0b | 系数 oracle 最小训练（C=I+E） | rank×rank 系数自由度能否救 lost 而不伤 retained | 已完成（2026-10-03），**INCONCLUSIVE**：rescued 7/13 达标（峰值 step20 达 9），harmed 3/5 超标（阈值 0 过严，n_retained=5 统计脆弱）；‖E‖ 全程钉 0.500 → 容量钳制饱和；判读为「有信号但全局系数变换不够」→ 允许进 S1 但 S1 须自带 no-harm 验证 | [S0b.md](experiments/S0b.md) |
-| Native-QA | 数据集原生问答成对对照 | 完整写入、未压缩记忆 vs 同状态手动压缩记忆；真实生成、原生答案别名匹配 | 脚本已准备，9 项 CPU 回归通过；GPU 未运行；完整 context 超容量时明确中止，不以驱逐基线冒充完整记忆 | [Native-QA.md](experiments/Native-QA.md) |
+| Native-QA | 数据集原生问答成对对照 | 完整写入、未压缩记忆 vs 同状态手动压缩记忆 vs 原生 full-rewrite；真实生成、官方 EM/SUB 重算 | 已完成（2026-10-03）：官方口径 row0 三臂 5/6/7 EM、row4 30/31/13 EM；压缩 vs 未压缩净差 ±1/100 为噪声级，full-rewrite 仅 row4 大幅掉分；根因=ckpt 来自 row3 窗口、监督与评测任务错位 | [Native-QA.md](experiments/Native-QA.md) |
+| Native-QA-warmup | 任务匹配功能监督训练 | row0 原生 24 题 gold+KD 训 96 步，零重叠 row4 100 题评测 | 已完成（2026-10-03）：loss 3.95→3.01 有效，但 EM 31/100 与未训练 selection ckpt 逐题相同（γ 仅用预算 5.2%）；**判定读出/格式瓶颈 >> 压缩损失，停止压缩算子侧变体** | [Native-QA.md](experiments/Native-QA.md) |
 
 ## 固定参考文件
 

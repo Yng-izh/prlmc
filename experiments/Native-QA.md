@@ -1,6 +1,6 @@
 # Native-QA — 原生问答压缩前后成对对照
 
-状态：脚本准备完成，尚未运行 GPU 评测。
+状态：carrier residual、full-rewrite 两组 GPU 评测已完成；原生问题功能 warmup 正在运行。
 
 ## 目标与数据
 
@@ -48,18 +48,56 @@ invalid_full_memory。压缩未释放槽则记录 compaction_skipped。只有 co
 
 ## 指标边界
 
-当前指标是明确命名的 normalized_alias_exact_match：小写、去 ASCII 标点、
-去英文冠词、合并空白，匹配任一原生 gold alias。未核实与基准官方 scorer
-完全等价，因此不将其称为官方 benchmark 分数。保存逐题原始输出与答案，
-可之后用官方 scorer 重评分。
+最终报告统一使用 MemoryAgentBench 官方 `default_post_process` 规则：同时比较原始生成文本与 `Answer:` 解析结果，经过 `normalize_answer` 后计算 EM，并计算 gold 是否出现在预测中的 SUB。驱动保存逐题原始输出，所有结果可离线重算。
 
-本对照不含 no-memory 臂，故 gained 不代表已排除预训练知识贡献；全记忆
-答对也不代表该问题必然依赖 memory。未在本实验上调参或筛选 hard probes。
+驱动内的 `normalized_alias_exact_match` 只作为运行时占位指标，不能用于跨臂比较；本轮已按官方规则重新计算。
+
+## 已完成基线
+
+| row | full-rewrite 原生基座 | 我们的 full-memory | carrier residual 压缩后 |
+|---|---:|---:|---:|
+| 0 | 7 EM / 7 SUB | 5 / 7 | 6 / 8 |
+| 4 | 13 EM / 13 SUB | 30 / 34 | 31 / 34 |
+
+`full-rewrite` 每次写入都替换整个 working pool，因此不是“无压缩 append-only”上界；它是 MemoryLLM 原生整池 rewrite 对照。row 0/4 使用完全相同的 context，但问题集合没有重叠。
+
+## Native-QA 功能 warmup（已完成，2026-10-03）
+
+方案：row 0 的 24 道原生问题做 gold+KD 监督，训练 carrier residual 96 步
+Stage B（实际压缩形状 6→3 blocks），checkpoint 存
+`runs/native_qa_functional_warmup.pt`。评测在同一 context、问题零重叠的
+row 4 的 100 道原生问题上，官方 EM/SUB 口径。
+
+| 臂（row 4, n=100） | EM | SUB |
+|---|---:|---:|
+| full-memory（无压缩参照） | 30 | 34 |
+| 压缩后（旧 row3 窗口 ckpt） | 31 | 34 |
+| 压缩后（本次功能 warmup ckpt） | 31 | 34 |
+
+训练本身有效：loss 3.95→3.01（gold 3.93→2.89）。但 EM 逐题判定与旧
+ckpt 完全一致（31/100，相异 0 题）；89/100 题预测逐字符相同，11 题差异
+全部是措辞/实体层面的随机扰动（如 SteamOS 开发者 Valve→Microsoft、
+Endymion 作者换错实体），双向翻车，无系统性增益。
+
+内部状态佐证瓶颈不在训练量：γ 只用到预算的 5.2%（0.00262/0.05），
+residual_ratio 0.0013，与 E6a long-B 的结论一致——弱梯度信号下残差
+几乎不离开 select_blocks 恒等点。
+
+**结论**：任务匹配的功能监督（gold CE + KD + reader-hidden）在 96 步内
+未能让压缩臂超过未训练的 selection 基线。结合全臂读出瓶颈（full-memory
+row 4 仅 30/100，格式问题普遍：模板回声、错实体、先解释后模板），瓶颈
+分层判定为：**读出/格式 >> 压缩损失**。在 reader 读出问题解决之前，压缩
+算子层面的任何改进（换基、换路由、加深度）都无法在 native-QA EM 上体现。
+下一步方向不是更多压缩算子变体，而是修生成格式（stop 序列、few-shot
+锚定或官方解析适配）。
+
 
 ## 验证与工件
 
 - `tools/unit_native_qa_compare.py`：9 项 CPU 回归通过，包括字段/ID 对齐、
   多答案别名、无损切块及模板预算、EM、成对指标和原子保存失败保护。
-- CLI --help 验证通过；未加载 MemoryLLM，未启动 GPU 实验。
+- full-rewrite 与 carrier residual GPU 写入、生成和压缩流程均已完成；原始 JSON
+  已保存到 `runs/native_qa_rewrite_row{0,4}.json` 与 `runs/native_qa_row{0,4}.json`。
+- 官方 scorer 重算已全部完成，含功能 warmup（`runs/native_qa_functional_warmup.json`，
+  checkpoint `runs/native_qa_functional_warmup.pt`）。
 - JSON 先完整序列化，再临时文件 fsync + replace；避免再次留下半截结果。
-- GPU 生成、实际记忆写入/压缩和官方指标一致性尚待运行验证。

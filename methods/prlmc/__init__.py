@@ -23,4 +23,24 @@ checkpoint is used frozen; only the memory pool is managed.
 from methods.prlmc.config import PRLMCConfig
 from methods.prlmc.layout import ProtectedResidualMemory, SlotLayout
 
-__all__ = ["PRLMCConfig", "ProtectedResidualMemory", "SlotLayout"]
+from methods.prlmc.consolidate import FixedBasisCarrierResidualCompactor
+from methods.prlmc.functional_subspace import (
+    CoefficientOracle,
+    FunctionalSensitivitySketch,
+    scalar_jacobian_rows,
+    transform_displacement,
+)
+
+from methods.prlmc.repeated import RepeatedCompactionLedger
+
+__all__ = [
+    "PRLMCConfig",
+    "ProtectedResidualMemory",
+    "SlotLayout",
+    "FixedBasisCarrierResidualCompactor",
+    "CoefficientOracle",
+    "FunctionalSensitivitySketch",
+    "scalar_jacobian_rows",
+    "transform_displacement",
+    "RepeatedCompactionLedger",
+]

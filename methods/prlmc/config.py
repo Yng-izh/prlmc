@@ -57,18 +57,20 @@ _INT_FIELDS = frozenset({
     "k_anchor", "basis_max_rank", "additive_width", "projection_rank",
     "trigger_consecutive", "rank_max", "compact_period", "compact_min_slots",
     "carrier_rank",
+    "functional_sketch_rank", "functional_buffer_probes",
 })
 _FLOAT_FIELDS = frozenset({
     "address_threshold", "novelty_ema_beta", "basis_energy", "novelty_eps",
     "tau_k", "tau_n", "tau_k_exit", "tau_n_exit", "tau_alloc",
-    "rank_eta", "compact_ratio", "carrier_gamma_max",
+    "rank_eta", "compact_ratio", "carrier_gamma_max", "functional_lambda",
 })
 _BOOL_FIELDS = frozenset({"compact_probe", "verbose", "active_memory_mask", "native_filler_only"})
 _OPTIONAL_INT_FIELDS = frozenset({"k_max", "seed"})
 _STR_FIELDS = frozenset({
     "mode", "mode_code", "anchor_source", "anchor_text", "write_mode",
     "gate_mode", "projection", "trigger", "compact_mode", "dtype", "device",
-    "stats_dir", "carrier_ckpt",
+    "stats_dir", "carrier_ckpt", "basis_ckpt", "basis_mode",
+    "functional_control", "functional_refresh",
 })
 
 
@@ -163,6 +165,14 @@ class PRLMCConfig:
     # compactor runs at initialisation, which is exactly `select_blocks` -- a
     # useful control, but not evidence that fusion helps.
     carrier_ckpt: Optional[str] = None
+    # Fixed output-basis experiments are opt-in and never alter legacy arms.
+    basis_ckpt: Optional[str] = None
+    basis_mode: str = "none"  # none | fixed_qr
+    functional_control: str = "none"  # none | soft | hard
+    functional_lambda: float = 0.0
+    functional_refresh: str = "window"  # window | step
+    functional_sketch_rank: int = 16
+    functional_buffer_probes: int = 32
     # Phase 2: mask the free region out of the reader's attention instead of
     # trusting the filler to stay harmless. Active keys are [A, S, R]; the free
     # region [k_anchor, total - used) gets the dtype minimum as an additive
@@ -215,6 +225,16 @@ class PRLMCConfig:
             raise ValueError(f"unknown compact_mode: {self.compact_mode}")
         if self.anchor_source not in ("first_chunk", "explicit", "none"):
             raise ValueError(f"unknown anchor_source: {self.anchor_source}")
+        if self.basis_mode not in ("none", "fixed_qr"):
+            raise ValueError(f"unknown basis_mode: {self.basis_mode}")
+        if self.functional_control not in ("none", "soft", "hard"):
+            raise ValueError(f"unknown functional_control: {self.functional_control}")
+        if self.functional_refresh not in ("window", "step"):
+            raise ValueError(f"unknown functional_refresh: {self.functional_refresh}")
+        if self.functional_sketch_rank < 1 or self.functional_buffer_probes < 0:
+            raise ValueError("functional sketch rank and buffer size must be non-negative")
+        if self.functional_lambda < 0:
+            raise ValueError("functional_lambda must be non-negative")
         if not 0.0 < self.compact_ratio <= 1.0:
             raise ValueError("compact_ratio must be in (0, 1]")
         if self.anchor_source == "explicit" and not self.anchor_text:

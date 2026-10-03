@@ -122,7 +122,9 @@ def evaluate(args):
 
     if not 0 < args.ratio < 1:
         raise ValueError("--ratio must be between zero and one")
-    if args.compact_mode == "carrier_residual" and not args.carrier_ckpt:
+    if args.arm not in ("carrier_residual", "select_blocks", "full_rewrite"):
+        raise ValueError("unknown arm")
+    if args.arm == "carrier_residual" and not args.carrier_ckpt:
         raise ValueError("trained carrier comparison requires --carrier-ckpt")
     frame = pd.read_parquet(args.dataset)
     record = frame.iloc[args.row]
@@ -140,12 +142,22 @@ def evaluate(args):
     model.requires_grad_(False)
     raw = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     config = dict(raw["prlmc"])
-    config.update(device=args.device, dtype="float16", seed=args.seed,
-                  mode="ours", write_mode="append", gate_mode="ones", tau_alloc=-1.0,
-                  projection="none", anchor_source="first_chunk", trigger="none",
-                  compact_mode=args.compact_mode, carrier_ckpt=args.carrier_ckpt,
-                  basis_mode="none", functional_control="none", compact_probe=False,
-                  stats_dir=None, active_memory_mask=True)
+    # full_rewrite = MemoryLLM 原生行为：每写一步整池重编码，无选择无压缩。
+    # compact_mode=none 仅占位；该臂只答一次题，永不到达压缩分支。
+    if args.arm == "full_rewrite":
+        config.update(device=args.device, dtype="float16", seed=args.seed,
+                      mode="full_rewrite", write_mode="append", gate_mode="ones",
+                      tau_alloc=-1.0, projection="none", anchor_source="none",
+                      trigger="none", compact_mode="none", carrier_ckpt=None,
+                      basis_mode="none", functional_control="none", compact_probe=False,
+                      stats_dir=None, active_memory_mask=False)
+    else:
+        config.update(device=args.device, dtype="float16", seed=args.seed,
+                      mode="ours", write_mode="append", gate_mode="ones", tau_alloc=-1.0,
+                      projection="none", anchor_source="first_chunk", trigger="none",
+                      compact_mode=args.arm, carrier_ckpt=args.carrier_ckpt,
+                      basis_mode="none", functional_control="none", compact_probe=False,
+                      stats_dir=None, active_memory_mask=True)
     manager = ProtectedResidualMemory(model, tokenizer, PRLMCConfig.from_dict(config))
     memorize = get_template(args.sub_dataset, "memorize", "prlmc")
     query = get_template(args.sub_dataset, "query", "prlmc")
@@ -158,10 +170,46 @@ def evaluate(args):
               "native_questions_total": len(record["questions"]),
               "evaluated_questions": len(pairs), "metric": "normalized_alias_exact_match",
               "protocol": "complete_context_then_one_manual_compaction",
-              "compact_mode": args.compact_mode, "carrier_ckpt": args.carrier_ckpt,
-              "ratio": args.ratio, "seed": args.seed, "writes": [], "pairs": [],
+              "arm": args.arm, "carrier_ckpt": args.carrier_ckpt if args.arm == "carrier_residual" else None,
+              "ratio": args.ratio if args.arm != "full_rewrite" else None, "seed": args.seed,
+              "writes": [], "pairs": [],
               "query_template": query, "memorize_template": memorize,
               "max_new_tokens": args.max_new_tokens}
+    # full_rewrite 臂：每写一步整池重编码（MemoryLLM 原生行为），不存在
+    # "未压缩完整记忆"这一参照，容量检查与压缩分支都不适用。
+    if args.arm == "full_rewrite":
+        for index, chunk in enumerate(chunks):
+            text = render(chunk)
+            if count(text) > args.chunk_tokens:
+                raise AssertionError("write would truncate the original context")
+            write = manager.write(text, max_tokens=args.chunk_tokens)
+            result["writes"].append(write)
+            if write.get("dropped"):
+                result.update(status="invalid_full_rewrite", failed_chunk=index)
+                atomic_json(args.out, result)
+                return result
+        result["rewrite_memory_stats"] = manager.stats()
+
+        def generate(question):
+            prompt = query.format(question=question)
+            ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(args.device)
+            with torch.inference_mode():
+                output = model.generate(input_ids=ids, do_sample=False,
+                                        max_new_tokens=args.max_new_tokens,
+                                        pad_token_id=tokenizer.pad_token_id if tokenizer.pad_token_id is not None
+                                        else tokenizer.eos_token_id)
+            return tokenizer.decode(output[0, ids.shape[1]:], skip_special_tokens=True)
+
+        for pair in pairs:
+            prediction = generate(pair["question"])
+            result["pairs"].append({**pair, "rewrite_prediction": prediction,
+                                    "rewrite_correct": exact_match(prediction, pair["answers"])})
+        n_correct = sum(p["rewrite_correct"] for p in result["pairs"])
+        result.update(status="completed", summary={"n": len(result["pairs"]),
+                       "rewrite_correct": n_correct,
+                       "rewrite_em": n_correct / len(result["pairs"])})
+        atomic_json(args.out, result)
+        return result
     # Conservative append-only admission: each subsequent injection can occupy
     # one full block. Do not silently evict old facts from the 'full' arm.
     if (len(chunks) - 1) * manager.block > manager.layout.working_capacity:
@@ -225,7 +273,7 @@ def main():
     parser.add_argument("--config", default=str(ROOT / "configs/agent_conf/prlmc_e6.yaml"))
     parser.add_argument("--model", default="/share/latent/MemoryLLM-8B")
     parser.add_argument("--device", default="cuda:0")
-    parser.add_argument("--compact-mode", choices=["select_blocks", "carrier_residual"], default="select_blocks")
+    parser.add_argument("--arm", choices=["select_blocks", "carrier_residual", "full_rewrite"], default="select_blocks")
     parser.add_argument("--carrier-ckpt")
     parser.add_argument("--ratio", type=float, default=0.5)
     parser.add_argument("--chunk-tokens", type=int, default=512)

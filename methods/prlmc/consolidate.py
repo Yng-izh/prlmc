@@ -679,6 +679,71 @@ class CarrierResidualCompactor(nn.Module):
         }
 
 
+class FixedBasisCarrierResidualCompactor(CarrierResidualCompactor):
+    """Carrier residual with a frozen thin-QR output basis.
+
+    This opt-in arm rewrites the warm-up ``up`` matrix as ``U @ R`` and freezes
+    that matrix, q/k, routing and gamma. Only ``down`` remains trainable, so
+    every residual stays in the warm-up output span while its coefficients are
+    still input-dependent.
+    """
+
+    BASIS_VERSION = 1
+
+    @classmethod
+    def from_warmup(cls, warmup: CarrierResidualCompactor):
+        """Build a fixed-basis arm from a trained warm-up compactor."""
+        arm = cls(
+            num_layers=warmup.num_layers,
+            hidden=warmup.hidden,
+            block=warmup.block,
+            rank=warmup.rank,
+            gamma_max=warmup.gamma_max,
+        ).to(device=warmup.up.weight.device, dtype=warmup.up.weight.dtype)
+        with torch.no_grad():
+            basis, remainder = torch.linalg.qr(
+                warmup.up.weight.detach().to(torch.float32).transpose(0, 1),
+                mode="reduced",
+            )
+            reconstructed = basis @ remainder
+            arm.register_buffer("basis_u", basis.to(arm.up.weight))
+            arm.register_buffer("basis_r", remainder.to(arm.up.weight))
+            arm.up.weight.copy_(reconstructed.transpose(0, 1).to(arm.up.weight))
+            arm.down.load_state_dict(warmup.down.state_dict())
+            arm.q.load_state_dict(warmup.q.state_dict())
+            arm.k.load_state_dict(warmup.k.state_dict())
+            arm.gamma_logit.copy_(warmup.gamma_logit)
+            arm.route_logit.copy_(warmup.route_logit)
+        arm._freeze_non_encoder()
+        return arm
+
+    def _freeze_non_encoder(self):
+        for parameter in self.parameters():
+            parameter.requires_grad_(False)
+        self.down.weight.requires_grad_(True)
+
+    def _layer_delta(self, attn, block_layer, carrier_layer):
+        carrier = carrier_layer.to(torch.float32)
+        context = torch.einsum("jb,btd->jtd", attn, block_layer.to(torch.float32))
+        coefficients = F.gelu(self.down(context - carrier))
+        delta = F.linear(coefficients, (self.basis_u @ self.basis_r).transpose(0, 1))
+        carrier_rms = carrier.pow(2).mean(dim=(-2, -1), keepdim=True).sqrt()
+        delta_var = delta.pow(2).mean(dim=(-2, -1), keepdim=True)
+        return delta * torch.rsqrt(delta_var + _DELTA_VAR_EPS) * carrier_rms
+
+    def state_report(self) -> dict:
+        report = super().state_report()
+        report.update({
+            "basis_mode": "fixed_qr",
+            "basis_version": self.BASIS_VERSION,
+            "basis_rank": int(self.rank),
+            "trainable_parameters": sum(
+                p.numel() for p in self.parameters() if p.requires_grad
+            ),
+        })
+        return report
+
+
 def build_compactor(config: PRLMCConfig, hidden: int):
     """Return the callable compaction operator for this config, or None.
 

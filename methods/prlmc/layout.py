@@ -60,6 +60,7 @@ from methods.prlmc.capacity import (
 from methods.prlmc.config import PRLMCConfig
 from methods.prlmc.consolidate import (
     CarrierResidualCompactor,
+    FixedBasisCarrierResidualCompactor,
     build_compactor,
     recent_block_compact,
     select_block_compact,
@@ -1235,27 +1236,42 @@ class ProtectedResidualMemory:
         if existing is not None:
             return existing
 
-        carrier = CarrierResidualCompactor(
-            num_layers=self.num_layers,
-            hidden=self.hidden,
-            block=self.compactor_block,
-            rank=int(getattr(self.cfg, "carrier_rank", 32)),
-            gamma_max=float(getattr(self.cfg, "carrier_gamma_max", 0.1)),
-        ).to(device=self._memory.device, dtype=torch.float32)
-
-        ckpt = getattr(self.cfg, "carrier_ckpt", None)
-        if ckpt:
-            self._load_carrier_state(carrier, ckpt)
-            carrier.trained = True  # noqa: attribute set for parity with LearnedCompactor
+        basis_mode = getattr(self.cfg, "basis_mode", "none")
+        ckpt = getattr(self.cfg, "basis_ckpt", None) or getattr(self.cfg, "carrier_ckpt", None)
+        if basis_mode == "fixed_qr":
+            if not ckpt:
+                raise RuntimeError(
+                    "basis_mode=fixed_qr requires basis_ckpt or carrier_ckpt "
+                    "from the shared train warm-up"
+                )
+            warmup = CarrierResidualCompactor(
+                num_layers=self.num_layers,
+                hidden=self.hidden,
+                block=self.compactor_block,
+                rank=int(getattr(self.cfg, "carrier_rank", 32)),
+                gamma_max=float(getattr(self.cfg, "carrier_gamma_max", 0.1)),
+            ).to(device=self._memory.device, dtype=torch.float32)
+            self._load_carrier_state(warmup, ckpt)
+            carrier = FixedBasisCarrierResidualCompactor.from_warmup(warmup)
+            carrier.trained = True
+            carrier.basis_source = ckpt
         else:
-            # No checkpoint: the module is at initialisation, where `up` is zero
-            # and the output equals the selected carriers bit for bit. That is a
-            # deliberate control, not a trained fusion operator, and the run log
-            # says so.
-            print(
-                "[prlmc] carrier_residual: no carrier_ckpt, running at "
-                "initialisation (equivalent to select_blocks)"
-            )
+            carrier = CarrierResidualCompactor(
+                num_layers=self.num_layers,
+                hidden=self.hidden,
+                block=self.compactor_block,
+                rank=int(getattr(self.cfg, "carrier_rank", 32)),
+                gamma_max=float(getattr(self.cfg, "carrier_gamma_max", 0.1)),
+            ).to(device=self._memory.device, dtype=torch.float32)
+            if ckpt:
+                self._load_carrier_state(carrier, ckpt)
+                carrier.trained = True  # noqa: attribute set for parity with LearnedCompactor
+            else:
+                # No checkpoint: this is the identity-at-init control.
+                print(
+                    "[prlmc] carrier_residual: no carrier_ckpt, running at "
+                    "initialisation (equivalent to select_blocks)"
+                )
 
         carrier.eval()
         self._carrier = carrier

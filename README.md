@@ -9,7 +9,9 @@ MemoryAgentBench on top of the frozen MemoryLLM-8B backbone.
 methods/prlmc/        the method (11 modules, ~3.3k lines)
   layout.py           ProtectedResidualMemory: Anchor slots, residual pool, compaction
   capacity.py         occupancy / effective rank / energy rank, CompactTrigger
-  consolidate.py      compaction arms (svd_tokens, weighted, learned)
+  consolidate.py      compaction arms (svd_tokens, weighted, learned, fixed-basis residual)
+  functional_subspace.py  bounded Jacobian sketch and displacement controls
+  repeated.py          real-state ancestry ledger for repeated compaction
   subspace.py         AnchorProjection, novelty probe
   budget.py           byte / token / latency accounting (note section 3.5)
   baselines.py        section 5.1 control arms B5-B8 and OURS
@@ -17,7 +19,11 @@ methods/prlmc/        the method (11 modules, ~3.3k lines)
 configs/agent_conf/   agent configs (prlmc_8b, prlmc_obs, prlmc_smoke)
 configs/data_conf_obs/ dev splits used for threshold calibration
 configs/prlmc_8b.yaml duplicate of configs/agent_conf/prlmc_8b.yaml
-tools/calibrate_obs.py  reads prlmc_stats.jsonl, prints signal distributions
+tools/residual_subspace_diag.py  offline S0/S0b tensor diagnostics
+tools/residual_subspace_train.py  transactional actual-displacement helpers
+tools/repeated_compaction_eval.py  manifest validator for frozen horizons
+tools/unit_residual_subspace.py  CPU-only regression checks
+configs/prlmc_residual_subspace.yaml  opt-in fixed-basis profile
 apply_patch.py        installs the prlmc branch into a MemoryAgentBench copy
 run_obs.sh            observation run (compact_mode: none)
 run_smoke.sh          smoke test on factconsolidation_sh_32k
