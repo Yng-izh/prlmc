@@ -1,0 +1,854 @@
+{
+  "window": {
+    "row": 3,
+    "start": 17890
+  },
+  "dropped_blocks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "n_probes": 60,
+  "n_lost": 13,
+  "sketch": {
+    "rows": 13,
+    "rank": 13,
+    "trace": 298.6318054199219,
+    "discarded_energy": 0.0
+  },
+  "partition": {
+    "lost_questions": [
+      "What is the country of citizenship of Malcolm Forbes?",
+      "What sport is 2010 African Women's Championship associated with?",
+      "Who created Girls?",
+      "Who is Victor Turner employed by?",
+      "What is the country of citizenship of Hillary Clinton?",
+      "In what language was The X-Files written?",
+      "Who founded New York Journal-American?",
+      "What is 9/11 Commission famous for?",
+      "Who is the author of The Sword of Truth?",
+      "What sport is CD Atl\u00e9tico Baleares associated with?",
+      "What religion is John Boswell affiliated with?",
+      "What sport is 2017 Super Rugby season associated with?",
+      "What sport is Crumlin United associated with?"
+    ],
+    "gram": [
+      [
+        1.5622186660766602,
+        3.4270763397216797,
+        1.7744684219360352,
+        0.3796428442001343,
+        1.3940355777740479,
+        2.083307981491089,
+        1.3637657165527344,
+        1.2271723747253418,
+        0.7633721232414246,
+        2.2972946166992188,
+        2.583333969116211,
+        3.162456512451172,
+        2.585108757019043
+      ],
+      [
+        3.4270763397216797,
+        45.10533905029297,
+        6.517404079437256,
+        0.7408276796340942,
+        3.1459836959838867,
+        6.860030174255371,
+        4.093173503875732,
+        4.445383071899414,
+        2.053964614868164,
+        39.29350662231445,
+        9.697319030761719,
+        47.12212371826172,
+        39.39544677734375
+      ],
+      [
+        1.7744684219360352,
+        6.517404079437256,
+        7.439252853393555,
+        1.0299065113067627,
+        1.758257269859314,
+        5.6141357421875,
+        2.7400455474853516,
+        3.7619948387145996,
+        4.981439113616943,
+        3.428603172302246,
+        5.1591267585754395,
+        5.362567901611328,
+        4.56571102142334
+      ],
+      [
+        0.3796428442001343,
+        0.7408276796340942,
+        1.0299065113067627,
+        34.90904998779297,
+        0.39131954312324524,
+        5.31186580657959,
+        1.1168254613876343,
+        1.706661343574524,
+        1.5430197715759277,
+        0.6587764620780945,
+        1.0030466318130493,
+        0.5867568850517273,
+        0.5098150968551636
+      ],
+      [
+        1.3940355777740479,
+        3.1459836959838867,
+        1.758257269859314,
+        0.39131954312324524,
+        1.3268156051635742,
+        2.204629898071289,
+        1.170952558517456,
+        1.148808240890503,
+        0.5917792916297913,
+        2.0048906803131104,
+        2.4461021423339844,
+        2.8534250259399414,
+        2.336853504180908
+      ],
+      [
+        2.083307981491089,
+        6.860030174255371,
+        5.6141357421875,
+        5.31186580657959,
+        2.204629898071289,
+        27.34457778930664,
+        3.21604323387146,
+        3.1403465270996094,
+        4.180551528930664,
+        3.112598180770874,
+        5.472308158874512,
+        4.925525188446045,
+        4.239108085632324
+      ],
+      [
+        1.3637657165527344,
+        4.093173503875732,
+        2.7400455474853516,
+        1.1168254613876343,
+        1.170952558517456,
+        3.21604323387146,
+        3.436089515686035,
+        2.0606226921081543,
+        3.7101786136627197,
+        2.7610621452331543,
+        3.1958231925964355,
+        3.3613626956939697,
+        3.0171422958374023
+      ],
+      [
+        1.2271723747253418,
+        4.445383071899414,
+        3.7619948387145996,
+        1.706661343574524,
+        1.148808240890503,
+        3.1403465270996094,
+        2.0606226921081543,
+        4.101683139801025,
+        4.072696685791016,
+        2.46537709236145,
+        3.639770030975342,
+        3.968104362487793,
+        3.4006857872009277
+      ],
+      [
+        0.7633721232414246,
+        2.053964614868164,
+        4.981439113616943,
+        1.5430197715759277,
+        0.5917792916297913,
+        4.180551528930664,
+        3.7101786136627197,
+        4.072696685791016,
+        19.11933708190918,
+        1.1080327033996582,
+        2.8138022422790527,
+        1.1573199033737183,
+        1.7920734882354736
+      ],
+      [
+        2.2972946166992188,
+        39.29350662231445,
+        3.428603172302246,
+        0.6587764620780945,
+        2.0048906803131104,
+        3.112598180770874,
+        2.7610621452331543,
+        2.46537709236145,
+        1.1080327033996582,
+        41.51539611816406,
+        5.084990501403809,
+        45.466514587402344,
+        38.006263732910156
+      ],
+      [
+        2.583333969116211,
+        9.697319030761719,
+        5.1591267585754395,
+        1.0030466318130493,
+        2.4461021423339844,
+        5.472308158874512,
+        3.1958231925964355,
+        3.639770030975342,
+        2.8138022422790527,
+        5.084990501403809,
+        22.765384674072266,
+        7.989353656768799,
+        6.476884841918945
+      ],
+      [
+        3.162456512451172,
+        47.12212371826172,
+        5.362567901611328,
+        0.5867568850517273,
+        2.8534250259399414,
+        4.925525188446045,
+        3.3613626956939697,
+        3.968104362487793,
+        1.1573199033737183,
+        45.466514587402344,
+        7.989353656768799,
+        53.279823303222656,
+        43.689693450927734
+      ],
+      [
+        2.585108757019043,
+        39.39544677734375,
+        4.56571102142334,
+        0.5098150968551636,
+        2.336853504180908,
+        4.239108085632324,
+        3.0171422958374023,
+        3.4006857872009277,
+        1.7920734882354736,
+        38.006263732910156,
+        6.476884841918945,
+        43.689693450927734,
+        36.726783752441406
+      ]
+    ],
+    "row_norms": [
+      1.2498867511749268,
+      6.71603536605835,
+      2.727497100830078,
+      5.908385276794434,
+      1.1518739461898804,
+      5.229193687438965,
+      1.8536657094955444,
+      2.0252575874328613,
+      4.372559547424316,
+      6.443230628967285,
+      4.771303653717041,
+      7.2992939949035645,
+      6.060254096984863
+    ],
+    "gram_eigvals_desc": [
+      175.57496643066406,
+      41.09848403930664,
+      30.573123931884766,
+      18.92193031311035,
+      17.95491600036621,
+      5.753489017486572,
+      2.7980148792266846,
+      2.228440046310425,
+      1.5906494855880737,
+      1.1306462287902832,
+      0.7101325392723083,
+      0.25911426544189453,
+      0.03794729709625244
+    ],
+    "rows_path": "/tmp/s0_jacobian_rows.pt",
+    "cosine_matrix": [
+      [
+        1.0000011920928955,
+        0.40826311707496643,
+        0.5205150842666626,
+        0.05140859633684158,
+        0.968273937702179,
+        0.31874844431877136,
+        0.5886236429214478,
+        0.4847910702228546,
+        0.13967861235141754,
+        0.28526097536087036,
+        0.433184415102005,
+        0.34663549065589905,
+        0.3412851095199585
+      ],
+      [
+        0.40826311707496643,
+        1.0000046491622925,
+        0.3557929992675781,
+        0.018669618293642998,
+        0.40666663646698,
+        0.19533421099185944,
+        0.3287878632545471,
+        0.32682549953460693,
+        0.06994299590587616,
+        0.9080382585525513,
+        0.30262282490730286,
+        0.9612382054328918,
+        0.9679261445999146
+      ],
+      [
+        0.5205150842666626,
+        0.3557929992675781,
+        1.0000016689300537,
+        0.06390939652919769,
+        0.5596456527709961,
+        0.3936260938644409,
+        0.5419535636901855,
+        0.6810415983200073,
+        0.4176906943321228,
+        0.19509640336036682,
+        0.3964376151561737,
+        0.2693566083908081,
+        0.27621883153915405
+      ],
+      [
+        0.05140859633684158,
+        0.018669618293642998,
+        0.06390939652919769,
+        1.0000009536743164,
+        0.057498667389154434,
+        0.17192679643630981,
+        0.10197297483682632,
+        0.1426258534193039,
+        0.05972648411989212,
+        0.017304761335253716,
+        0.03558076173067093,
+        0.013605312444269657,
+        0.01423813309520483
+      ],
+      [
+        0.968273937702179,
+        0.40666663646698,
+        0.5596456527709961,
+        0.057498667389154434,
+        1.0000015497207642,
+        0.3660125732421875,
+        0.5484068989753723,
+        0.49245020747184753,
+        0.11749491840600967,
+        0.270135760307312,
+        0.4450743794441223,
+        0.33937564492225647,
+        0.3347616493701935
+      ],
+      [
+        0.31874844431877136,
+        0.19533421099185944,
+        0.3936260938644409,
+        0.17192679643630981,
+        0.3660125732421875,
+        1.0000040531158447,
+        0.3317842185497284,
+        0.29652586579322815,
+        0.1828365921974182,
+        0.09238142520189285,
+        0.21933035552501678,
+        0.12904374301433563,
+        0.13376697897911072
+      ],
+      [
+        0.5886236429214478,
+        0.3287878632545471,
+        0.5419535636901855,
+        0.10197297483682632,
+        0.5484068989753723,
+        0.3317842185497284,
+        1.000003695487976,
+        0.5488918423652649,
+        0.45774927735328674,
+        0.23117510974407196,
+        0.3613385260105133,
+        0.24842946231365204,
+        0.26857990026474
+      ],
+      [
+        0.4847910702228546,
+        0.32682549953460693,
+        0.6810415983200073,
+        0.1426258534193039,
+        0.49245020747184753,
+        0.29652586579322815,
+        0.5488918423652649,
+        1.0000035762786865,
+        0.459902822971344,
+        0.18892933428287506,
+        0.3766661584377289,
+        0.268424391746521,
+        0.27707377076148987
+      ],
+      [
+        0.13967861235141754,
+        0.06994299590587616,
+        0.4176906943321228,
+        0.05972648411989212,
+        0.11749491840600967,
+        0.1828365921974182,
+        0.45774927735328674,
+        0.459902822971344,
+        1.0000032186508179,
+        0.03932902216911316,
+        0.1348716765642166,
+        0.036260753870010376,
+        0.0676284208893776
+      ],
+      [
+        0.28526097536087036,
+        0.9080382585525513,
+        0.19509640336036682,
+        0.017304761335253716,
+        0.270135760307312,
+        0.09238142520189285,
+        0.23117510974407196,
+        0.18892933428287506,
+        0.03932902216911316,
+        1.0000041723251343,
+        0.1654053032398224,
+        0.9667342901229858,
+        0.9733312726020813
+      ],
+      [
+        0.433184415102005,
+        0.30262282490730286,
+        0.3964376151561737,
+        0.03558076173067093,
+        0.4450743794441223,
+        0.21933035552501678,
+        0.3613385260105133,
+        0.3766661584377289,
+        0.1348716765642166,
+        0.1654053032398224,
+        1.0000020265579224,
+        0.229400172829628,
+        0.22399498522281647
+      ],
+      [
+        0.34663549065589905,
+        0.9612382054328918,
+        0.2693566083908081,
+        0.013605312444269657,
+        0.33937564492225647,
+        0.12904374301433563,
+        0.24842946231365204,
+        0.268424391746521,
+        0.036260753870010376,
+        0.9667342901229858,
+        0.229400172829628,
+        1.000002384185791,
+        0.9876596331596375
+      ],
+      [
+        0.3412851095199585,
+        0.9679261445999146,
+        0.27621883153915405,
+        0.01423813309520483,
+        0.3347616493701935,
+        0.13376697897911072,
+        0.26857990026474,
+        0.27707377076148987,
+        0.0676284208893776,
+        0.9733312726020813,
+        0.22399498522281647,
+        0.9876596331596375,
+        1.0000028610229492
+      ]
+    ]
+  },
+  "families": {
+    "sensitive": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 1.875,
+        "per_direction": [
+          0,
+          1,
+          2,
+          1,
+          0,
+          6,
+          3,
+          2
+        ],
+        "per_direction_recovered": [
+          [],
+          [
+            "What sport is CD Atl\u00e9tico Baleares associated with?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?"
+          ],
+          [
+            "Who is Victor Turner employed by?"
+          ],
+          [],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?"
+          ]
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 4.625,
+        "per_direction": [
+          2,
+          4,
+          6,
+          3,
+          3,
+          7,
+          7,
+          5
+        ],
+        "per_direction_recovered": [
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?"
+          ],
+          [
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is 2017 Super Rugby season associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ]
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 6.75,
+        "per_direction": [
+          4,
+          6,
+          9,
+          8,
+          7,
+          7,
+          7,
+          6
+        ],
+        "per_direction_recovered": [
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is 2017 Super Rugby season associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who founded New York Journal-American?",
+            "Who is Victor Turner employed by?",
+            "Who is the author of The Sword of Truth?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What religion is John Boswell affiliated with?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?",
+            "Who is the author of The Sword of Truth?"
+          ],
+          [
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?",
+            "Who is the author of The Sword of Truth?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?",
+            "Who is Victor Turner employed by?"
+          ],
+          [
+            "In what language was The X-Files written?",
+            "What is the country of citizenship of Hillary Clinton?",
+            "What is the country of citizenship of Malcolm Forbes?",
+            "What sport is 2010 African Women's Championship associated with?",
+            "What sport is CD Atl\u00e9tico Baleares associated with?",
+            "What sport is Crumlin United associated with?"
+          ]
+        ],
+        "n_lost_base": 13
+      }
+    ],
+    "low_sensitive": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 0.25,
+        "per_direction": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [
+            "Who is Victor Turner employed by?"
+          ],
+          [],
+          [],
+          [],
+          [],
+          [
+            "Who is Victor Turner employed by?"
+          ],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      }
+    ],
+    "random": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "per_direction_recovered": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ],
+        "n_lost_base": 13
+      }
+    ]
+  },
+  "verdict": "PASS",
+  "separation": {
+    "0.25": 0.14423076923076916,
+    "0.5": 0.35576923076923084,
+    "1.0": 0.5
+  },
+  "sensitive_harm": {
+    "0.25": 0.8557692307692308,
+    "0.5": 0.6442307692307692,
+    "1.0": 0.4807692307692307
+  },
+  "low_sensitive_harm": {
+    "0.25": 1.0,
+    "0.5": 1.0,
+    "1.0": 0.9807692307692307
+  },
+  "random_harm": {
+    "0.25": 1.0,
+    "0.5": 1.0,
+    "1.0": 1.0
+  }
+}

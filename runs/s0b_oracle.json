@@ -1,0 +1,114 @@
+{
+  "window": {
+    "row": 3,
+    "start": 17890
+  },
+  "steps": 60,
+  "lr": 0.003,
+  "max_deviation": 0.5,
+  "n_lost": 13,
+  "n_retained": 5,
+  "lost_questions": [
+    "What is the country of citizenship of Malcolm Forbes?",
+    "What sport is 2010 African Women's Championship associated with?",
+    "Who created Girls?",
+    "Who is Victor Turner employed by?",
+    "What is the country of citizenship of Hillary Clinton?",
+    "In what language was The X-Files written?",
+    "Who founded New York Journal-American?",
+    "What is 9/11 Commission famous for?",
+    "Who is the author of The Sword of Truth?",
+    "What sport is CD Atl\u00e9tico Baleares associated with?",
+    "What religion is John Boswell affiliated with?",
+    "What sport is 2017 Super Rugby season associated with?",
+    "What sport is Crumlin United associated with?"
+  ],
+  "retained_questions": [
+    "Who is John Lightfoot employed by?",
+    "What sport is New Firm associated with?",
+    "What position does Sami Khedira play?",
+    "What sport is John William Bricker associated with?",
+    "What language does William Shakespeare speak?"
+  ],
+  "history": [
+    {
+      "step": 5,
+      "rescued": 5,
+      "harmed": 1,
+      "deviation": 0.451
+    },
+    {
+      "step": 10,
+      "rescued": 6,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 15,
+      "rescued": 6,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 20,
+      "rescued": 9,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 25,
+      "rescued": 7,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 30,
+      "rescued": 8,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 35,
+      "rescued": 8,
+      "harmed": 3,
+      "deviation": 0.5
+    },
+    {
+      "step": 40,
+      "rescued": 7,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 45,
+      "rescued": 6,
+      "harmed": 3,
+      "deviation": 0.5
+    },
+    {
+      "step": 50,
+      "rescued": 8,
+      "harmed": 3,
+      "deviation": 0.5
+    },
+    {
+      "step": 55,
+      "rescued": 7,
+      "harmed": 2,
+      "deviation": 0.5
+    },
+    {
+      "step": 60,
+      "rescued": 7,
+      "harmed": 3,
+      "deviation": 0.5
+    }
+  ],
+  "verdict": "INCONCLUSIVE",
+  "final": {
+    "step": 60,
+    "rescued": 7,
+    "harmed": 3,
+    "deviation": 0.5
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "window": {
+    "row": 3,
+    "start": 17890
+  },
+  "dropped_blocks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "n_probes": 60,
+  "n_lost": 13,
+  "n_eligible": 14,
+  "carrier_ckpt": "/tmp/e6d_interleave_ckpt.pt (E6d interleave arm, net +30)",
+  "sketch": {
+    "rows": 13,
+    "rank": 13,
+    "trace": 298.5646,
+    "discarded_energy": 0.0
+  },
+  "families": {
+    "sensitive": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 1.875,
+        "per_direction": [
+          0,
+          1,
+          2,
+          1,
+          0,
+          6,
+          3,
+          2
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 4.625,
+        "per_direction": [
+          2,
+          4,
+          6,
+          3,
+          3,
+          7,
+          7,
+          5
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 6.625,
+        "per_direction": [
+          4,
+          6,
+          9,
+          8,
+          6,
+          7,
+          7,
+          6
+        ],
+        "n_lost_base": 13
+      }
+    ],
+    "low_sensitive": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 0.25,
+        "per_direction": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      }
+    ],
+    "random": [
+      {
+        "scale": 0.25,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 0.5,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      },
+      {
+        "scale": 1.0,
+        "mean_lost_recovered": 0.0,
+        "per_direction": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "n_lost_base": 13
+      }
+    ]
+  },
+  "verdict": "PASS",
+  "separation": {
+    "0.25": 0.1442,
+    "0.5": 0.3558,
+    "1.0": 0.4904
+  },
+  "sensitive_harm": {
+    "0.25": 0.8558,
+    "0.5": 0.6442,
+    "1.0": 0.4904
+  },
+  "low_sensitive_harm": {
+    "0.25": 1.0,
+    "0.5": 1.0,
+    "1.0": 0.9808
+  },
+  "random_harm": {
+    "0.25": 1.0,
+    "0.5": 1.0,
+    "1.0": 1.0
+  },
+  "notes": "Reconstructed from run log after two post-run bugs: (1) verdict sign inverted (sens_harm-low_harm, printed FAIL at max_sep -0.144); (2) Jacobian loop variable `row` shadowed the window row and json.dump died on the Tensor leaving a 27-byte file. Both fixed in tools/s0_functional_sensitivity.py; per-direction counts are verbatim from the log."
+}
