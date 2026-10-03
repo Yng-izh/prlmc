@@ -31,6 +31,7 @@
 | E6e | 凶手探针 | 遗忘发生时哪组参数在动 | 已完成（2026-10-02），预注册三选项全不成立，判为漂移压过信号的临界翻转，非定向覆盖 | [E6e.md](experiments/E6e.md) |
 | E7 | 内容路由稀疏 residual experts | 主动知识分工（阶段 A 干扰图 → B oracle 上界 → C 内容路由） | 设计定稿（2026-10-02，正文 [E7_PLAN.md](E7_PLAN.md)），未开始运行 | [E7_PLAN.md](E7_PLAN.md) |
 | E7a | 阶段 A 干扰图（seed 0） | 8 窗梯度可分性与单步功能干扰 | 已完成（2026-10-02），梯度余弦 0.05–0.32 无冲突无重复，单步 harmed=0、rescue 集中在 2 道边界题，corr(cos,rescue)≈0；一阶近似下无定向干扰，与 E6e 漂移结论一致 | [E7a.md](experiments/E7a.md) |
+| E7a-24 | 阶段 A 深度扩展 + interleave 3-seed | 24 步功能矩阵；E6d 净增跨 seed 稳定性 | 已完成（2026-10-03，干扰矩阵 2/3 seed：seed 1 被 OOM 挤死待重跑），interleave 复现 +24~+30/forget_ev≤12；24 步 harmed=5 且两 seed 逐条相同、效应不对称（17130 整行零、16370 共振带）、rescue:harmed=31:5 | [E7a-24.md](experiments/E7a-24.md) |
 
 ## 固定参考文件
 

@@ -166,8 +166,14 @@ def score_all(manager, cache, entries, compactor, args, B):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--train-step", type=int, default=1,
-                        help="identical Stage-B updates used for the functional probe")
+    parser.add_argument("--gradient-steps", type=int, default=1,
+                        help="Stage-B steps for the gradient arm; the capturing "
+                             "optimizer never updates parameters, so every step "
+                             "recomputes the same initial-point gradient -- keep at 1")
+    parser.add_argument("--functional-steps", type=int, default=1,
+                        help="Stage-B steps per source window for the functional arm; "
+                             "24 is one quarter of E6d's 96-step per-window budget, "
+                             "with the same curriculum cadence (4 vs 16 steps per level)")
     parser.add_argument("--probes", type=int, default=20)
     parser.add_argument("--max-probe-tokens", type=int, default=256)
     parser.add_argument("--min-probes", type=int, default=4)
@@ -175,8 +181,8 @@ def main():
     parser.add_argument("--gamma-max", type=float, default=0.05)
     parser.add_argument("--out", default="/tmp/e7a_interference_seed0.json")
     args = parser.parse_args()
-    if args.train_step < 1:
-        raise SystemExit("--train-step must be positive")
+    if args.gradient_steps < 1 or args.functional_steps < 1:
+        raise SystemExit("--gradient-steps and --functional-steps must be positive")
 
     import random
 
@@ -246,7 +252,7 @@ def main():
         compactor = make_compactor(manager, cfg, initial_state, B)
         capture = CaptureAdamW(compactor.named_parameters(), lr=args.lr)
         B.train_window(manager, cache[entry["row"]], entry, compactor, capture,
-                       "B", args.train_step, args)
+                       "B", args.gradient_steps, args)
         vector = gradient_vector(named, capture.last_gradient or {})
         gradients.append(vector)
         gradient_norms[key_for(entry)] = float(vector.norm())
@@ -267,7 +273,7 @@ def main():
         compactor = make_compactor(manager, cfg, initial_state, B)
         optimiser = torch.optim.AdamW(compactor.parameters(), lr=args.lr)
         B.train_window(manager, cache[source_entry["row"]], source_entry,
-                       compactor, optimiser, "B", args.train_step, args)
+                       compactor, optimiser, "B", args.functional_steps, args)
         after = score_all(manager, cache, entries, compactor, args, B)
         source_effects = {}
         delta_row, rescued_row, harmed_row = [], [], []
@@ -280,7 +286,7 @@ def main():
             harmed_row.append(len(effect["harmed"]))
         functional[source] = {
             "source_window": source,
-            "update_steps": args.train_step,
+            "update_steps": args.functional_steps,
             "effects": source_effects,
         }
         delta_matrix.append(delta_row)
@@ -299,8 +305,8 @@ def main():
             "fixture": "E6c/e6d DEFAULT_WINDOWS",
             "windows": labels,
             "gradient_loss": "existing Stage-B train_carrier_compactor objective",
-            "gradient_update_steps": args.train_step,
-            "functional_update_steps": args.train_step,
+            "gradient_update_steps": args.gradient_steps,
+            "functional_update_steps": args.functional_steps,
             "stage_b_curriculum": "existing methods.prlmc.probes._CARRIER_CURRICULUM",
             "window_blocks": E.WINDOW_BLOCKS,
             "lr": args.lr,
