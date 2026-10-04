@@ -101,3 +101,58 @@ row 4 仅 30/100，格式问题普遍：模板回声、错实体、先解释后�
 - 官方 scorer 重算已全部完成，含功能 warmup（`runs/native_qa_functional_warmup.json`，
   checkpoint `runs/native_qa_functional_warmup.pt`）。
 - JSON 先完整序列化，再临时文件 fsync + replace；避免再次留下半截结果。
+
+## 读出探针三臂并行实验（已完成，2026-10-03）
+
+背景：读出问题分析显示 full-memory row 4 的 66 错中 ~43 为常识先验压制、
+~10+ 实体绑定错误、仅 7 为真版本消解失败。据此并行测试三类读出修复，
+全部使用 row 4 同一 context、同一无损写入池、官方两层打分
+（`tools/readout_probe.py`；C 臂经 `tools/patch_modeling_memscale.py` 在
+modeling 层挂 `memory_attn_scale` 缓冲，读取态对活跃池槽注意力 logit 加
+log(scale)，注入态不受影响）：
+
+| 臂（row 4, n=100） | full EM | full SUB | comp EM | comp SUB | vs base 翻转 | p |
+|---|---:|---:|---:|---:|---|---:|
+| baseline 复跑 | 30 | 34 | 33 | 36 | — | — |
+| A 指令对抗（重写 query） | 10 | 40 | 9 | 35 | +3/−23 | 0.0001（负向） |
+| B few-shot（3 示例无 stop） | 1 | 43 | 1 | 35 | +0/−29 | <0.0001（负向） |
+| B2 few-shot + `\n` stop | **42** | **43** | 34 | 35 | +15/−3 | **0.0075** |
+| C attn×0.5 | 33 | 36 | 29 | 33 | +4/−1 | 0.375 |
+| C attn×2.0 | 30 | 34 | 31 | 34 | +2/−2 | 1.000 |
+| C attn×4.0 | 32 | 35 | 32 | 34 | +6/−4 | 0.754 |
+| C attn×8.0 | 35 | 38 | 34 | 37 | +11/−6 | 0.332 |
+| BC few-shot+stop+attn×8 | 39 | 40 | 32 | 33 | +17/−8 | 0.108 |
+| BC few-shot+stop+attn×4 | 39 | 40 | 32 | 33 | +15/−6 | — |
+
+关键发现：
+
+1. **B2（few-shot 锚定 + 换行 stop）是唯一显著读出修复**：EM 30→42
+   （+15/−3，McNemar p=0.0075）。15 个增益几乎全是先验压制题
+   （Donald Trump→Jonathan Rothschild、USA→Japan、Islam→atheism、
+   Disney→BBC 等），直接命中读出分析预测的失败类。
+2. **格式交互是隐藏地雷**：B 无 stop 时官方 EM 崩到 1——few-shot 格式让
+   模型续写 "Question:/Answer:" 对，官方 parse 层抓到续写中的 Answer:
+   行而非首行答案。首行口径下 B 实际 42。A 指令重写同样触发长解释输出
+   （首行 26）。任何 prompt 改动必须配套 stop 序列，否则两层解析器
+   会惩罚它。
+3. **C 臂（attention 增益）方向正确但代价真实**：×8 时 +11/−6，增益
+   集中在先验压制题（Tucson→Rothschild、Twitter→Arnault、Harvard→
+   Diamandis），但损失也是先验反噬——模型转而答真实世界答案
+   （Bucharest、Europe/Asia、Moscow），因为 gold 本身是反直觉改写。
+   即放大记忆注意力同时放大了"记住的常识"和"改写的事实"两类信号。
+4. **B2 与 C8 增益重叠仅 7/49**：并集 49/100，互补但组合（BC）反而
+   39<42——attention 增益在 few-shot 语境下引入噪声，无增益。
+5. **压缩臂天花板同步抬升有限**：B2 comp EM 34 vs base 33（+1），
+   压缩损失（42→34）仍独立存在，读出修复不消除压缩代价。
+6. **row 0 验证（n=100，同 context 换题）**：排除 3 个 demo 泄漏题后
+   5/97→5/97，B2 无增益也无损。row 4 的增益可能依赖该行题目分布
+   （更多先验压制敏感题）；结论限定为"row 4 显著、跨行未证实"。
+
+统计注意事项：n=100 单行，未做多行/多种子验证；BC 的 p=0.108 未过
+显著线。所有预测与逐题打分已存 JSON，官方 scorer 离线复算与文件内
+summary 一致。
+
+**结论**：读出瓶颈的主要可修部分是**生成格式 × 解析器交互**与**先验压制**；
+few-shot 锚定 + stop 序列（B2）以零建模成本拿下 +12 EM（p<0.01），
+是最直接的下一步优化。attention 增益（C）提供互补方向但单独不显著，
+组合无收益。指令重写（A）单独有害。

@@ -38,6 +38,7 @@
 | S0b | 系数 oracle 最小训练（C=I+E） | rank×rank 系数自由度能否救 lost 而不伤 retained | 已完成（2026-10-03），**INCONCLUSIVE**：rescued 7/13 达标（峰值 step20 达 9），harmed 3/5 超标（阈值 0 过严，n_retained=5 统计脆弱）；‖E‖ 全程钉 0.500 → 容量钳制饱和；判读为「有信号但全局系数变换不够」→ 允许进 S1 但 S1 须自带 no-harm 验证 | [S0b.md](experiments/S0b.md) |
 | Native-QA | 数据集原生问答成对对照 | 完整写入、未压缩记忆 vs 同状态手动压缩记忆 vs 原生 full-rewrite；真实生成、官方 EM/SUB 重算 | 已完成（2026-10-03）：官方口径 row0 三臂 5/6/7 EM、row4 30/31/13 EM；压缩 vs 未压缩净差 ±1/100 为噪声级，full-rewrite 仅 row4 大幅掉分；根因=ckpt 来自 row3 窗口、监督与评测任务错位 | [Native-QA.md](experiments/Native-QA.md) |
 | Native-QA-warmup | 任务匹配功能监督训练 | row0 原生 24 题 gold+KD 训 96 步，零重叠 row4 100 题评测 | 已完成（2026-10-03）：loss 3.95→3.01 有效，但 EM 31/100 与未训练 selection ckpt 逐题相同（γ 仅用预算 5.2%）；**判定读出/格式瓶颈 >> 压缩损失，停止压缩算子侧变体** | [Native-QA.md](experiments/Native-QA.md) |
+| Readout-probe | 读出修复三臂并行（A 指令对抗 / B few-shot 锚定 / C reader 注意力增益） | 同一 row4 无损池上 10 组对照，官方两层打分 + McNemar | 已完成（2026-10-03）：**B2 few-shot+stop 唯一显著，EM 30→42（+15/−3，p=0.0075）**，增益全为先验压制题；无 stop 的 B 官方 EM 崩到 1（续写 Question/Answer 对劫持 parse 层）；C attn×8 +11/−6 不显著且增益与 B2 仅重叠 7/49；组合 BC 39<42 无增益；row0 验证无增益无损（5/97→5/97 排除泄漏），跨行未证实 | [Native-QA.md](experiments/Native-QA.md) |
 
 ## 固定参考文件
 
