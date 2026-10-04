@@ -39,7 +39,8 @@
 | Native-QA | 数据集原生问答成对对照 | 完整写入、未压缩记忆 vs 同状态手动压缩记忆 vs 原生 full-rewrite；真实生成、官方 EM/SUB 重算 | 已完成（2026-10-03）：官方口径 row0 三臂 5/6/7 EM、row4 30/31/13 EM；压缩 vs 未压缩净差 ±1/100 为噪声级，full-rewrite 仅 row4 大幅掉分；根因=ckpt 来自 row3 窗口、监督与评测任务错位 | [Native-QA.md](experiments/Native-QA.md) |
 | Native-QA-warmup | 任务匹配功能监督训练 | row0 原生 24 题 gold+KD 训 96 步，零重叠 row4 100 题评测 | 已完成（2026-10-03）：loss 3.95→3.01 有效，但 EM 31/100 与未训练 selection ckpt 逐题相同（γ 仅用预算 5.2%）；**判定读出/格式瓶颈 >> 压缩损失，停止压缩算子侧变体** | [Native-QA.md](experiments/Native-QA.md) |
 | Readout-probe | 读出修复三臂并行（A 指令对抗 / B few-shot 锚定 / C reader 注意力增益） | 同一 row4 无损池上 10 组对照，官方两层打分 + McNemar | 已完成（2026-10-03）：**B2 few-shot+stop 唯一显著，EM 30→42（+15/−3，p=0.0075）**，增益全为先验压制题；无 stop 的 B 官方 EM 崩到 1（续写 Question/Answer 对劫持 parse 层）；C attn×8 +11/−6 不显著且增益与 B2 仅重叠 7/49；组合 BC 39<42 无增益；row0 验证无增益无损（5/97→5/97 排除泄漏），跨行未证实 | [Native-QA.md](experiments/Native-QA.md) |
-| S1-SDC | 感度定向整固：冻结 reader，功能梯度显著性选择 + 一阶正交合并 + 回滚门 | 预注册六门 G0–G5（版本盲区 → 选择准则 → 版本分层 → 一阶保证 → 泛化 → 预算曲线），B2 读出协议全局冻结，主指标 BRR | **方案定稿（2026-10-03），待跑**；新颖性已核查（Task-Aware KV / Context-Distill-LoRA / M+ / Fisher 剪枝 / OGD-GEM 均不覆盖组合点）；E6 资产降级为投影锥内可选消融；下一步 = G0 版本盲区测量，一天出结果，余弦不近 1 则全案止损 | [S1-SDC.md](experiments/S1-SDC.md) |
+| S1-SDC | 感度定向整固：冻结 reader，功能梯度显著性选择 + 一阶正交合并 + 回滚门 | 预注册六门 G0–G5（版本盲区 → 选择准则 → 版本分层 → 一阶保证 → 泛化 → 预算曲线），B2 读出协议全局冻结，主指标 BRR | 方案定稿（2026-10-03）；**G0 已完成（2026-10-04）：PASS**——同主体新旧事实块余弦 mean 0.9751（120 对，无一 <0.95，两对 =1.0000），与不同主体对照 0.9734 不可区分 → 相似度选择版本盲区成立，SDC 动机存活；下一步 = sic_probe.py + sic.py 最小闭环跑 G1 | [S1-SDC.md](experiments/S1-SDC.md) |
+| G0 | S1-SDC 第一门：版本盲区测量 | 同主体新旧事实块跨层余弦是否近 1（否则全案止损） | 已完成（2026-10-04），rows 0–3 四窗 120 版本对：**mean 0.9751、min 0.9626、对照 0.9734 与之重叠**——比预注册更强：不仅新旧近重复，且与随机对照同平，版本信息在相似度度量下不存在；文本平（E7a-sim）→ 池平且版本盲（G0）→ 行为掉分（E6 lost）三层闭环 | [G0.md](experiments/G0.md) |
 
 ## 固定参考文件
 
