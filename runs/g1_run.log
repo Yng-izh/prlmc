@@ -1,0 +1,34 @@
+[sic] gpu9, 32768 MB free
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:09<01:09,  9.99s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:41<02:16, 22.75s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [01:16<02:22, 28.43s/it]Loading checkpoint shards:  50%|█████     | 4/8 [01:49<02:00, 30.23s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [02:20<01:31, 30.35s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [02:58<01:06, 33.00s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [03:33<00:33, 33.50s/it]Loading checkpoint shards: 100%|██████████| 8/8 [03:52<00:00, 28.86s/it]Loading checkpoint shards: 100%|██████████| 8/8 [03:52<00:00, 29.00s/it]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[sic] row 0 salience top9: [0, 1, 2, 3, 11, 13, 16, 17, 18]
+[sic] row 0 arm select  lost 3 recovered 0
+[sic] row 0 arm sic     lost 3 recovered 0
+[sic] row 0 arm oldest  lost 4 recovered 0
+[sic] row 0 arm random  lost 2 recovered 0
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[sic] row 1 salience top9: [0, 1, 2, 4, 5, 11, 16, 17, 18]
+[sic] row 1 arm select  lost 9 recovered 0
+[sic] row 1 arm sic     lost 3 recovered 0
+[sic] row 1 arm oldest  lost 7 recovered 0
+[sic] row 1 arm random  lost 7 recovered 0
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[sic] row 2 salience top9: [0, 2, 3, 5, 8, 13, 16, 17, 18]
+[sic] row 2 arm select  lost 4 recovered 0
+[sic] row 2 arm sic     lost 1 recovered 0
+[sic] row 2 arm oldest  lost 5 recovered 0
+[sic] row 2 arm random  lost 6 recovered 0
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[sic] row 3 salience top9: [3, 5, 7, 8, 11, 14, 15, 17, 18]
+[sic] row 3 arm select  lost 3 recovered 0
+[sic] row 3 arm sic     lost 2 recovered 0
+[sic] row 3 arm oldest  lost 2 recovered 0
+[sic] row 3 arm random  lost 1 recovered 0
+[sic] pooled lost: select 19, sic 9, ratio 0.474 -> PASS
+[sic] report /share/latent/PRLM-C/runs/g1_report.json
