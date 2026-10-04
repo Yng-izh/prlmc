@@ -1,6 +1,6 @@
 # S1 — SDC：感度定向整固（Sensitivity-Directed Consolidation）
 
-> 状态：**G0 已过（2026-10-04，PASS，mean 0.9751）**，进入 G1 实现阶段。
+> 状态：**G1 已过（2026-10-05，PASS，lost 19→9 / ratio 0.474 / p=0.0245）**，进入 G2 版本分层。G0（2026-10-04，PASS，mean 0.9751）在前。
 > 详见 [G0.md](G0.md)。
 >
 > 上游依据：E6b-mini（逐窗口训练操作器不泛化，train 7/30 vs held-out
