@@ -1,9 +1,9 @@
 # S1 — SDC：感度定向整固（Sensitivity-Directed Consolidation）
 
-> 状态：**G2 完成（原始版本机制 FAIL）；G2b 完成（方向复现、统计不充分）**，进入 G3 合并臂前需扩大 selection-independent held-out 样本。G1 PASS（2026-10-05，lost 19→9 / ratio 0.474 / p=0.0245）在前。
-> 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)、[G2b.md](G2b.md)。
+> 状态：**G2c固定200题独立复验未过门**（128 eligible，select lost25 / sic29，精确McNemar p=0.424）。暂停据小样本直接推进G3有效性主张。
+> 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)、[G2b.md](G2b.md)、[G2c.md](G2c.md)。
 >
-> G2b 去掉 native select-dropped 采样条件，按 current/singleton 平衡抽取，discovery 与 held-out 分离。held-out select 7 vs sic 4（降 42.9%，方向复现），但 33 个 eligible 题的 McNemar p=0.371，暂不宣称统计复现。当前最稳妥机制叙事是“功能信号保护独占信息”；版本语义仍只作 G0 动机，不作已证机制。
+> G1/G2b历史数字保留，但G2c没有复现优势：singleton eligible两臂均丢18题，current select7/sic11。撤回“独占信息保护机制已证实”的表述；旧结果是窄协议下的描述性观察，不是未见题泛化证明。G2c纠正了全文latest gold、跨context去重与eval评分，使用teacher-forced评分而非B2真实生成，因此也是协议审计复验，不是旧协议的简单加题。
 >
 > 上游依据：E6b-mini（逐窗口训练操作器不泛化，train 7/30 vs held-out
 > 2/16）、S0（功能敏感子空间真实且强可操作，separation 0.490）、
