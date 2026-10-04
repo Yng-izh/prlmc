@@ -1,0 +1,22 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:02<00:20,  2.89s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:20<01:10, 11.76s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:50<01:38, 19.79s/it]Loading checkpoint shards:  50%|█████     | 4/8 [01:16<01:29, 22.41s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:43<01:11, 23.86s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [02:12<00:51, 25.84s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [02:42<00:27, 27.19s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:51<00:00, 21.32s/it]Loading checkpoint shards: 100%|██████████| 8/8 [02:51<00:00, 21.43s/it]
+We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[g2] row 0: superseded 89 / current 89 / singleton 202 lines; version groups 89; kept overlap select-sic 5/9
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[g2] row 1: superseded 18 / current 18 / singleton 344 lines; version groups 18; kept overlap select-sic 4/9
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[g2] row 2: superseded 10 / current 10 / singleton 360 lines; version groups 10; kept overlap select-sic 4/9
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[g2] row 3: superseded 3 / current 3 / singleton 374 lines; version groups 3; kept overlap select-sic 5/9
+[g2] drop rates by stratum:
+[g2]   superseded  select 0.775  sic 0.533  oldest 0.775  random 0.517
+[g2]   current     select 0.250  sic 0.542  oldest 0.250  random 0.483
+[g2]   singleton   select 0.529  sic 0.524  oldest 0.529  random 0.531
+[g2] superseded drop ratio sic/select = 0.688 -> FAIL
+[g2] probe-level: select_lost {'superseded': 0, 'current': 1, 'singleton': 18, 'unknown': 0} | rescued {'superseded': 0, 'current': 1, 'singleton': 12, 'unknown': 0} | still_lost {'superseded': 0, 'current': 0, 'singleton': 6, 'unknown': 0}
+[g2] report /share/latent/PRLM-C/runs/g2_report.json
