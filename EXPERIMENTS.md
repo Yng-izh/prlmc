@@ -42,7 +42,9 @@
 | S1-SDC | 感度定向整固：冻结 reader，功能梯度显著性选择 + 一阶正交合并 + 回滚门 | 预注册六门 G0–G5（版本盲区 → 选择准则 → 版本分层 → 一阶保证 → 泛化 → 预算曲线），B2 读出协议全局冻结，主指标 BRR | 方案定稿（2026-10-03）；G0 PASS（2026-10-04，版本盲成立）；**G1 已完成（2026-10-05）：PASS**——sic 选择 pooled lost 9 vs select 19（降 52.6%，判据 ≤30%），4 contexts，McNemar b=13/c=3 连续性校正 p=0.0245；结构性发现：sic 保最老块 [0–3]，select 弃之（recency 权重与函数信息系统性冲突），G0 互证；下一步 = G2 版本分层 | [S1-SDC.md](experiments/S1-SDC.md) |
 | G0 | S1-SDC 第一门：版本盲区测量 | 同主体新旧事实块跨层余弦是否近 1（否则全案止损） | 已完成（2026-10-04），rows 0–3 四窗 120 版本对：**mean 0.9751、min 0.9626、对照 0.9734 与之重叠**——比预注册更强：不仅新旧近重复，且与随机对照同平，版本信息在相似度度量下不存在；文本平（E7a-sim）→ 池平且版本盲（G0）→ 行为掉分（E6 lost）三层闭环 | [G0.md](experiments/G0.md) |
 | G1 | S1-SDC 第二门：显著性选择 vs 原生相似度选择 | 同窗口同探针五臂对照（select/sic/oldest/random），判据 lost 降 ≥30% + ≥3 contexts + McNemar<0.05 | 已完成（2026-10-05），4 行 76 eligible：**select 19 / sic 9 / oldest 18 / random 16**，ratio 0.474，McNemar χ²=5.06 p=0.0245；sic 四行无一更差；kept 重叠仅 4–5/9，sic 独保窗口头部老块（梯度信号在老块），select 独取中段（recency 所致）——与 G0 版本盲互证 | [G1.md](experiments/G1.md) |
-| G2 | S1-SDC 第三门：版本分层，废弃块被丢率 sic vs select ≥2x | 判据字面 FAIL（0.688<2.0），但方向反了且机制被证伪改写 | 已完成（2026-10-06），四窗口 1520 行分层：select/oldest 废弃丢率 0.775、现行 0.250（纯 recency 代理）；sic 0.533/0.542 对称不做版本区分；**探针级：select 丢的 19 题里 18 题（+sic 救回的 12 题）全支撑在 singleton 独占行**——G1 赢法是"独占信息保护"而非"版本正确性"，机制更普适；守卫：重建池逐位复现 G1 select kept | [G2.md](experiments/G2.md) |
+| G2 | S1-SDC 第三门：版本分层，废弃块被丢率 sic vs select ≥2x | 判据字面 FAIL（0.688<2.0），机制假设按预注册证伪 | 已完成（2026-10-06），四窗口 1520 行：select/oldest 废弃丢率 0.775、现行 0.250；sic 0.533/0.542 对称不做版本区分；探针级 select 丢的 19 题里 18 题支撑在 singleton 独占行——G1 赢法更像独占信息保护而非版本正确性 | [G2.md](experiments/G2.md) |
+| G2b | S1-SDC 多样探针复验：selection-independent + current/singleton 平衡 + discovery/held-out 分离 | held-out 方向复现，目标降 ≥30%；统计显著需扩大样本 | 已完成（2026-10-07），held-out 33 eligible：select 7 / sic 4，降 42.9%，ratio 0.571；但 McNemar b=4/c=1，p=0.371，方向复现、统计不充分；原始 G2 版本机制 FAIL 保留，下一步扩大 held-out 后再入 G3 | [G2b.md](experiments/G2b.md) |
+
 
 ## 固定参考文件
 

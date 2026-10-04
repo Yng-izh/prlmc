@@ -1,13 +1,9 @@
 # S1 — SDC：感度定向整固（Sensitivity-Directed Consolidation）
 
-> 状态：**G2 已完成（2026-10-06，判据 FAIL / 机制改写）**，进入 G3 合并臂。G1 PASS（2026-10-05，lost 19→9 / ratio 0.474 / p=0.0245）在前。
-> 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)。
+> 状态：**G2 完成（原始版本机制 FAIL）；G2b 完成（方向复现、统计不充分）**，进入 G3 合并臂前需扩大 selection-independent held-out 样本。G1 PASS（2026-10-05，lost 19→9 / ratio 0.474 / p=0.0245）在前。
+> 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)、[G2b.md](G2b.md)。
 >
-> **G2 机制改写**：预注册的"版本语义机制"被分层证伪——sic 保的不是
-> 废弃版本块，是**独占信息块**（探针级：select 丢的 19 题里 18 题支撑
-> 在 singleton 行，sic 救回的 12 题全是 singleton；sic 对
-> superseded/current 丢弃率 0.533/0.542 对称，不做版本区分）。机制
-> 从窄（版本覆盖）变宽（独占信息保护），叙事更普适更可辩护。
+> G2b 去掉 native select-dropped 采样条件，按 current/singleton 平衡抽取，discovery 与 held-out 分离。held-out select 7 vs sic 4（降 42.9%，方向复现），但 33 个 eligible 题的 McNemar p=0.371，暂不宣称统计复现。当前最稳妥机制叙事是“功能信号保护独占信息”；版本语义仍只作 G0 动机，不作已证机制。
 >
 > 上游依据：E6b-mini（逐窗口训练操作器不泛化，train 7/30 vs held-out
 > 2/16）、S0（功能敏感子空间真实且强可操作，separation 0.490）、
