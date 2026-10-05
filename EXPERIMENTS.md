@@ -52,7 +52,8 @@
 
 | SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | Finite CE swap四窗开发完成：row1/2/3 CE改善，row0不变；82题确认总正确55→56，但64 eligible丢题10→11，净-1、p=1.0，未通过确认门槛。swap不替换O2方案，G3继续暂停 | [SIC-O2.md](experiments/SIC-O2.md) |
 
-| SIC-P1 | 论文级受控实验：实体隔离24 episode、冻结协议、真实生成EM | 脱离旧4上下文/旧82题，主指标贪心生成EM、support oracle逼近门、episode级推断；16测试episode仍封存 | 数据冻结+smoke完成：ep0 SIC稳定性候选22/64低于native 23/64，支撑覆盖64.06% vs oracle 81.25%；候选不达标，回退不冒充SIC收益；开发阶段继续优化 | [SIC-P1.md](experiments/SIC-P1.md) |
+| SIC-P1 | 论文级受控实验：实体隔离24 episode、冻结协议、真实生成EM | 脱离旧4上下文/旧82题，主指标贪心生成EM、support oracle逼近门、episode级推断；16测试episode仍封存 | 数据冻结+smoke完成：ep0 SIC稳定性候选22/64低于native 23/64；候选未达标。按新要求暂停开发，仅保留历史诊断 | [SIC-P1.md](experiments/SIC-P1.md) |
+| S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 实现与数值检查完成，GPU 短程验证进行中；尚无方法结论；未过门不进入泛化 | [S1-local.md](experiments/S1-local.md) |
 
 ## 证据边界（论文推进审计）
 
