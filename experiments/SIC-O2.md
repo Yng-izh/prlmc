@@ -102,5 +102,9 @@ oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这�
 
 独立确认由`tools/sic_swap_confirm.py`执行，确认题只评分、不选型。82题总正确为select 55、finite_ce_swap 56；64道eligible题的丢题为10→11，rescue/harm为5/4，净-1，精确McNemar `p=1.0`。逐窗eligible丢题变化：row0 5→5，row1 3→4，row2 2→2，row3 0→0。确认CE为row0 1.51361→1.64323、row1 1.05970→1.05954、row2 0.85957→0.79346、row3 1.07840→0.88440。CE的局部改善没有转化为eligible exact-match改善；finite_ce_swap不通过独立确认门槛，不替换O2冻结方案。确认报告见`runs/sic_swap_confirm.json`。
 
-本轮说明有限真实损失swap能逼近开发题CE，但开发CE不是可靠的未见题选择目标；继续用同一82题调参会产生确认集选择偏差。
+## Complete one-swap reader oracle audit
+
+为检验8候选预筛是否漏掉真实reader更优解，row1完整评估90个one-for-one交换。局部reader oracle将discovery CE从0.69916降至0.65451，优于预筛swap的0.66098；集合为`[0,2,4,6,11,13,15,17,18]`，support gap为4，exact-match仍14/17。
+
+该局部oracle冻结后在同一封闭确认题上重跑：row1确认CE从1.05970降至1.02926，但eligible丢题从3增至4；四窗总体仍为select 55→局部oracle方案56，总体eligible lost 10→11。因此预筛漏解不是主要问题，开发CE目标本身没有迁移到确认eligible exact-match。结果见`runs/sic_local_oracle_row1.json`、`runs/sic_local_oracle_confirm.json`和`sic_local_oracle_choice.json`。
 
