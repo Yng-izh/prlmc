@@ -1,0 +1,129 @@
+{
+  "plan_sha256": "d0c2dd42372ba7df3f5e632bf5424c219b6b9de95f8e10e98c62c5a98db163a4",
+  "selected": "coverage",
+  "development_improved": true,
+  "eligible": {
+    "select": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 25,
+      "rescued": 0,
+      "harmed": 0,
+      "net": 0,
+      "reduction": 0.0,
+      "exact_mcnemar_p": 1.0
+    },
+    "raw": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 25,
+      "rescued": 6,
+      "harmed": 6,
+      "net": 0,
+      "reduction": 0.0,
+      "exact_mcnemar_p": 1.0
+    },
+    "normalized": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 24,
+      "rescued": 5,
+      "harmed": 4,
+      "net": 1,
+      "reduction": 0.040000000000000036,
+      "exact_mcnemar_p": 1.0
+    },
+    "coverage": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 24,
+      "rescued": 6,
+      "harmed": 5,
+      "net": 1,
+      "reduction": 0.040000000000000036,
+      "exact_mcnemar_p": 1.0
+    },
+    "taylor": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 29,
+      "rescued": 2,
+      "harmed": 6,
+      "net": -4,
+      "reduction": -0.15999999999999992,
+      "exact_mcnemar_p": 0.2890625
+    },
+    "taylor_coverage": {
+      "n": 128,
+      "select_wrong": 25,
+      "wrong": 29,
+      "rescued": 2,
+      "harmed": 6,
+      "net": -4,
+      "reduction": -0.15999999999999992,
+      "exact_mcnemar_p": 0.2890625
+    }
+  },
+  "all": {
+    "select": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 93,
+      "rescued": 0,
+      "harmed": 0,
+      "net": 0,
+      "reduction": 0.0,
+      "exact_mcnemar_p": 1.0
+    },
+    "raw": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 92,
+      "rescued": 10,
+      "harmed": 9,
+      "net": 1,
+      "reduction": 0.010752688172043001,
+      "exact_mcnemar_p": 1.0
+    },
+    "normalized": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 89,
+      "rescued": 12,
+      "harmed": 8,
+      "net": 4,
+      "reduction": 0.043010752688172005,
+      "exact_mcnemar_p": 0.5034446716308594
+    },
+    "coverage": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 88,
+      "rescued": 13,
+      "harmed": 8,
+      "net": 5,
+      "reduction": 0.053763440860215006,
+      "exact_mcnemar_p": 0.38331031799316406
+    },
+    "taylor": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 96,
+      "rescued": 5,
+      "harmed": 8,
+      "net": -3,
+      "reduction": -0.032258064516129004,
+      "exact_mcnemar_p": 0.5810546875
+    },
+    "taylor_coverage": {
+      "n": 200,
+      "select_wrong": 93,
+      "wrong": 96,
+      "rescued": 5,
+      "harmed": 8,
+      "net": -3,
+      "reduction": -0.032258064516129004,
+      "exact_mcnemar_p": 0.5810546875
+    }
+  }
+}

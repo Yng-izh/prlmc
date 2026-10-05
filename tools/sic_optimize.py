@@ -153,11 +153,14 @@ def main():
     ap.add_argument("--out",required=True)
     ap.add_argument("--choice")
     ap.add_argument("--development-report")
+    ap.add_argument("--frozen-kept",action="store_true")
     ap.add_argument("--previous",default="runs/g2c_report.json")
     ap.add_argument("--seed",type=int,default=20261009)
     ap.add_argument("--test-questions",type=int,default=25)
     ap.add_argument("--probes",type=int,default=38)
     args = ap.parse_args()
+    if args.frozen_kept and args.stage != "confirm":
+        ap.error("--frozen-kept is only valid for confirmation")
     os.environ.setdefault("CUDA_VISIBLE_DEVICES","9")
     import torch
     import e6a_overfit as E
@@ -184,8 +187,11 @@ def main():
         if choice["plan_sha256"] != digest or development["plan_sha256"] != digest:
             raise ValueError("choice/development plan hash differs")
         chosen = choice["selected"]
-        if chosen not in plan["protocol"]["candidates"] or development["selected"] != chosen:
+        allowed = development["eligible"] if args.frozen_kept else plan["protocol"]["candidates"]
+        if chosen not in allowed or development["selected"] != chosen:
             raise ValueError("confirmation selection differs from frozen development")
+        if args.frozen_kept and "perrow_kept" not in choice:
+            raise ValueError("frozen confirmation requires per-row kept sets")
     random.seed(plan["seed"])
     torch.manual_seed(plan["seed"])
     torch.cuda.manual_seed_all(plan["seed"])
@@ -215,7 +221,8 @@ def main():
             result.append(Probe(question=x["question"],answers=[x["answer"]],prompt=stem))
         return result
     report = dict(stage=args.stage,plan_sha256=hashlib.sha256(plan_bytes).hexdigest(),
-                  selected=chosen,records=[],windows=[],protocol=plan["protocol"],
+                  selected=chosen,frozen_kept_confirmation=args.frozen_kept,
+                  records=[],windows=[],protocol=plan["protocol"],
                   runtime=dict(torch=torch.__version__,cuda=torch.version.cuda,
                                gpu=torch.cuda.get_device_name(0),deterministic_warn_only=True,
                                cross_process_reproduction_tested=False))
@@ -240,6 +247,13 @@ def main():
         energy,taylor,losses = collect(manager,probes(p["discovery"]),E,S,torch)
         kept = candidates(energy,taylor,native,torch)
         if chosen:
+            if args.frozen_kept:
+                frozen = choice["perrow_kept"][str(row)]
+                if len(frozen)!=9 or frozen!=sorted(set(frozen)) or any(type(j) is not int or not 0<=j<19 for j in frozen):
+                    raise ValueError("invalid frozen kept set")
+                if chosen in kept and kept[chosen] != frozen:
+                    raise RuntimeError("recomputed candidate differs from frozen choice")
+                kept[chosen] = frozen
             kept = {name:kept[name] for name in dict.fromkeys(["select","raw",chosen])}
             previous_window = next(w for w in development["windows"] if w["row"] == row)
             for name, blocks in kept.items():
