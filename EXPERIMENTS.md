@@ -3,16 +3,15 @@
 实现 *残差记忆设计_方案整理* 的完整实验记录。每条记录给出配置、命令、原始数字与结论。
 
 基线为未修改的 MemoryLLM-8B on MemoryAgentBench，参数见 `_mllm_patch/BASELINE.md`。
-本文件中的一切数字都在同一环境（`/share/latent/mllm_env`，V100-32GB，`chunk_size 400`，
-`inject_max_tokens 512`，`do_sample False`）下取得，可直接对比。
+本文件中的实验主要使用同一环境（`/share/latent/mllm_env`，V100-32GB）；各实验评分、探针和reader模式以正文协议为准。历史训练态LoRA dropout与本轮确定性评分、teacher-forced token-exact与官方生成EM之间不作直接数值比较。
 
 本文件只做索引。每条实验的正文在 `experiments/` 目录下，一实验一文件；本文件不随实验追加内容。
 
 ## 当前方法主线
 
-当前推进 **Protected Functional Subspace Residual**，先 S1-local，过门后才 S1-generalization，再进入 S1-paper。selection 固定为压缩底座，新增 residual 仅沿 `U_safe = orth[(I - U_K U_K^T) U_L]` 更新，不在完整 down.weight 空间自由学习。S0 历史扰动显示 lost 信息有可操作的低维功能信号，S0b 提供全局更新耦合 rescue/harm 的局部证据；当前复现审计发现 reader 的 LoRA dropout=0.1，历史训练态诊断的确定性边界须由本轮关闭 dropout 的评分与 Jacobian 重测校验。protected 更新是否有效、是否泛化仍待实验，不提前宣称。
+**Protected Functional Subspace Residual 已在 S1-local 判定 NO-GO 并停止。**同 S0 hard window、原13题、扩大至75道 retained，关闭 reader LoRA dropout 后重算 Jacobian，完成指定五臂60步正式比较。protected 最终 rescue1/13、harm37/75、净收益−32；未满足 rescue≥7 或压低harm门槛。UL 控制臂为7/13、6/75、净收益+8，但仅为本地监督机制结果，不宣称泛化，不将它替换为新主线。不启动 S1-generalization 或 S1-paper，不增加变体。历史S0/S0b训练态存在LoRA dropout随机性，其旧分数不作为本轮确定性可比对照。
 
-E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方法主表。后续主表仅 native selection、unconstrained residual、subspace residual、protected subspace residual，预算 0.25/0.5/0.75。held-out 答案和 Jacobian 不参与建基或训练；原 SIC-P1 测试集保持封存。
+E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方法主表。此前条件方案中的主表与预算0.25/0.5/0.75实验因local未过门均未执行。没有held-out建基或答案监督；原 SIC-P1 测试集保持封存。
 
 ## 目录（experiments/）
 
@@ -59,7 +58,7 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 | SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | Finite CE swap四窗开发完成：row1/2/3 CE改善，row0不变；82题确认总正确55→56，但64 eligible丢题10→11，净-1、p=1.0，未通过确认门槛。swap不替换O2方案，G3继续暂停 | [SIC-O2.md](experiments/SIC-O2.md) |
 
 | SIC-P1 | 论文级受控实验：实体隔离24 episode、冻结协议、真实生成EM | 脱离旧4上下文/旧82题，主指标贪心生成EM、support oracle逼近门、episode级推断；16测试episode仍封存 | 数据冻结+smoke完成：ep0 SIC稳定性候选22/64低于native 23/64；候选未达标。按新要求暂停开发，仅保留历史诊断 | [SIC-P1.md](experiments/SIC-P1.md) |
-| S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 实现与九项测试、确定性五臂短验证完成；原13题、60步正式运行中；尚无方法结论，未过门不进入泛化 | [S1-local.md](experiments/S1-local.md) |
+| S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 正式五臂60步完成；**NO-GO，方法停止**：protected rescue1/13、harm37/75；UL为7/13、6/75。逐题计数与真实权重核验通过，不启动泛化或论文预算实验 | [S1-local.md](experiments/S1-local.md) |
 
 ## 证据边界（论文推进审计）
 

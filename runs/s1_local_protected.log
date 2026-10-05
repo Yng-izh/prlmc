@@ -135,3 +135,14 @@ Memory Pool Parameters: 1.6777 B
 [s1] subspace_ul step=60 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=8
 [s1] protected_usafe step=5 rescue=1 harm=44/75 added_harm_retained=0 added_harm_all=0 net=-39
 [s1] protected_usafe step=10 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=0 net=-38
+[s1] protected_usafe step=15 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=0 net=-38
+[s1] protected_usafe step=20 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=0 net=-38
+[s1] protected_usafe step=25 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=0 net=-38
+[s1] protected_usafe step=30 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=1 net=-38
+[s1] protected_usafe step=35 rescue=1 harm=42/75 added_harm_retained=0 added_harm_all=1 net=-37
+[s1] protected_usafe step=40 rescue=1 harm=41/75 added_harm_retained=0 added_harm_all=1 net=-36
+[s1] protected_usafe step=45 rescue=1 harm=40/75 added_harm_retained=0 added_harm_all=1 net=-35
+[s1] protected_usafe step=50 rescue=1 harm=39/75 added_harm_retained=0 added_harm_all=1 net=-34
+[s1] protected_usafe step=55 rescue=1 harm=38/75 added_harm_retained=0 added_harm_all=1 net=-33
+[s1] protected_usafe step=60 rescue=1 harm=37/75 added_harm_retained=0 added_harm_all=1 net=-32
+[s1] verdict=NO-GO

@@ -1,0 +1,66 @@
+{
+  "status": "complete",
+  "metrics_verified": true,
+  "arms": [
+    {
+      "arm": "select",
+      "step": 0,
+      "rescue": 7,
+      "harm": 0,
+      "new_harm_all": 22,
+      "correct": 78,
+      "n": 296,
+      "net_full_eligible_vs_select": 0
+    },
+    {
+      "arm": "unconstrained",
+      "step": 60,
+      "rescue": 10,
+      "harm": 17,
+      "new_harm_all": 11,
+      "correct": 84,
+      "n": 296,
+      "net_full_eligible_vs_select": -7
+    },
+    {
+      "arm": "coefficient_oracle",
+      "step": 60,
+      "rescue": 7,
+      "harm": 15,
+      "new_harm_all": 9,
+      "correct": 93,
+      "n": 296,
+      "net_full_eligible_vs_select": -5
+    },
+    {
+      "arm": "subspace_ul",
+      "step": 60,
+      "rescue": 7,
+      "harm": 6,
+      "new_harm_all": 10,
+      "correct": 107,
+      "n": 296,
+      "net_full_eligible_vs_select": 8
+    },
+    {
+      "arm": "protected_usafe",
+      "step": 60,
+      "rescue": 1,
+      "harm": 37,
+      "new_harm_all": 1,
+      "correct": 65,
+      "n": 296,
+      "net_full_eligible_vs_select": -32
+    }
+  ],
+  "gate": {
+    "rescue_at_least_7": false,
+    "harm_strictly_below_oracle": false,
+    "harm_at_most_half_oracle": false,
+    "harm_not_above_free_or_ul": false,
+    "nonnegative_net_vs_select": false,
+    "retained_at_least_10": true
+  },
+  "net_metric_note": "Net gate is checked as recorded; expanded full-pool correctness is not serialized.",
+  "report_sha256": "7debe0e4b14d56d166f9223d088919bfeebf469d0a43adadfb33854042218af5"
+}

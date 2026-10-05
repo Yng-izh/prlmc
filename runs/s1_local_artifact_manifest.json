@@ -1,0 +1,34 @@
+{
+  "artifacts": [
+    {
+      "path": "runs/s1_local_protected.basis.pt",
+      "remote_path": "/share/latent/PRLM-C/runs/s1_local_protected.basis.pt",
+      "bytes": 141062450,
+      "sha256": "3af25e44b94464432a0221e6dabe8685ef2bd91c522addcbe279387425bb97b2"
+    },
+    {
+      "path": "runs/s1_local_protected.unconstrained.pt",
+      "remote_path": "/share/latent/PRLM-C/runs/s1_local_protected.unconstrained.pt",
+      "bytes": 2624919,
+      "sha256": "2e41cfab3ef0bdaa8eb09e0ec0a41dca555e8bd7917e6f98b382837c0b23960b"
+    },
+    {
+      "path": "runs/s1_local_protected.coefficient_oracle.pt",
+      "remote_path": "/share/latent/PRLM-C/runs/s1_local_protected.coefficient_oracle.pt",
+      "bytes": 2633794,
+      "sha256": "9561419c23f55128a6417ac23519ac4832a97bcd9e1554fe286d4d84ddbca208"
+    },
+    {
+      "path": "runs/s1_local_protected.subspace_ul.pt",
+      "remote_path": "/share/latent/PRLM-C/runs/s1_local_protected.subspace_ul.pt",
+      "bytes": 8916756,
+      "sha256": "425d70575fabc1027a1f422ba5a8ad5cae3199ac4c5bba8bcd9350603f8ba66b"
+    },
+    {
+      "path": "runs/s1_local_protected.protected_usafe.pt",
+      "remote_path": "/share/latent/PRLM-C/runs/s1_local_protected.protected_usafe.pt",
+      "bytes": 5246724,
+      "sha256": "4f30be18d095f7a560d8219d10efdcd37ce25b22f1054d5886e8cf7c5eb09a08"
+    }
+  ]
+}
