@@ -1,6 +1,6 @@
 # S1 — SDC：感度定向整固（Sensitivity-Directed Consolidation）
 
-> 状态：**G3暂停，SIC-O1/O2优化均未通过独立确认**。O1 coverage开发仅4%净改善；O2 eligibility-normalized开发8%但82道新题上eligible lost 10→11（净-1，p=1.0）。
+> 状态：**G3暂停，SIC-O1/O2及finite CE swap均未通过独立确认**。O1 coverage开发仅4%净改善；O2 eligible-normalized及swap在82道新题上均为eligible lost 10→11（净-1，p=1.0）。
 > 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)、[G2b.md](G2b.md)、[G2c.md](G2c.md)。
 >
 > G1/G2b历史数字保留，但G2c没有复现优势：singleton eligible两臂均丢18题，current select7/sic11。撤回“独占信息保护机制已证实”的表述；旧结果是窄协议下的描述性观察，不是未见题泛化证明。G2c纠正了全文latest gold、跨context去重与eval评分，使用teacher-forced评分而非B2真实生成，因此也是协议审计复验，不是旧协议的简单加题。

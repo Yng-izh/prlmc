@@ -96,5 +96,11 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这个差距证明原生19选9组合仍有空间，但不能证明换成oracle集合后reader CE一定达到该下界，因为reader存在冗余、读出失败和格式错误。
 
-曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。有限逼近脚本 `tools/sic_swap.py` 已实现：从冻结O2集合出发，用discovery eligible题的梯度增益从90个one-for-one交换中预筛8个，再用真实discovery CE排序；support oracle只在结果后计算结构gap，`oracle_aware=false`。row0真实运行在base评分阶段因远端GPU并发显存占用触发OOM，未生成swap数值报告；脚本已增加`--cuda-device`，待空闲GPU后重跑。该失败是资源状态，不计入算法结果。
+曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。## Finite CE swap approximation
+
+`tools/sic_swap.py` 从冻结 O2 集合开始，每窗生成90个 one-for-one swap，按 discovery eligible 梯度增益预筛8个，再用真实 discovery CE 选择；support oracle只做事后结构gap诊断。四窗冻结结果：row0保持原集合；row1替换14→10，CE 0.69916→0.66098、正确14→15；row2替换15→12，CE 0.92626→0.55419、正确18→18；row3替换1→6，CE 0.60391→0.60087、正确12→12。候选和冻结输入分别见`runs/sic_swap_row0.json`至`row3.json`及`sic_swap_choice.json`。
+
+独立确认由`tools/sic_swap_confirm.py`执行，确认题只评分、不选型。82题总正确为select 55、finite_ce_swap 56；64道eligible题的丢题为10→11，rescue/harm为5/4，净-1，精确McNemar `p=1.0`。逐窗eligible丢题变化：row0 5→5，row1 3→4，row2 2→2，row3 0→0。确认CE为row0 1.51361→1.64323、row1 1.05970→1.05954、row2 0.85957→0.79346、row3 1.07840→0.88440。CE的局部改善没有转化为eligible exact-match改善；finite_ce_swap不通过独立确认门槛，不替换O2冻结方案。确认报告见`runs/sic_swap_confirm.json`。
+
+本轮说明有限真实损失swap能逼近开发题CE，但开发CE不是可靠的未见题选择目标；继续用同一82题调参会产生确认集选择偏差。
 

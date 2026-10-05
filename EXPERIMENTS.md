@@ -50,7 +50,7 @@
 
 | SIC-O1 | SIC评分/覆盖选择优化：原窗口、五候选、旧200题开发与82道全新确认题 | 先开发选型后冻结独立确认，不依赖窗口头尾规则 | 开发完成：select107/200、coverage112/200；128 eligible丢25→24，仅4%，p=1.0；Taylor丢29。82确认题继续封闭，推进O2；G3暂停 | [SIC-O1.md](experiments/SIC-O1.md) |
 
-| SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | 有限swap逼近脚本已实现并通过py_compile；row0真实CE运行因远端GPU并发占用触发OOM，未产生算法结果，待空闲GPU用`--cuda-device`重跑 | [SIC-O2.md](experiments/SIC-O2.md) |
+| SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | Finite CE swap四窗开发完成：row1/2/3 CE改善，row0不变；82题确认总正确55→56，但64 eligible丢题10→11，净-1、p=1.0，未通过确认门槛。swap不替换O2方案，G3继续暂停 | [SIC-O2.md](experiments/SIC-O2.md) |
 
 ## 固定参考文件
 

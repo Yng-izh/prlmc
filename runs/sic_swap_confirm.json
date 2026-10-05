@@ -1,0 +1,1928 @@
+{
+  "stage": "confirm",
+  "experiment": "SIC-swap-confirm",
+  "plan_sha256": "d0c2dd42372ba7df3f5e632bf5424c219b6b9de95f8e10e98c62c5a98db163a4",
+  "choice_sha256": "d308f008398ab60e07c8ab7cdebd115e227c99a02d24342425ae792f3a49c0ea",
+  "choice_source_sha256": "6a85596e702ab70793653186f7f898c5fa2643b0b291e141f421b72cd5498c5c",
+  "selected": "finite_ce_swap",
+  "selection_rule": "discovery eligible gradient prefilter top8 then discovery CE; no confirmation access",
+  "confirmation_scoring_only": true,
+  "records": [
+    {
+      "key": "(13, ('The Vampyre',))",
+      "line": 426,
+      "block": 18,
+      "relation": 13,
+      "question": "In what language was The Vampyre written?",
+      "answer": "German",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(21, ('Mario Puzo',))",
+      "line": 112,
+      "block": 2,
+      "relation": 21,
+      "question": "What is Mario Puzo famous for?",
+      "answer": "The Godfather",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(12, ('Thus Spoke Zarathustra',))",
+      "line": 345,
+      "block": 14,
+      "relation": 12,
+      "question": "In what country was Thus Spoke Zarathustra created?",
+      "answer": "Germany",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(7, ('T. S. Eliot',))",
+      "line": 197,
+      "block": 6,
+      "relation": 7,
+      "question": "What language does T. S. Eliot speak?",
+      "answer": "French",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(6, ('Philadelphia',))",
+      "line": 421,
+      "block": 18,
+      "relation": 6,
+      "question": "Who founded Philadelphia?",
+      "answer": "William Penn",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(3, ('Sophia Hawthorne',))",
+      "line": 420,
+      "block": 18,
+      "relation": 3,
+      "question": "Who is Sophia Hawthorne married to?",
+      "answer": "Joan Didion",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(4, ('Oscar Wilde',))",
+      "line": 270,
+      "block": 10,
+      "relation": 4,
+      "question": "In what city did Oscar Wilde die?",
+      "answer": "Guangzhou",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(17, ('Daniele De Rossi',))",
+      "line": 269,
+      "block": 10,
+      "relation": 17,
+      "question": "What position does Daniele De Rossi play?",
+      "answer": "midfielder",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(14, ('The Marriage of Figaro',))",
+      "line": 398,
+      "block": 16,
+      "relation": 14,
+      "question": "Who is the author of The Marriage of Figaro?",
+      "answer": "Thomas Kyd",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(9, ('cornerback',))",
+      "line": 362,
+      "block": 15,
+      "relation": 9,
+      "question": "What sport is cornerback associated with?",
+      "answer": "field hockey",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(2, ('England',))",
+      "line": 211,
+      "block": 7,
+      "relation": 2,
+      "question": "What continent is England located in?",
+      "answer": "Europe",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(0, ('Ellen Pompeo',))",
+      "line": 268,
+      "block": 10,
+      "relation": 0,
+      "question": "What is the country of citizenship of Ellen Pompeo?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(20, ('Dave Filoni',))",
+      "line": 226,
+      "block": 8,
+      "relation": 20,
+      "question": "Who is Dave Filoni employed by?",
+      "answer": "British Broadcasting Corporation",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(8, ('Kingdom of Ireland',))",
+      "line": 260,
+      "block": 10,
+      "relation": 8,
+      "question": "What religion is Kingdom of Ireland affiliated with?",
+      "answer": "Zoroastrianism",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(19, ('Jesus Christ',))",
+      "line": 307,
+      "block": 12,
+      "relation": 19,
+      "question": "In what city did Jesus Christ work?",
+      "answer": "Galilee",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(10, ('Born in the U.S.A.',))",
+      "line": 337,
+      "block": 13,
+      "relation": 10,
+      "question": "Who performed Born in the U.S.A.?",
+      "answer": "Dana International",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(5, ('Thomas Arne',))",
+      "line": 366,
+      "block": 15,
+      "relation": 5,
+      "question": "In what city was Thomas Arne born?",
+      "answer": "Bengaluru",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(16, ('American Broadcasting Company',))",
+      "line": 392,
+      "block": 16,
+      "relation": 16,
+      "question": "Who is the director of American Broadcasting Company?",
+      "answer": "Ernst Heinkel",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(11, ('F-22 Raptor',))",
+      "line": 384,
+      "block": 16,
+      "relation": 11,
+      "question": "Who developed F-22 Raptor?",
+      "answer": "Boeing",
+      "stratum": "current",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(1, ('Czech Republic',))",
+      "line": 190,
+      "block": 6,
+      "relation": 1,
+      "question": "What is the capital of Czech Republic?",
+      "answer": "Prague",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(13, ('Playboy',))",
+      "line": 297,
+      "block": 11,
+      "relation": 13,
+      "question": "In what language was Playboy written?",
+      "answer": "English",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(21, ('Stephen Crane',))",
+      "line": 423,
+      "block": 18,
+      "relation": 21,
+      "question": "What is Stephen Crane famous for?",
+      "answer": "Charlie Hebdo",
+      "stratum": "current",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(12, ('sumo',))",
+      "line": 95,
+      "block": 1,
+      "relation": 12,
+      "question": "In what country was sumo created?",
+      "answer": "Japan",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(7, ('Emma Watson',))",
+      "line": 402,
+      "block": 17,
+      "relation": 7,
+      "question": "What language does Emma Watson speak?",
+      "answer": "English",
+      "stratum": "singleton",
+      "row": 0,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(6, ('Boston',))",
+      "line": 108,
+      "block": 2,
+      "relation": 6,
+      "question": "Who founded Boston?",
+      "answer": "John Winthrop",
+      "stratum": "singleton",
+      "row": 0,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.5136054950952529,
+        "finite_ce_swap": 1.643227443099022
+      }
+    },
+    {
+      "key": "(12, ('The Canterbury Tales',))",
+      "line": 399,
+      "block": 16,
+      "relation": 12,
+      "question": "In what country was The Canterbury Tales created?",
+      "answer": "England",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(14, ('Nicomachean Ethics',))",
+      "line": 386,
+      "block": 16,
+      "relation": 14,
+      "question": "Who is the author of Nicomachean Ethics?",
+      "answer": "Aristotle",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(1, ('Austria',))",
+      "line": 189,
+      "block": 6,
+      "relation": 1,
+      "question": "What is the capital of Austria?",
+      "answer": "Vienna",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(18, ('Ilyushin',))",
+      "line": 316,
+      "block": 12,
+      "relation": 18,
+      "question": "In what city was Ilyushin founded?",
+      "answer": "Moscow",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(17, ('Rafael Palmeiro',))",
+      "line": 379,
+      "block": 15,
+      "relation": 17,
+      "question": "What position does Rafael Palmeiro play?",
+      "answer": "first baseman",
+      "stratum": "singleton",
+      "row": 1,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(6, ('GNU Project',))",
+      "line": 96,
+      "block": 1,
+      "relation": 6,
+      "question": "Who founded GNU Project?",
+      "answer": "Richard Stallman",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(0, ('Claire Bloom',))",
+      "line": 257,
+      "block": 9,
+      "relation": 0,
+      "question": "What is the country of citizenship of Claire Bloom?",
+      "answer": "United Kingdom",
+      "stratum": "singleton",
+      "row": 1,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(9, ('Atl\u00e9tico Nacional',))",
+      "line": 383,
+      "block": 16,
+      "relation": 9,
+      "question": "What sport is Atl\u00e9tico Nacional associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(4, ('James Agee',))",
+      "line": 385,
+      "block": 16,
+      "relation": 4,
+      "question": "In what city did James Agee die?",
+      "answer": "New York City",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(19, ('Pedro Pierluisi',))",
+      "line": 169,
+      "block": 5,
+      "relation": 19,
+      "question": "In what city did Pedro Pierluisi work?",
+      "answer": "Washington, D.C",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(3, ('Vince McMahon',))",
+      "line": 209,
+      "block": 7,
+      "relation": 3,
+      "question": "Who is Vince McMahon married to?",
+      "answer": "Linda McMahon",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(2, ('Classical Athens',))",
+      "line": 355,
+      "block": 14,
+      "relation": 2,
+      "question": "What continent is Classical Athens located in?",
+      "answer": "Europe",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(21, ('T. E. Lawrence',))",
+      "line": 180,
+      "block": 6,
+      "relation": 21,
+      "question": "What is T. E. Lawrence famous for?",
+      "answer": "Seven Pillars of Wisdom",
+      "stratum": "singleton",
+      "row": 1,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(7, (\"Patrick O'Brian\",))",
+      "line": 326,
+      "block": 13,
+      "relation": 7,
+      "question": "What language does Patrick O'Brian speak?",
+      "answer": "English",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(5, ('Jari Kurri',))",
+      "line": 243,
+      "block": 9,
+      "relation": 5,
+      "question": "In what city was Jari Kurri born?",
+      "answer": "Helsinki",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(10, ('Love Me Tender',))",
+      "line": 172,
+      "block": 5,
+      "relation": 10,
+      "question": "Who performed Love Me Tender?",
+      "answer": "Elvis Presley",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(14, (\"Gulliver's Travels\",))",
+      "line": 72,
+      "block": 0,
+      "relation": 14,
+      "question": "Who is the author of Gulliver's Travels?",
+      "answer": "Jonathan Swift",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(17, ('Drew Brees',))",
+      "line": 247,
+      "block": 9,
+      "relation": 17,
+      "question": "What position does Drew Brees play?",
+      "answer": "quarterback",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(6, ('Armani',))",
+      "line": 310,
+      "block": 12,
+      "relation": 6,
+      "question": "Who founded Armani?",
+      "answer": "Giorgio Armani",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(0, ('Betty Ford',))",
+      "line": 262,
+      "block": 10,
+      "relation": 0,
+      "question": "What is the country of citizenship of Betty Ford?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(9, ('closer',))",
+      "line": 289,
+      "block": 11,
+      "relation": 9,
+      "question": "What sport is closer associated with?",
+      "answer": "baseball",
+      "stratum": "singleton",
+      "row": 1,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(3, ('Anton Chekhov',))",
+      "line": 99,
+      "block": 1,
+      "relation": 3,
+      "question": "Who is Anton Chekhov married to?",
+      "answer": "Olga Knipper",
+      "stratum": "singleton",
+      "row": 1,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(21, ('Ferdowsi',))",
+      "line": 429,
+      "block": 18,
+      "relation": 21,
+      "question": "What is Ferdowsi famous for?",
+      "answer": "Shahnameh",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(7, ('Kristen Stewart',))",
+      "line": 401,
+      "block": 17,
+      "relation": 7,
+      "question": "What language does Kristen Stewart speak?",
+      "answer": "English",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(10, ('Meredith Grey',))",
+      "line": 182,
+      "block": 6,
+      "relation": 10,
+      "question": "Who performed Meredith Grey?",
+      "answer": "Ellen Pompeo",
+      "stratum": "singleton",
+      "row": 1,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.059698700606823,
+        "finite_ce_swap": 1.0595413005352021
+      }
+    },
+    {
+      "key": "(9, ('Pep Guardiola',))",
+      "line": 296,
+      "block": 11,
+      "relation": 9,
+      "question": "What sport is Pep Guardiola associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(12, ('Shades of Blue',))",
+      "line": 271,
+      "block": 10,
+      "relation": 12,
+      "question": "In what country was Shades of Blue created?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(11, ('iPhone 7',))",
+      "line": 338,
+      "block": 13,
+      "relation": 11,
+      "question": "Who developed iPhone 7?",
+      "answer": "Apple Inc",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(14, ('Major Barbara',))",
+      "line": 222,
+      "block": 8,
+      "relation": 14,
+      "question": "Who is the author of Major Barbara?",
+      "answer": "George Bernard Shaw",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(17, ('Tyrone Willingham',))",
+      "line": 260,
+      "block": 10,
+      "relation": 17,
+      "question": "What position does Tyrone Willingham play?",
+      "answer": "quarterback",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(3, ('Edward Cullen',))",
+      "line": 413,
+      "block": 17,
+      "relation": 3,
+      "question": "Who is Edward Cullen married to?",
+      "answer": "Bella Swan",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(0, ('Kristen Bell',))",
+      "line": 387,
+      "block": 16,
+      "relation": 0,
+      "question": "What is the country of citizenship of Kristen Bell?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(7, ('Matti Vanhanen',))",
+      "line": 388,
+      "block": 16,
+      "relation": 7,
+      "question": "What language does Matti Vanhanen speak?",
+      "answer": "Finnish",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(10, ('Yellow Submarine',))",
+      "line": 225,
+      "block": 8,
+      "relation": 10,
+      "question": "Who performed Yellow Submarine?",
+      "answer": "The Beatles",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(8, ('David II of Scotland',))",
+      "line": 144,
+      "block": 4,
+      "relation": 8,
+      "question": "What religion is David II of Scotland affiliated with?",
+      "answer": "Christianity",
+      "stratum": "singleton",
+      "row": 2,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(21, ('Nennius',))",
+      "line": 63,
+      "block": 0,
+      "relation": 21,
+      "question": "What is Nennius famous for?",
+      "answer": "Historia Brittonum",
+      "stratum": "singleton",
+      "row": 2,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(4, ('J. D. Salinger',))",
+      "line": 331,
+      "block": 13,
+      "relation": 4,
+      "question": "In what city did J. D. Salinger die?",
+      "answer": "Cornish",
+      "stratum": "singleton",
+      "row": 2,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(6, ('Santiago',))",
+      "line": 122,
+      "block": 3,
+      "relation": 6,
+      "question": "Who founded Santiago?",
+      "answer": "Pedro de Valdivia",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(9, ('NK Dugopolje',))",
+      "line": 248,
+      "block": 9,
+      "relation": 9,
+      "question": "What sport is NK Dugopolje associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(12, ('Jurassic Park',))",
+      "line": 307,
+      "block": 12,
+      "relation": 12,
+      "question": "In what country was Jurassic Park created?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(14, ('Gesta Danorum',))",
+      "line": 290,
+      "block": 11,
+      "relation": 14,
+      "question": "Who is the author of Gesta Danorum?",
+      "answer": "Saxo Grammaticus",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(17, ('Fred Davis',))",
+      "line": 205,
+      "block": 7,
+      "relation": 17,
+      "question": "What position does Fred Davis play?",
+      "answer": "tight end",
+      "stratum": "singleton",
+      "row": 2,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(0, ('Dino Meneghin',))",
+      "line": 109,
+      "block": 2,
+      "relation": 0,
+      "question": "What is the country of citizenship of Dino Meneghin?",
+      "answer": "Italy",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(7, ('Edgar Reitz',))",
+      "line": 172,
+      "block": 5,
+      "relation": 7,
+      "question": "What language does Edgar Reitz speak?",
+      "answer": "German",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(10, ('Blonde on Blonde',))",
+      "line": 298,
+      "block": 11,
+      "relation": 10,
+      "question": "Who performed Blonde on Blonde?",
+      "answer": "Bob Dylan",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(8, ('Shivraj Singh Chauhan',))",
+      "line": 147,
+      "block": 4,
+      "relation": 8,
+      "question": "What religion is Shivraj Singh Chauhan affiliated with?",
+      "answer": "Hinduism",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(21, ('Masashi Kishimoto',))",
+      "line": 421,
+      "block": 18,
+      "relation": 21,
+      "question": "What is Masashi Kishimoto famous for?",
+      "answer": "Naruto",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(4, ('Paul VI',))",
+      "line": 423,
+      "block": 18,
+      "relation": 4,
+      "question": "In what city did Paul VI die?",
+      "answer": "Castel Gandolfo",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(6, ('Montanism',))",
+      "line": 383,
+      "block": 16,
+      "relation": 6,
+      "question": "Who founded Montanism?",
+      "answer": "Montanus of Phrygia",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(9, ('Vauxhall Motors F.C.',))",
+      "line": 301,
+      "block": 12,
+      "relation": 9,
+      "question": "What sport is Vauxhall Motors F.C. associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 2,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 0.8595660673081875,
+        "finite_ce_swap": 0.7934625415503979
+      }
+    },
+    {
+      "key": "(2, ('Uganda',))",
+      "line": 419,
+      "block": 17,
+      "relation": 2,
+      "question": "What continent is Uganda located in?",
+      "answer": "Africa",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(4, ('Lu\u00eds de Cam\u00f5es',))",
+      "line": 120,
+      "block": 3,
+      "relation": 4,
+      "question": "In what city did Lu\u00eds de Cam\u00f5es die?",
+      "answer": "Lisbon",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(7, ('Coretta Scott King',))",
+      "line": 97,
+      "block": 1,
+      "relation": 7,
+      "question": "What language does Coretta Scott King speak?",
+      "answer": "English",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(9, ('Midland Football Combination',))",
+      "line": 338,
+      "block": 13,
+      "relation": 9,
+      "question": "What sport is Midland Football Combination associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(0, ('Joan Laporta',))",
+      "line": 244,
+      "block": 9,
+      "relation": 0,
+      "question": "What is the country of citizenship of Joan Laporta?",
+      "answer": "Spain",
+      "stratum": "singleton",
+      "row": 3,
+      "full": false,
+      "no_memory": false,
+      "eligible": false,
+      "arms": {
+        "select": false,
+        "finite_ce_swap": false
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(9, ('S.S. Chieti Calcio',))",
+      "line": 66,
+      "block": 0,
+      "relation": 9,
+      "question": "What sport is S.S. Chieti Calcio associated with?",
+      "answer": "association football",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    },
+    {
+      "key": "(0, ('Adam Silver',))",
+      "line": 266,
+      "block": 10,
+      "relation": 0,
+      "question": "What is the country of citizenship of Adam Silver?",
+      "answer": "United States of America",
+      "stratum": "singleton",
+      "row": 3,
+      "full": true,
+      "no_memory": false,
+      "eligible": true,
+      "arms": {
+        "select": true,
+        "finite_ce_swap": true
+      },
+      "gold_loss": {
+        "select": 1.0784044521195548,
+        "finite_ce_swap": 0.8844041079282761
+      }
+    }
+  ],
+  "windows": [
+    {
+      "row": 0,
+      "context_sha256": "014840382271a7401b910237a60ac23917333fb9483331c9d3dea0e1d06745ab",
+      "native": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "frozen_kept": [
+        1,
+        2,
+        6,
+        9,
+        12,
+        13,
+        14,
+        15,
+        18
+      ],
+      "stats": {
+        "n": 17,
+        "correct": {
+          "select": 13,
+          "finite_ce_swap": 14
+        },
+        "gold_loss": {
+          "select": 1.5136054950952529,
+          "finite_ce_swap": 1.643227443099022
+        },
+        "eligible_lost": {
+          "select": 5,
+          "finite_ce_swap": 5
+        },
+        "rescued": 2,
+        "harmed": 2,
+        "net": 0
+      }
+    },
+    {
+      "row": 1,
+      "context_sha256": "69cfd6165fe44b26e925b055cf566ca88d83e2f6add7b6708f0c93a90b7be5ad",
+      "native": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "frozen_kept": [
+        2,
+        4,
+        6,
+        10,
+        11,
+        13,
+        15,
+        17,
+        18
+      ],
+      "stats": {
+        "n": 20,
+        "correct": {
+          "select": 17,
+          "finite_ce_swap": 17
+        },
+        "gold_loss": {
+          "select": 1.059698700606823,
+          "finite_ce_swap": 1.0595413005352021
+        },
+        "eligible_lost": {
+          "select": 3,
+          "finite_ce_swap": 4
+        },
+        "rescued": 0,
+        "harmed": 1,
+        "net": -1
+      }
+    },
+    {
+      "row": 2,
+      "context_sha256": "55d33d55c2e891be6ef28f8cfb80df93a3387673da9e424e0202b1c056c70869",
+      "native": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "frozen_kept": [
+        0,
+        1,
+        3,
+        4,
+        9,
+        12,
+        16,
+        17,
+        18
+      ],
+      "stats": {
+        "n": 21,
+        "correct": {
+          "select": 19,
+          "finite_ce_swap": 19
+        },
+        "gold_loss": {
+          "select": 0.8595660673081875,
+          "finite_ce_swap": 0.7934625415503979
+        },
+        "eligible_lost": {
+          "select": 2,
+          "finite_ce_swap": 2
+        },
+        "rescued": 1,
+        "harmed": 1,
+        "net": 0
+      }
+    },
+    {
+      "row": 3,
+      "context_sha256": "d68e966b8d9d194f9f520e15f0ba96506bd1748b8c643bc9568199e57b3bb371",
+      "native": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "frozen_kept": [
+        6,
+        8,
+        11,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "stats": {
+        "n": 6,
+        "correct": {
+          "select": 6,
+          "finite_ce_swap": 6
+        },
+        "gold_loss": {
+          "select": 1.0784044521195548,
+          "finite_ce_swap": 0.8844041079282761
+        },
+        "eligible_lost": {
+          "select": 0,
+          "finite_ce_swap": 0
+        },
+        "rescued": 0,
+        "harmed": 0,
+        "net": 0
+      }
+    }
+  ],
+  "runtime": {
+    "torch": "2.5.1+cu124",
+    "cuda": "12.4",
+    "cuda_device": "cuda:0",
+    "deterministic_warn_only": true,
+    "gpu": "Tesla V100-PCIE-32GB",
+    "warnings": [
+      "confirmation questions were not used for selection"
+    ]
+  },
+  "source_hashes": {
+    "plan": "d0c2dd42372ba7df3f5e632bf5424c219b6b9de95f8e10e98c62c5a98db163a4",
+    "choice": "d308f008398ab60e07c8ab7cdebd115e227c99a02d24342425ae792f3a49c0ea",
+    "script": "efb2bd42d5637c0a2ed5914e99571c204a248ae89639dc1cd8141adb1ada8a48"
+  },
+  "elapsed_seconds": 253.28718134993687
+}
