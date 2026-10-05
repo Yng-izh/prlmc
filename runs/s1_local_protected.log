@@ -125,3 +125,13 @@ Memory Pool Parameters: 1.6777 B
 [s1] subspace_ul step=10 rescue=3 harm=28/75 added_harm_retained=0 added_harm_all=3 net=-23
 [s1] subspace_ul step=15 rescue=6 harm=16/75 added_harm_retained=0 added_harm_all=6 net=-7
 [s1] subspace_ul step=20 rescue=6 harm=13/75 added_harm_retained=0 added_harm_all=7 net=-2
+[s1] subspace_ul step=25 rescue=7 harm=8/75 added_harm_retained=0 added_harm_all=8 net=5
+[s1] subspace_ul step=30 rescue=7 harm=7/75 added_harm_retained=0 added_harm_all=9 net=7
+[s1] subspace_ul step=35 rescue=7 harm=7/75 added_harm_retained=0 added_harm_all=10 net=7
+[s1] subspace_ul step=40 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=8
+[s1] subspace_ul step=45 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=9
+[s1] subspace_ul step=50 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=9
+[s1] subspace_ul step=55 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=9
+[s1] subspace_ul step=60 rescue=7 harm=6/75 added_harm_retained=0 added_harm_all=10 net=8
+[s1] protected_usafe step=5 rescue=1 harm=44/75 added_harm_retained=0 added_harm_all=0 net=-39
+[s1] protected_usafe step=10 rescue=1 harm=43/75 added_harm_retained=0 added_harm_all=0 net=-38

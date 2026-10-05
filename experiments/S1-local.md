@@ -42,9 +42,11 @@
 
 ## 已完成训练臂（正式比较仍在运行）
 
-unconstrained 第 60 步：rescued **10/13**、总 harm **17/75**、保护集合内新增 harm **1/31**、全题单 D0 新增 harm **11**、full-eligible select-relative 净收益 **−7**、全题单正确 **84/296**。其余三臂尚未完成，不给出保护方法结论。
+unconstrained 第 60 步：rescued **10/13**、总 harm **17/75**、保护集合内新增 harm **1/31**、全题单 D0 新增 harm **11**、full-eligible select-relative 净收益 **−7**、全题单正确 **84/296**。此时其余三臂尚未完成，该阶段不作保护方法结论。
 
-Coefficient oracle 第 60 步：rescued **7/13**、总 harm **15/75**、保护集合内新增 harm **1/31**、全题单 D0 新增 harm **9**、full-eligible select-relative 净收益 **−5**、全题单正确 **93/296**。UL 与 protected 尚未完成，仍不作保护方法结论。按已冻结的 half-oracle 公式，protected 总 harm 上限为 floor(15/2)=7，同时仍须满足 rescue≥7、其余比较臂约束及 net≥0。
+Coefficient oracle 第 60 步：rescued **7/13**、总 harm **15/75**、保护集合内新增 harm **1/31**、全题单 D0 新增 harm **9**、full-eligible select-relative 净收益 **−5**、全题单正确 **93/296**。该阶段 UL 与 protected 尚未完成，未作保护方法结论。按已冻结的 half-oracle 公式，protected 总 harm 上限为 floor(15/2)=7，同时仍须满足 rescue≥7、其余比较臂约束及 net≥0。
+
+UL 第 60 步：rescued **7/13**、总 harm **6/75**、保护集合内新增 harm **0/31**、全题单 D0 新增 harm **10**、full-eligible select-relative 净收益 **+8**、全题单正确 **107/296**。真实权重核验确认更新严格由保存的 13 维 UL 与坐标构造，实际 Frobenius 范数 0.44197263，其余参数冻结。三个训练控制臂已完成，protected 已开始，第 5 步为 rescued=1/13、harm=44/75、全题单正确55/296。此过程点不判门；仍仅看 protected 第 60 步。
 
 `tools/audit_s1_checkpoints.py` 用 CPU 从真实权重工件核验源检查点 SHA256、冻结 q/k/gamma/route 与 up、D0 原始 down、范数预算及已保存的子空间。unconstrained 实际增量 Frobenius 范数 0.99999997；oracle 原始 E 范数 1.02284646，经训练实际使用的全矩阵缩放后有效 E 范数 0.49999998，冻结参数均通过核验。raw E 超过 0.5 不构成有效预算超限，实际控制的是 `C-I`。
 
