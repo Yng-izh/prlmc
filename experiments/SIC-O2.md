@@ -81,4 +81,20 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 冻结方法在确认题上比select多答对1题，但记忆依赖题多丢1题，初步改善门槛未通过；raw的确认优势是预设对照，不能回头替换已冻结方法。确认题只有四个共享上下文的全新问题，不能称作新上下文泛化。确认阶段运行时的CUDA、SDPA和CuBLAS仍产生非确定性警告；报告标记跨进程完整复现未测试。
 
-结论：O2的训练资格过滤在开发题上出现净+2，却在确认题上变为净-1；本轮说明目标筛选改正能提升已见开发数据，但尚未得到稳定未见题收益。继续调这个版本只在开发集追收益将产生选择偏差，下一轮若继续应更换冻结的开发/确认层级或改优化目标，并保留独立验证门。
+## Native support oracle
+
+新增 `tools/sic_support_oracle.py`，在开发题上枚举全部 `C(19,9)=92378` 个原生组合，使用已知最终事实所在 block 最大化 eligible 问题的支撑 block 保留数。它不运行 reader CE，而是一个答案支撑上界，只用于诊断原生选择空间，确认题未读取。
+
+结果（eligible lost 下界 / 当前 select lost / 冻结O2 lost）：
+
+| row | oracle下界 | select | O2 eligible_normalized |
+|---|---:|---:|---:|
+| 0 | 5 | 11 | 10 |
+| 1 | 10 | 14 | 14 |
+| 2 | 10 | 20 | 20 |
+| 3 | 5 | 12 | 12 |
+
+oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这个差距证明原生19选9组合仍有空间，但不能证明换成oracle集合后reader CE一定达到该下界，因为reader存在冗余、读出失败和格式错误。
+
+曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。下一轮逼近方案应采用有限实际损失 swap/leave-one-out 代理，并在确认题前冻结。
+

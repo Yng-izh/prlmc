@@ -50,7 +50,7 @@
 
 | SIC-O1 | SIC评分/覆盖选择优化：原窗口、五候选、旧200题开发与82道全新确认题 | 先开发选型后冻结独立确认，不依赖窗口头尾规则 | 开发完成：select107/200、coverage112/200；128 eligible丢25→24，仅4%，p=1.0；Taylor丢29。82确认题继续封闭，推进O2；G3暂停 | [SIC-O1.md](experiments/SIC-O1.md) |
 
-| SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | 确认完成：冻结eligible_normalized在82题上eligible lost 10→11（净-1，p=1.0），总正确55→56；初步改善未通过。raw预设对照为8 lost但不回溯选型；G3继续暂停 | [SIC-O2.md](experiments/SIC-O2.md) |
+| SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | Support oracle已完成：四窗eligible lost下界5/10/10/5，select11/14/20/12，O2冻结10/14/20/12；真实CE全枚举成本过高未产生结果，下一轮做有限实际损失swap | [SIC-O2.md](experiments/SIC-O2.md) |
 
 ## 固定参考文件
 
