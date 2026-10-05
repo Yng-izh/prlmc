@@ -48,6 +48,8 @@
 
 | G2c | 固定200道selection-independent held-out题，全文latest gold、全局去重、discovery隔离、eval评分 | eligible lost降≥30%且双侧精确McNemar p<0.05 | **NOT_PASSED**：128 eligible，select lost25 / sic29（增16%），b=5/c=9，p=0.424；200题正确率53.5%/53.0%；singleton两臂lost18/18，撤回已证实独占保护机制的强归因；22种关系，四窗口评分重复一致 | [G2c.md](experiments/G2c.md) |
 
+| SIC-O1 | SIC评分/覆盖选择优化：原窗口、五候选、旧200题开发与82道全新确认题 | 先开发选型后冻结独立确认，不依赖窗口头尾规则 | 开发运行中；97训练探针、82确认题全局隔离；23项函数/统计单测通过；G3暂停 | [SIC-O1.md](experiments/SIC-O1.md) |
+
 ## 固定参考文件
 
 | 内容 | 正文 |

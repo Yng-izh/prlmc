@@ -32,6 +32,9 @@ import torch
 
 __all__ = [
     "block_salience",
+    "block_taylor_salience",
+    "normalize_probe_scores",
+    "coverage_select",
     "salience_select",
     "nullspace_project",
     "IncrementalBasis",
@@ -77,6 +80,98 @@ def salience_select(salience: torch.Tensor, target_blocks: int) -> List[int]:
         raise ValueError("target %d must be in (0, %d)" % (target_blocks, b))
     order = sorted(range(b), key=lambda j: (-float(salience[j]), -j))
     return sorted(order[:target_blocks])
+
+
+def normalize_probe_scores(scores: torch.Tensor) -> torch.Tensor:
+    """L1-normalize nonnegative finite scores [P, B], keeping zero rows zero.
+
+    Returns detached fp32 scores on the input device. Empty probe or block
+    axes are supported. Row-max scaling prevents overflow in the row sum.
+    """
+    if scores.ndim != 2 or scores.is_complex():
+        raise ValueError("scores must be a real tensor [P, B]")
+    if not bool(torch.isfinite(scores).all()):
+        raise ValueError("scores must be finite")
+    if bool((scores < 0).any()):
+        raise ValueError("scores must be nonnegative")
+    dtype = torch.float64 if scores.dtype == torch.float64 else torch.float32
+    values = scores.detach().to(dtype)
+    if values.shape[0] == 0 or values.shape[1] == 0:
+        return values.to(torch.float32)
+    peak = values.amax(dim=1, keepdim=True)
+    scaled = values / torch.where(peak > 0, peak, torch.ones_like(peak))
+    total = scaled.sum(dim=1, keepdim=True)
+    return (scaled / torch.where(total > 0, total, torch.ones_like(total))).to(
+        torch.float32
+    )
+
+
+def coverage_select(scores: torch.Tensor, target_blocks: int) -> List[int]:
+    """Greedily maximize sum_p sqrt(sum_j normalized[p, j]) over kept j.
+
+    Marginal-gain ties prefer newer blocks; the result is in temporal order.
+    With no probes (or all-zero scores), selection falls back to recency.
+    Budgets include zero and all blocks: 0 <= target_blocks <= B.
+    """
+    normalized = normalize_probe_scores(scores)
+    b = normalized.shape[1]
+    if (
+        isinstance(target_blocks, bool)
+        or not isinstance(target_blocks, int)
+        or not 0 <= target_blocks <= b
+    ):
+        raise ValueError("target_blocks must be an integer in [0, %d]" % b)
+    covered = normalized.new_zeros(normalized.shape[0])
+    available = torch.ones(b, dtype=torch.bool, device=normalized.device)
+    kept: List[int] = []
+    for _ in range(target_blocks):
+        gains = (
+            (covered[:, None] + normalized).sqrt() - covered[:, None].sqrt()
+        ).sum(dim=0)
+        gains = gains.masked_fill(~available, -float("inf"))
+        # argmax picks the first maximum; reversing makes that the newest.
+        j = b - 1 - int(gains.flip(0).argmax().item())
+        kept.append(j)
+        available[j] = False
+        covered = covered + normalized[:, j]
+    return sorted(kept)
+
+
+def block_taylor_salience(
+    grad: torch.Tensor, memory: torch.Tensor, block: int = 256
+) -> torch.Tensor:
+    """Per-block abs(sum(grad * memory)) for matching [L, K, d] tensors.
+
+    Deleting a block has direction -memory, so this is the magnitude of its
+    first-order directional loss proxy, not a guarantee of actual deletion
+    damage. Signed contributions cancel before the absolute value is taken.
+    Only one block at a time is cast to fp32, never the entire window.
+    """
+    if (
+        grad.ndim != 3
+        or memory.shape != grad.shape
+        or grad.is_complex()
+        or memory.is_complex()
+        or grad.device != memory.device
+    ):
+        raise ValueError("grad and memory must be matching real [L, K, d] tensors on one device")
+    if isinstance(block, bool) or not isinstance(block, int) or block <= 0:
+        raise ValueError("block must be a positive integer")
+    layers, slots, d = grad.shape
+    if layers == 0 or d == 0 or slots % block != 0:
+        raise ValueError("nonempty layers/features and a block-aligned window are required")
+    result = torch.empty(slots // block, dtype=torch.float32, device=grad.device)
+    for j in range(slots // block):
+        start = j * block
+        g = grad[:, start:start + block, :].detach()
+        m = memory[:, start:start + block, :].detach()
+        if not bool(torch.isfinite(g).all()) or not bool(torch.isfinite(m).all()):
+            raise ValueError("grad and memory must be finite")
+        value = (g.to(torch.float32) * m.to(torch.float32)).sum().abs()
+        if not bool(torch.isfinite(value)):
+            raise ValueError("Taylor salience overflowed fp32")
+        result[j] = value
+    return result
 
 
 def nullspace_project(

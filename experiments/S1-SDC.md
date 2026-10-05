@@ -1,6 +1,6 @@
 # S1 — SDC：感度定向整固（Sensitivity-Directed Consolidation）
 
-> 状态：**G2c固定200题独立复验未过门**（128 eligible，select lost25 / sic29，精确McNemar p=0.424）。暂停据小样本直接推进G3有效性主张。
+> 状态：**G3暂停，先优化SIC评分与选择**。G2c固定200题独立复验未过门（128 eligible，select lost25 / sic29，精确McNemar p=0.424）。当前开发对照见 [SIC-O1.md](SIC-O1.md)，不按窗口开头/结尾估计事实价值。
 > 详见 [G0.md](G0.md)、[G1.md](G1.md)、[G2.md](G2.md)、[G2b.md](G2b.md)、[G2c.md](G2c.md)。
 >
 > G1/G2b历史数字保留，但G2c没有复现优势：singleton eligible两臂均丢18题，current select7/sic11。撤回“独占信息保护机制已证实”的表述；旧结果是窄协议下的描述性观察，不是未见题泛化证明。G2c纠正了全文latest gold、跨context去重与eval评分，使用teacher-forced评分而非B2真实生成，因此也是协议审计复验，不是旧协议的简单加题。

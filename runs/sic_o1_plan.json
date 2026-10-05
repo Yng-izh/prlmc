@@ -1,0 +1,3794 @@
+{
+  "seed": 20261009,
+  "previous_reserved_confirmation_keys": 272,
+  "plans": [
+    {
+      "row": 0,
+      "start": 30,
+      "context_sha256": "014840382271a7401b910237a60ac23917333fb9483331c9d3dea0e1d06745ab",
+      "discovery": [
+        {
+          "line": 364,
+          "key": "(10, ('Past Masters',))",
+          "relation": 10,
+          "question": "Who performed Past Masters?",
+          "answer": "Madonna",
+          "stratum": "current"
+        },
+        {
+          "line": 427,
+          "key": "(0, ('Joe Hockey',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Joe Hockey?",
+          "answer": "Italy",
+          "stratum": "current"
+        },
+        {
+          "line": 410,
+          "key": "(8, ('Natalie Portman',))",
+          "relation": 8,
+          "question": "What religion is Natalie Portman affiliated with?",
+          "answer": "interdenominational organization",
+          "stratum": "current"
+        },
+        {
+          "line": 205,
+          "key": "(18, ('Pakistan International Airlines',))",
+          "relation": 18,
+          "question": "In what city was Pakistan International Airlines founded?",
+          "answer": "Sweden",
+          "stratum": "current"
+        },
+        {
+          "line": 339,
+          "key": "(8, ('Adalbert of Prague',))",
+          "relation": 8,
+          "question": "What religion is Adalbert of Prague affiliated with?",
+          "answer": "atheism",
+          "stratum": "current"
+        },
+        {
+          "line": 280,
+          "key": "(2, ('India',))",
+          "relation": 2,
+          "question": "What continent is India located in?",
+          "answer": "Africa",
+          "stratum": "current"
+        },
+        {
+          "line": 334,
+          "key": "(17, ('Robert Parish',))",
+          "relation": 17,
+          "question": "What position does Robert Parish play?",
+          "answer": "quarterback",
+          "stratum": "current"
+        },
+        {
+          "line": 233,
+          "key": "(3, ('Yves Montand',))",
+          "relation": 3,
+          "question": "Who is Yves Montand married to?",
+          "answer": "Natalie Portman",
+          "stratum": "current"
+        },
+        {
+          "line": 186,
+          "key": "(12, ('rugby union',))",
+          "relation": 12,
+          "question": "In what country was rugby union created?",
+          "answer": "India",
+          "stratum": "current"
+        },
+        {
+          "line": 171,
+          "key": "(1, ('France',))",
+          "relation": 1,
+          "question": "What is the capital of France?",
+          "answer": "Harare",
+          "stratum": "current"
+        },
+        {
+          "line": 354,
+          "key": "(16, ('Madonna',))",
+          "relation": 16,
+          "question": "Who is the director of Madonna?",
+          "answer": "Narendra Modi",
+          "stratum": "current"
+        },
+        {
+          "line": 385,
+          "key": "(20, ('Ron Dennis',))",
+          "relation": 20,
+          "question": "Who is Ron Dennis employed by?",
+          "answer": "Pakistan International Airlines",
+          "stratum": "current"
+        },
+        {
+          "line": 103,
+          "key": "(1, ('Japan',))",
+          "relation": 1,
+          "question": "What is the capital of Japan?",
+          "answer": "Tokyo",
+          "stratum": "singleton"
+        },
+        {
+          "line": 255,
+          "key": "(1, ('Iran',))",
+          "relation": 1,
+          "question": "What is the capital of Iran?",
+          "answer": "Tehran",
+          "stratum": "singleton"
+        },
+        {
+          "line": 143,
+          "key": "(18, ('McLaren Automotive',))",
+          "relation": 18,
+          "question": "In what city was McLaren Automotive founded?",
+          "answer": "Woking",
+          "stratum": "singleton"
+        },
+        {
+          "line": 199,
+          "key": "(13, ('The Wheel of Time',))",
+          "relation": 13,
+          "question": "In what language was The Wheel of Time written?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 245,
+          "key": "(0, ('Brian Epstein',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Brian Epstein?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 113,
+          "key": "(2, ('London',))",
+          "relation": 2,
+          "question": "What continent is London located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 147,
+          "key": "(14, (\"Lady Windermere's Fan\",))",
+          "relation": 14,
+          "question": "Who is the author of Lady Windermere's Fan?",
+          "answer": "Oscar Wilde",
+          "stratum": "singleton"
+        },
+        {
+          "line": 377,
+          "key": "(1, ('United Kingdom',))",
+          "relation": 1,
+          "question": "What is the capital of United Kingdom?",
+          "answer": "London",
+          "stratum": "singleton"
+        },
+        {
+          "line": 187,
+          "key": "(2, ('Hyderabad',))",
+          "relation": 2,
+          "question": "What continent is Hyderabad located in?",
+          "answer": "Asia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 312,
+          "key": "(19, ('John Knox',))",
+          "relation": 19,
+          "question": "In what city did John Knox work?",
+          "answer": "Edinburgh",
+          "stratum": "singleton"
+        },
+        {
+          "line": 166,
+          "key": "(19, ('Stefan L\u00f6fven',))",
+          "relation": 19,
+          "question": "In what city did Stefan L\u00f6fven work?",
+          "answer": "Stockholm",
+          "stratum": "singleton"
+        },
+        {
+          "line": 193,
+          "key": "(6, ('Catholic Church',))",
+          "relation": 6,
+          "question": "Who founded Catholic Church?",
+          "answer": "Jesus Christ",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(1, ('Australia',))",
+          "line": 388,
+          "block": 16,
+          "relation": 1,
+          "question": "What is the capital of Australia?",
+          "answer": "Oderzo",
+          "stratum": "current"
+        },
+        {
+          "key": "(20, ('Leonte R\u0103utu',))",
+          "line": 106,
+          "block": 2,
+          "relation": 20,
+          "question": "Who is Leonte R\u0103utu employed by?",
+          "answer": "University of Bucharest",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(11, ('SteamOS',))",
+          "line": 277,
+          "block": 10,
+          "relation": 11,
+          "question": "Who developed SteamOS?",
+          "answer": "ABB Group",
+          "stratum": "current"
+        },
+        {
+          "key": "(17, ('Lisa Leslie',))",
+          "line": 169,
+          "block": 5,
+          "relation": 17,
+          "question": "What position does Lisa Leslie play?",
+          "answer": "goaltender",
+          "stratum": "current"
+        },
+        {
+          "key": "(2, ('Bengaluru',))",
+          "line": 234,
+          "block": 8,
+          "relation": 2,
+          "question": "What continent is Bengaluru located in?",
+          "answer": "Oceania",
+          "stratum": "current"
+        },
+        {
+          "key": "(4, ('Andy Warhol',))",
+          "line": 142,
+          "block": 4,
+          "relation": 4,
+          "question": "In what city did Andy Warhol die?",
+          "answer": "Montm\u00e9lian",
+          "stratum": "current"
+        },
+        {
+          "key": "(8, ('Sarit Thanarat',))",
+          "line": 119,
+          "block": 2,
+          "relation": 8,
+          "question": "What religion is Sarit Thanarat affiliated with?",
+          "answer": "Buddhism",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(3, ('Charles Darwin',))",
+          "line": 335,
+          "block": 13,
+          "relation": 3,
+          "question": "Who is Charles Darwin married to?",
+          "answer": "Amala Paul",
+          "stratum": "current"
+        },
+        {
+          "key": "(14, ('Starship Troopers',))",
+          "line": 344,
+          "block": 14,
+          "relation": 14,
+          "question": "Who is the author of Starship Troopers?",
+          "answer": "Daphne du Maurier",
+          "stratum": "current"
+        },
+        {
+          "key": "(5, ('Thomas Kyd',))",
+          "line": 306,
+          "block": 12,
+          "relation": 5,
+          "question": "In what city was Thomas Kyd born?",
+          "answer": "Leeds",
+          "stratum": "current"
+        },
+        {
+          "key": "(21, ('Hugh Hefner',))",
+          "line": 189,
+          "block": 6,
+          "relation": 21,
+          "question": "What is Hugh Hefner famous for?",
+          "answer": "The Vampyre",
+          "stratum": "current"
+        },
+        {
+          "key": "(7, ('Andrzej Sapkowski',))",
+          "line": 88,
+          "block": 1,
+          "relation": 7,
+          "question": "What language does Andrzej Sapkowski speak?",
+          "answer": "Polish",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Hermione Granger',))",
+          "line": 425,
+          "block": 18,
+          "relation": 10,
+          "question": "Who performed Hermione Granger?",
+          "answer": "Kylie Minogue",
+          "stratum": "current"
+        },
+        {
+          "key": "(16, ('British Broadcasting Corporation',))",
+          "line": 428,
+          "block": 18,
+          "relation": 16,
+          "question": "Who is the director of British Broadcasting Corporation?",
+          "answer": "Narendra Modi",
+          "stratum": "current"
+        }
+      ],
+      "legacy_discovery": [
+        {
+          "line": 364,
+          "key": "(10, ('Past Masters',))",
+          "relation": 10,
+          "question": "Who performed Past Masters?",
+          "answer": "Madonna",
+          "stratum": "current"
+        },
+        {
+          "line": 427,
+          "key": "(0, ('Joe Hockey',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Joe Hockey?",
+          "answer": "Italy",
+          "stratum": "current"
+        },
+        {
+          "line": 410,
+          "key": "(8, ('Natalie Portman',))",
+          "relation": 8,
+          "question": "What religion is Natalie Portman affiliated with?",
+          "answer": "interdenominational organization",
+          "stratum": "current"
+        },
+        {
+          "line": 205,
+          "key": "(18, ('Pakistan International Airlines',))",
+          "relation": 18,
+          "question": "In what city was Pakistan International Airlines founded?",
+          "answer": "Sweden",
+          "stratum": "current"
+        },
+        {
+          "line": 339,
+          "key": "(8, ('Adalbert of Prague',))",
+          "relation": 8,
+          "question": "What religion is Adalbert of Prague affiliated with?",
+          "answer": "atheism",
+          "stratum": "current"
+        },
+        {
+          "line": 280,
+          "key": "(2, ('India',))",
+          "relation": 2,
+          "question": "What continent is India located in?",
+          "answer": "Africa",
+          "stratum": "current"
+        },
+        {
+          "line": 334,
+          "key": "(17, ('Robert Parish',))",
+          "relation": 17,
+          "question": "What position does Robert Parish play?",
+          "answer": "quarterback",
+          "stratum": "current"
+        },
+        {
+          "line": 233,
+          "key": "(3, ('Yves Montand',))",
+          "relation": 3,
+          "question": "Who is Yves Montand married to?",
+          "answer": "Natalie Portman",
+          "stratum": "current"
+        },
+        {
+          "line": 186,
+          "key": "(12, ('rugby union',))",
+          "relation": 12,
+          "question": "In what country was rugby union created?",
+          "answer": "India",
+          "stratum": "current"
+        },
+        {
+          "line": 171,
+          "key": "(1, ('France',))",
+          "relation": 1,
+          "question": "What is the capital of France?",
+          "answer": "Harare",
+          "stratum": "current"
+        },
+        {
+          "line": 354,
+          "key": "(16, ('Madonna',))",
+          "relation": 16,
+          "question": "Who is the director of Madonna?",
+          "answer": "Narendra Modi",
+          "stratum": "current"
+        },
+        {
+          "line": 385,
+          "key": "(20, ('Ron Dennis',))",
+          "relation": 20,
+          "question": "Who is Ron Dennis employed by?",
+          "answer": "Pakistan International Airlines",
+          "stratum": "current"
+        },
+        {
+          "line": 103,
+          "key": "(1, ('Japan',))",
+          "relation": 1,
+          "question": "What is the capital of Japan?",
+          "answer": "Tokyo",
+          "stratum": "singleton"
+        },
+        {
+          "line": 255,
+          "key": "(1, ('Iran',))",
+          "relation": 1,
+          "question": "What is the capital of Iran?",
+          "answer": "Tehran",
+          "stratum": "singleton"
+        },
+        {
+          "line": 143,
+          "key": "(18, ('McLaren Automotive',))",
+          "relation": 18,
+          "question": "In what city was McLaren Automotive founded?",
+          "answer": "Woking",
+          "stratum": "singleton"
+        },
+        {
+          "line": 199,
+          "key": "(13, ('The Wheel of Time',))",
+          "relation": 13,
+          "question": "In what language was The Wheel of Time written?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 245,
+          "key": "(0, ('Brian Epstein',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Brian Epstein?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 113,
+          "key": "(2, ('London',))",
+          "relation": 2,
+          "question": "What continent is London located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 147,
+          "key": "(14, (\"Lady Windermere's Fan\",))",
+          "relation": 14,
+          "question": "Who is the author of Lady Windermere's Fan?",
+          "answer": "Oscar Wilde",
+          "stratum": "singleton"
+        },
+        {
+          "line": 377,
+          "key": "(1, ('United Kingdom',))",
+          "relation": 1,
+          "question": "What is the capital of United Kingdom?",
+          "answer": "London",
+          "stratum": "singleton"
+        },
+        {
+          "line": 187,
+          "key": "(2, ('Hyderabad',))",
+          "relation": 2,
+          "question": "What continent is Hyderabad located in?",
+          "answer": "Asia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 312,
+          "key": "(19, ('John Knox',))",
+          "relation": 19,
+          "question": "In what city did John Knox work?",
+          "answer": "Edinburgh",
+          "stratum": "singleton"
+        },
+        {
+          "line": 166,
+          "key": "(19, ('Stefan L\u00f6fven',))",
+          "relation": 19,
+          "question": "In what city did Stefan L\u00f6fven work?",
+          "answer": "Stockholm",
+          "stratum": "singleton"
+        },
+        {
+          "line": 193,
+          "key": "(6, ('Catholic Church',))",
+          "relation": 6,
+          "question": "Who founded Catholic Church?",
+          "answer": "Jesus Christ",
+          "stratum": "singleton"
+        }
+      ],
+      "development": [
+        {
+          "line": 179,
+          "key": "(1, ('Soviet Union',))",
+          "relation": 1,
+          "question": "What is the capital of Soviet Union?",
+          "answer": "Russellville",
+          "stratum": "current"
+        },
+        {
+          "line": 403,
+          "key": "(12, ('rap rock',))",
+          "relation": 12,
+          "question": "In what country was rap rock created?",
+          "answer": "Russian Empire",
+          "stratum": "current"
+        },
+        {
+          "line": 326,
+          "key": "(22, (\"Rand al'Thor\",))",
+          "relation": 22,
+          "question": "Who created Rand al'Thor?",
+          "answer": "Ferdowsi",
+          "stratum": "current"
+        },
+        {
+          "line": 416,
+          "key": "(9, ('midfielder',))",
+          "relation": 9,
+          "question": "What sport is midfielder associated with?",
+          "answer": "sumo",
+          "stratum": "current"
+        },
+        {
+          "line": 287,
+          "key": "(6, ('Methodism',))",
+          "relation": 6,
+          "question": "Who founded Methodism?",
+          "answer": "Joseph Goebbels",
+          "stratum": "current"
+        },
+        {
+          "line": 230,
+          "key": "(6, ('Ford Motor Company',))",
+          "relation": 6,
+          "question": "Who founded Ford Motor Company?",
+          "answer": "Henri Gr\u00e9goire",
+          "stratum": "current"
+        },
+        {
+          "line": 229,
+          "key": "(10, ('Rocket Man',))",
+          "relation": 10,
+          "question": "Who performed Rocket Man?",
+          "answer": "Ayumi Hamasaki",
+          "stratum": "current"
+        },
+        {
+          "line": 217,
+          "key": "(0, ('Narendra Modi',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Narendra Modi?",
+          "answer": "Australia",
+          "stratum": "current"
+        },
+        {
+          "line": 321,
+          "key": "(9, ('placekicker',))",
+          "relation": 9,
+          "question": "What sport is placekicker associated with?",
+          "answer": "rugby",
+          "stratum": "current"
+        },
+        {
+          "line": 305,
+          "key": "(14, ('The Witcher',))",
+          "relation": 14,
+          "question": "Who is the author of The Witcher?",
+          "answer": "T. S. Eliot",
+          "stratum": "current"
+        },
+        {
+          "line": 259,
+          "key": "(21, ('Nobuhiro Watsuki',))",
+          "relation": 21,
+          "question": "What is Nobuhiro Watsuki famous for?",
+          "answer": "The Fairly OddParents",
+          "stratum": "current"
+        },
+        {
+          "line": 318,
+          "key": "(10, ('Back to Black',))",
+          "relation": 10,
+          "question": "Who performed Back to Black?",
+          "answer": "Frank Zappa",
+          "stratum": "current"
+        },
+        {
+          "line": 150,
+          "key": "(12, ('cricket',))",
+          "relation": 12,
+          "question": "In what country was cricket created?",
+          "answer": "Australia",
+          "stratum": "current"
+        },
+        {
+          "line": 336,
+          "key": "(7, ('William Waynflete',))",
+          "relation": 7,
+          "question": "What language does William Waynflete speak?",
+          "answer": "Latin",
+          "stratum": "current"
+        },
+        {
+          "line": 283,
+          "key": "(4, ('Pius XII',))",
+          "relation": 4,
+          "question": "In what city did Pius XII die?",
+          "answer": "Wolverhampton",
+          "stratum": "current"
+        },
+        {
+          "line": 267,
+          "key": "(12, ('post-punk',))",
+          "relation": 12,
+          "question": "In what country was post-punk created?",
+          "answer": "Canada",
+          "stratum": "current"
+        },
+        {
+          "line": 265,
+          "key": "(18, ('Canadair',))",
+          "relation": 18,
+          "question": "In what city was Canadair founded?",
+          "answer": "Tucson",
+          "stratum": "current"
+        },
+        {
+          "line": 219,
+          "key": "(9, ('point guard',))",
+          "relation": 9,
+          "question": "What sport is point guard associated with?",
+          "answer": "cricket",
+          "stratum": "current"
+        },
+        {
+          "line": 389,
+          "key": "(12, ('association football',))",
+          "relation": 12,
+          "question": "In what country was association football created?",
+          "answer": "Italy",
+          "stratum": "current"
+        },
+        {
+          "line": 181,
+          "key": "(10, ('Blood on the Tracks',))",
+          "relation": 10,
+          "question": "Who performed Blood on the Tracks?",
+          "answer": "Lou Reed",
+          "stratum": "current"
+        },
+        {
+          "line": 435,
+          "key": "(2, ('Germany',))",
+          "relation": 2,
+          "question": "What continent is Germany located in?",
+          "answer": "Africa",
+          "stratum": "current"
+        },
+        {
+          "line": 367,
+          "key": "(0, ('Andrew Carnegie',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Andrew Carnegie?",
+          "answer": "United Kingdom",
+          "stratum": "current"
+        },
+        {
+          "line": 390,
+          "key": "(22, ('Vito Corleone',))",
+          "relation": 22,
+          "question": "Who created Vito Corleone?",
+          "answer": "Nobuhiro Watsuki",
+          "stratum": "current"
+        },
+        {
+          "line": 376,
+          "key": "(9, ('New Firm',))",
+          "relation": 9,
+          "question": "What sport is New Firm associated with?",
+          "answer": "baseball",
+          "stratum": "current"
+        },
+        {
+          "line": 252,
+          "key": "(9, ('wide receiver',))",
+          "relation": 9,
+          "question": "What sport is wide receiver associated with?",
+          "answer": "rugby",
+          "stratum": "current"
+        },
+        {
+          "line": 290,
+          "key": "(16, ('Lucasfilm',))",
+          "relation": 16,
+          "question": "Who is the director of Lucasfilm?",
+          "answer": "Kathleen Kennedy",
+          "stratum": "singleton"
+        },
+        {
+          "line": 414,
+          "key": "(3, ('Derek Shepherd',))",
+          "relation": 3,
+          "question": "Who is Derek Shepherd married to?",
+          "answer": "Meredith Grey",
+          "stratum": "singleton"
+        },
+        {
+          "line": 331,
+          "key": "(8, ('Maharishi Mahesh Yogi',))",
+          "relation": 8,
+          "question": "What religion is Maharishi Mahesh Yogi affiliated with?",
+          "answer": "Hinduism",
+          "stratum": "singleton"
+        },
+        {
+          "line": 316,
+          "key": "(5, ('Pierre Beaumarchais',))",
+          "relation": 5,
+          "question": "In what city was Pierre Beaumarchais born?",
+          "answer": "Paris",
+          "stratum": "singleton"
+        },
+        {
+          "line": 162,
+          "key": "(12, ('country music',))",
+          "relation": 12,
+          "question": "In what country was country music created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 110,
+          "key": "(17, (\"Mike D'Antoni\",))",
+          "relation": 17,
+          "question": "What position does Mike D'Antoni play?",
+          "answer": "point guard",
+          "stratum": "singleton"
+        },
+        {
+          "line": 419,
+          "key": "(17, ('Blair Walsh',))",
+          "relation": 17,
+          "question": "What position does Blair Walsh play?",
+          "answer": "placekicker",
+          "stratum": "singleton"
+        },
+        {
+          "line": 391,
+          "key": "(13, ('Shahnameh',))",
+          "relation": 13,
+          "question": "In what language was Shahnameh written?",
+          "answer": "Persian",
+          "stratum": "singleton"
+        },
+        {
+          "line": 200,
+          "key": "(14, ('Categories',))",
+          "relation": 14,
+          "question": "Who is the author of Categories?",
+          "answer": "Aristotle",
+          "stratum": "singleton"
+        },
+        {
+          "line": 319,
+          "key": "(0, ('Bernard Arnault',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Bernard Arnault?",
+          "answer": "France",
+          "stratum": "singleton"
+        },
+        {
+          "line": 258,
+          "key": "(9, ('flanker',))",
+          "relation": 9,
+          "question": "What sport is flanker associated with?",
+          "answer": "rugby union",
+          "stratum": "singleton"
+        },
+        {
+          "line": 182,
+          "key": "(0, ('Edmund Burke',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Edmund Burke?",
+          "answer": "Kingdom of Ireland",
+          "stratum": "singleton"
+        },
+        {
+          "line": 138,
+          "key": "(3, ('David Bowie',))",
+          "relation": 3,
+          "question": "Who is David Bowie married to?",
+          "answer": "Iman",
+          "stratum": "singleton"
+        },
+        {
+          "line": 105,
+          "key": "(2, ('United Kingdom',))",
+          "relation": 2,
+          "question": "What continent is United Kingdom located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 350,
+          "key": "(10, ('Free as a Bird',))",
+          "relation": 10,
+          "question": "Who performed Free as a Bird?",
+          "answer": "The Beatles",
+          "stratum": "singleton"
+        },
+        {
+          "line": 111,
+          "key": "(18, ('Westinghouse Electric',))",
+          "relation": 18,
+          "question": "In what city was Westinghouse Electric founded?",
+          "answer": "Pittsburgh",
+          "stratum": "singleton"
+        },
+        {
+          "line": 180,
+          "key": "(14, ('Endymion',))",
+          "relation": 14,
+          "question": "Who is the author of Endymion?",
+          "answer": "John Keats",
+          "stratum": "singleton"
+        },
+        {
+          "line": 93,
+          "key": "(9, ('Gala RFC',))",
+          "relation": 9,
+          "question": "What sport is Gala RFC associated with?",
+          "answer": "rugby union",
+          "stratum": "singleton"
+        },
+        {
+          "line": 437,
+          "key": "(9, ('goalkeeper',))",
+          "relation": 9,
+          "question": "What sport is goalkeeper associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 395,
+          "key": "(19, ('Joseph Goebbels',))",
+          "relation": 19,
+          "question": "In what city did Joseph Goebbels work?",
+          "answer": "Berlin",
+          "stratum": "singleton"
+        },
+        {
+          "line": 263,
+          "key": "(8, ('George W. Bush',))",
+          "relation": 8,
+          "question": "What religion is George W. Bush affiliated with?",
+          "answer": "United Methodist Church",
+          "stratum": "singleton"
+        },
+        {
+          "line": 246,
+          "key": "(21, ('Robert Jordan',))",
+          "relation": 21,
+          "question": "What is Robert Jordan famous for?",
+          "answer": "The Wheel of Time",
+          "stratum": "singleton"
+        },
+        {
+          "line": 293,
+          "key": "(0, ('Ayumi Hamasaki',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Ayumi Hamasaki?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 302,
+          "key": "(4, ('Nadezhda Krupskaya',))",
+          "relation": 4,
+          "question": "In what city did Nadezhda Krupskaya die?",
+          "answer": "Moscow",
+          "stratum": "singleton"
+        },
+        {
+          "line": 422,
+          "key": "(3, ('Vladimir Lenin',))",
+          "relation": 3,
+          "question": "Who is Vladimir Lenin married to?",
+          "answer": "Nadezhda Krupskaya",
+          "stratum": "singleton"
+        }
+      ],
+      "confirmation": [
+        {
+          "key": "(13, ('The Vampyre',))",
+          "line": 426,
+          "block": 18,
+          "relation": 13,
+          "question": "In what language was The Vampyre written?",
+          "answer": "German",
+          "stratum": "current"
+        },
+        {
+          "key": "(21, ('Mario Puzo',))",
+          "line": 112,
+          "block": 2,
+          "relation": 21,
+          "question": "What is Mario Puzo famous for?",
+          "answer": "The Godfather",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(12, ('Thus Spoke Zarathustra',))",
+          "line": 345,
+          "block": 14,
+          "relation": 12,
+          "question": "In what country was Thus Spoke Zarathustra created?",
+          "answer": "Germany",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('T. S. Eliot',))",
+          "line": 197,
+          "block": 6,
+          "relation": 7,
+          "question": "What language does T. S. Eliot speak?",
+          "answer": "French",
+          "stratum": "current"
+        },
+        {
+          "key": "(6, ('Philadelphia',))",
+          "line": 421,
+          "block": 18,
+          "relation": 6,
+          "question": "Who founded Philadelphia?",
+          "answer": "William Penn",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(3, ('Sophia Hawthorne',))",
+          "line": 420,
+          "block": 18,
+          "relation": 3,
+          "question": "Who is Sophia Hawthorne married to?",
+          "answer": "Joan Didion",
+          "stratum": "current"
+        },
+        {
+          "key": "(4, ('Oscar Wilde',))",
+          "line": 270,
+          "block": 10,
+          "relation": 4,
+          "question": "In what city did Oscar Wilde die?",
+          "answer": "Guangzhou",
+          "stratum": "current"
+        },
+        {
+          "key": "(17, ('Daniele De Rossi',))",
+          "line": 269,
+          "block": 10,
+          "relation": 17,
+          "question": "What position does Daniele De Rossi play?",
+          "answer": "midfielder",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(14, ('The Marriage of Figaro',))",
+          "line": 398,
+          "block": 16,
+          "relation": 14,
+          "question": "Who is the author of The Marriage of Figaro?",
+          "answer": "Thomas Kyd",
+          "stratum": "current"
+        },
+        {
+          "key": "(9, ('cornerback',))",
+          "line": 362,
+          "block": 15,
+          "relation": 9,
+          "question": "What sport is cornerback associated with?",
+          "answer": "field hockey",
+          "stratum": "current"
+        },
+        {
+          "key": "(2, ('England',))",
+          "line": 211,
+          "block": 7,
+          "relation": 2,
+          "question": "What continent is England located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Ellen Pompeo',))",
+          "line": 268,
+          "block": 10,
+          "relation": 0,
+          "question": "What is the country of citizenship of Ellen Pompeo?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(20, ('Dave Filoni',))",
+          "line": 226,
+          "block": 8,
+          "relation": 20,
+          "question": "Who is Dave Filoni employed by?",
+          "answer": "British Broadcasting Corporation",
+          "stratum": "current"
+        },
+        {
+          "key": "(8, ('Kingdom of Ireland',))",
+          "line": 260,
+          "block": 10,
+          "relation": 8,
+          "question": "What religion is Kingdom of Ireland affiliated with?",
+          "answer": "Zoroastrianism",
+          "stratum": "current"
+        },
+        {
+          "key": "(19, ('Jesus Christ',))",
+          "line": 307,
+          "block": 12,
+          "relation": 19,
+          "question": "In what city did Jesus Christ work?",
+          "answer": "Galilee",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Born in the U.S.A.',))",
+          "line": 337,
+          "block": 13,
+          "relation": 10,
+          "question": "Who performed Born in the U.S.A.?",
+          "answer": "Dana International",
+          "stratum": "current"
+        },
+        {
+          "key": "(5, ('Thomas Arne',))",
+          "line": 366,
+          "block": 15,
+          "relation": 5,
+          "question": "In what city was Thomas Arne born?",
+          "answer": "Bengaluru",
+          "stratum": "current"
+        },
+        {
+          "key": "(16, ('American Broadcasting Company',))",
+          "line": 392,
+          "block": 16,
+          "relation": 16,
+          "question": "Who is the director of American Broadcasting Company?",
+          "answer": "Ernst Heinkel",
+          "stratum": "current"
+        },
+        {
+          "key": "(11, ('F-22 Raptor',))",
+          "line": 384,
+          "block": 16,
+          "relation": 11,
+          "question": "Who developed F-22 Raptor?",
+          "answer": "Boeing",
+          "stratum": "current"
+        },
+        {
+          "key": "(1, ('Czech Republic',))",
+          "line": 190,
+          "block": 6,
+          "relation": 1,
+          "question": "What is the capital of Czech Republic?",
+          "answer": "Prague",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(13, ('Playboy',))",
+          "line": 297,
+          "block": 11,
+          "relation": 13,
+          "question": "In what language was Playboy written?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(21, ('Stephen Crane',))",
+          "line": 423,
+          "block": 18,
+          "relation": 21,
+          "question": "What is Stephen Crane famous for?",
+          "answer": "Charlie Hebdo",
+          "stratum": "current"
+        },
+        {
+          "key": "(12, ('sumo',))",
+          "line": 95,
+          "block": 1,
+          "relation": 12,
+          "question": "In what country was sumo created?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Emma Watson',))",
+          "line": 402,
+          "block": 17,
+          "relation": 7,
+          "question": "What language does Emma Watson speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('Boston',))",
+          "line": 108,
+          "block": 2,
+          "relation": 6,
+          "question": "Who founded Boston?",
+          "answer": "John Winthrop",
+          "stratum": "singleton"
+        }
+      ]
+    },
+    {
+      "row": 1,
+      "start": 30,
+      "context_sha256": "69cfd6165fe44b26e925b055cf566ca88d83e2f6add7b6708f0c93a90b7be5ad",
+      "discovery": [
+        {
+          "line": 93,
+          "key": "(10, ('Graceland',))",
+          "relation": 10,
+          "question": "Who performed Graceland?",
+          "answer": "Ozzy Osbourne",
+          "stratum": "current"
+        },
+        {
+          "line": 364,
+          "key": "(6, ('The Church of Jesus Christ of Latter-day Saints',))",
+          "relation": 6,
+          "question": "Who founded The Church of Jesus Christ of Latter-day Saints?",
+          "answer": "Lyndon B. Johnson",
+          "stratum": "current"
+        },
+        {
+          "line": 416,
+          "key": "(22, ('Dana Scully',))",
+          "relation": 22,
+          "question": "Who created Dana Scully?",
+          "answer": "James Patterson",
+          "stratum": "current"
+        },
+        {
+          "line": 185,
+          "key": "(7, ('Kylie Minogue',))",
+          "relation": 7,
+          "question": "What language does Kylie Minogue speak?",
+          "answer": "German",
+          "stratum": "current"
+        },
+        {
+          "line": 404,
+          "key": "(3, ('Karl Marx',))",
+          "relation": 3,
+          "question": "Who is Karl Marx married to?",
+          "answer": "John Wayles",
+          "stratum": "current"
+        },
+        {
+          "line": 304,
+          "key": "(9, ('Aaron Rodgers',))",
+          "relation": 9,
+          "question": "What sport is Aaron Rodgers associated with?",
+          "answer": "cricket",
+          "stratum": "current"
+        },
+        {
+          "line": 334,
+          "key": "(0, ('Elbridge Gerry',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Elbridge Gerry?",
+          "answer": "Kingdom of the Netherlands",
+          "stratum": "current"
+        },
+        {
+          "line": 103,
+          "key": "(0, ('George Lucas',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of George Lucas?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 140,
+          "key": "(22, ('Malvolio',))",
+          "relation": 22,
+          "question": "Who created Malvolio?",
+          "answer": "William Shakespeare",
+          "stratum": "singleton"
+        },
+        {
+          "line": 335,
+          "key": "(1, ('Lithuania',))",
+          "relation": 1,
+          "question": "What is the capital of Lithuania?",
+          "answer": "Vilnius",
+          "stratum": "singleton"
+        },
+        {
+          "line": 431,
+          "key": "(9, ('Joachim L\u00f6w',))",
+          "relation": 9,
+          "question": "What sport is Joachim L\u00f6w associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 191,
+          "key": "(0, ('Christopher Robin Milne',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Christopher Robin Milne?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 111,
+          "key": "(6, ('Eagle Forum',))",
+          "relation": 6,
+          "question": "Who founded Eagle Forum?",
+          "answer": "Phyllis Schlafly",
+          "stratum": "singleton"
+        },
+        {
+          "line": 266,
+          "key": "(0, ('Vince McMahon',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Vince McMahon?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 208,
+          "key": "(10, ('Veronica Mars',))",
+          "relation": 10,
+          "question": "Who performed Veronica Mars?",
+          "answer": "Kristen Bell",
+          "stratum": "singleton"
+        },
+        {
+          "line": 377,
+          "key": "(17, ('Sonny Jurgensen',))",
+          "relation": 17,
+          "question": "What position does Sonny Jurgensen play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "line": 156,
+          "key": "(12, ('Space Invaders',))",
+          "relation": 12,
+          "question": "In what country was Space Invaders created?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 288,
+          "key": "(9, ('passing',))",
+          "relation": 9,
+          "question": "What sport is passing associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 158,
+          "key": "(0, ('Daphne du Maurier',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Daphne du Maurier?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Kazunori Yamauchi',))",
+          "line": 272,
+          "block": 10,
+          "relation": 0,
+          "question": "What is the country of citizenship of Kazunori Yamauchi?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Carl Jacobsen',))",
+          "line": 376,
+          "block": 15,
+          "relation": 0,
+          "question": "What is the country of citizenship of Carl Jacobsen?",
+          "answer": "Denmark",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Wilhelm von Humboldt',))",
+          "line": 100,
+          "block": 2,
+          "relation": 0,
+          "question": "What is the country of citizenship of Wilhelm von Humboldt?",
+          "answer": "Germany",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Robert A. Heinlein',))",
+          "line": 138,
+          "block": 3,
+          "relation": 0,
+          "question": "What is the country of citizenship of Robert A. Heinlein?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        }
+      ],
+      "legacy_discovery": [
+        {
+          "line": 93,
+          "key": "(10, ('Graceland',))",
+          "relation": 10,
+          "question": "Who performed Graceland?",
+          "answer": "Ozzy Osbourne",
+          "stratum": "current"
+        },
+        {
+          "line": 364,
+          "key": "(6, ('The Church of Jesus Christ of Latter-day Saints',))",
+          "relation": 6,
+          "question": "Who founded The Church of Jesus Christ of Latter-day Saints?",
+          "answer": "Lyndon B. Johnson",
+          "stratum": "current"
+        },
+        {
+          "line": 416,
+          "key": "(22, ('Dana Scully',))",
+          "relation": 22,
+          "question": "Who created Dana Scully?",
+          "answer": "James Patterson",
+          "stratum": "current"
+        },
+        {
+          "line": 185,
+          "key": "(7, ('Kylie Minogue',))",
+          "relation": 7,
+          "question": "What language does Kylie Minogue speak?",
+          "answer": "German",
+          "stratum": "current"
+        },
+        {
+          "line": 404,
+          "key": "(3, ('Karl Marx',))",
+          "relation": 3,
+          "question": "Who is Karl Marx married to?",
+          "answer": "John Wayles",
+          "stratum": "current"
+        },
+        {
+          "line": 304,
+          "key": "(9, ('Aaron Rodgers',))",
+          "relation": 9,
+          "question": "What sport is Aaron Rodgers associated with?",
+          "answer": "cricket",
+          "stratum": "current"
+        },
+        {
+          "line": 334,
+          "key": "(0, ('Elbridge Gerry',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Elbridge Gerry?",
+          "answer": "Kingdom of the Netherlands",
+          "stratum": "current"
+        },
+        {
+          "line": 103,
+          "key": "(0, ('George Lucas',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of George Lucas?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 140,
+          "key": "(22, ('Malvolio',))",
+          "relation": 22,
+          "question": "Who created Malvolio?",
+          "answer": "William Shakespeare",
+          "stratum": "singleton"
+        },
+        {
+          "line": 335,
+          "key": "(1, ('Lithuania',))",
+          "relation": 1,
+          "question": "What is the capital of Lithuania?",
+          "answer": "Vilnius",
+          "stratum": "singleton"
+        },
+        {
+          "line": 431,
+          "key": "(9, ('Joachim L\u00f6w',))",
+          "relation": 9,
+          "question": "What sport is Joachim L\u00f6w associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 191,
+          "key": "(0, ('Christopher Robin Milne',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Christopher Robin Milne?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 111,
+          "key": "(6, ('Eagle Forum',))",
+          "relation": 6,
+          "question": "Who founded Eagle Forum?",
+          "answer": "Phyllis Schlafly",
+          "stratum": "singleton"
+        },
+        {
+          "line": 266,
+          "key": "(0, ('Vince McMahon',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Vince McMahon?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 208,
+          "key": "(10, ('Veronica Mars',))",
+          "relation": 10,
+          "question": "Who performed Veronica Mars?",
+          "answer": "Kristen Bell",
+          "stratum": "singleton"
+        },
+        {
+          "line": 377,
+          "key": "(17, ('Sonny Jurgensen',))",
+          "relation": 17,
+          "question": "What position does Sonny Jurgensen play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "line": 156,
+          "key": "(12, ('Space Invaders',))",
+          "relation": 12,
+          "question": "In what country was Space Invaders created?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 288,
+          "key": "(9, ('passing',))",
+          "relation": 9,
+          "question": "What sport is passing associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 158,
+          "key": "(0, ('Daphne du Maurier',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Daphne du Maurier?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        }
+      ],
+      "development": [
+        {
+          "line": 375,
+          "key": "(9, ('Aiginiakos F.C.',))",
+          "relation": 9,
+          "question": "What sport is Aiginiakos F.C. associated with?",
+          "answer": "basketball",
+          "stratum": "current"
+        },
+        {
+          "line": 373,
+          "key": "(17, ('Cris Carter',))",
+          "relation": 17,
+          "question": "What position does Cris Carter play?",
+          "answer": "point guard",
+          "stratum": "current"
+        },
+        {
+          "line": 197,
+          "key": "(8, ('Innocent XI',))",
+          "relation": 8,
+          "question": "What religion is Innocent XI affiliated with?",
+          "answer": "Christian Science",
+          "stratum": "current"
+        },
+        {
+          "line": 171,
+          "key": "(6, ('Humboldt University of Berlin',))",
+          "relation": 6,
+          "question": "Who founded Humboldt University of Berlin?",
+          "answer": "Howard Hughes",
+          "stratum": "current"
+        },
+        {
+          "line": 153,
+          "key": "(3, ('Spencer Pratt',))",
+          "relation": 3,
+          "question": "Who is Spencer Pratt married to?",
+          "answer": "Nicolai Ghiaurov",
+          "stratum": "current"
+        },
+        {
+          "line": 233,
+          "key": "(6, ('Islam',))",
+          "relation": 6,
+          "question": "Who founded Islam?",
+          "answer": "Raila Odinga",
+          "stratum": "current"
+        },
+        {
+          "line": 223,
+          "key": "(2, ('Denmark',))",
+          "relation": 2,
+          "question": "What continent is Denmark located in?",
+          "answer": "South America",
+          "stratum": "current"
+        },
+        {
+          "line": 397,
+          "key": "(17, ('Sebastian Janikowski',))",
+          "relation": 17,
+          "question": "What position does Sebastian Janikowski play?",
+          "answer": "power forward",
+          "stratum": "current"
+        },
+        {
+          "line": 358,
+          "key": "(3, ('Harry S. Truman',))",
+          "relation": 3,
+          "question": "Who is Harry S. Truman married to?",
+          "answer": "Reese Witherspoon",
+          "stratum": "current"
+        },
+        {
+          "line": 419,
+          "key": "(9, ('Tunisia national football team',))",
+          "relation": 9,
+          "question": "What sport is Tunisia national football team associated with?",
+          "answer": "basketball",
+          "stratum": "current"
+        },
+        {
+          "line": 224,
+          "key": "(0, ('John Evelyn',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of John Evelyn?",
+          "answer": "Poland",
+          "stratum": "current"
+        },
+        {
+          "line": 413,
+          "key": "(12, ('rugby',))",
+          "relation": 12,
+          "question": "In what country was rugby created?",
+          "answer": "Indonesia",
+          "stratum": "current"
+        },
+        {
+          "line": 420,
+          "key": "(0, ('Karunas',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Karunas?",
+          "answer": "United States of America",
+          "stratum": "current"
+        },
+        {
+          "line": 329,
+          "key": "(22, ('Finnish',))",
+          "relation": 22,
+          "question": "Who created Finnish?",
+          "answer": "Stirling Silliphanta",
+          "stratum": "current"
+        },
+        {
+          "line": 220,
+          "key": "(10, ('Hey Jude',))",
+          "relation": 10,
+          "question": "Who performed Hey Jude?",
+          "answer": "Madonna",
+          "stratum": "current"
+        },
+        {
+          "line": 336,
+          "key": "(7, ('Sam Robards',))",
+          "relation": 7,
+          "question": "What language does Sam Robards speak?",
+          "answer": "German",
+          "stratum": "current"
+        },
+        {
+          "line": 141,
+          "key": "(8, ('Mehriban Aliyeva',))",
+          "relation": 8,
+          "question": "What religion is Mehriban Aliyeva affiliated with?",
+          "answer": "Islam",
+          "stratum": "singleton"
+        },
+        {
+          "line": 165,
+          "key": "(10, ('I Fall to Pieces',))",
+          "relation": 10,
+          "question": "Who performed I Fall to Pieces?",
+          "answer": "Patsy Cline",
+          "stratum": "singleton"
+        },
+        {
+          "line": 216,
+          "key": "(22, ('Ultimates',))",
+          "relation": 22,
+          "question": "Who created Ultimates?",
+          "answer": "Mark Millar",
+          "stratum": "singleton"
+        },
+        {
+          "line": 79,
+          "key": "(0, ('Howard Hughes',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Howard Hughes?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 320,
+          "key": "(13, ('Rurouni Kenshin',))",
+          "relation": 13,
+          "question": "In what language was Rurouni Kenshin written?",
+          "answer": "Japanese",
+          "stratum": "singleton"
+        },
+        {
+          "line": 263,
+          "key": "(7, ('Andy Burnham',))",
+          "relation": 7,
+          "question": "What language does Andy Burnham speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 82,
+          "key": "(6, ('University of Utah',))",
+          "relation": 6,
+          "question": "Who founded University of Utah?",
+          "answer": "Brigham Young",
+          "stratum": "singleton"
+        },
+        {
+          "line": 142,
+          "key": "(9, ('Terry Francona',))",
+          "relation": 9,
+          "question": "What sport is Terry Francona associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 426,
+          "key": "(4, ('Coco Chanel',))",
+          "relation": 4,
+          "question": "In what city did Coco Chanel die?",
+          "answer": "Paris",
+          "stratum": "singleton"
+        },
+        {
+          "line": 218,
+          "key": "(0, ('Robert Wisdom',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Robert Wisdom?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 193,
+          "key": "(19, ('Clare Boothe Luce',))",
+          "relation": 19,
+          "question": "In what city did Clare Boothe Luce work?",
+          "answer": "Washington, D.C",
+          "stratum": "singleton"
+        },
+        {
+          "line": 250,
+          "key": "(0, ('Randal Kleiser',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Randal Kleiser?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 155,
+          "key": "(12, ('Playhouse 90',))",
+          "relation": 12,
+          "question": "In what country was Playhouse 90 created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 108,
+          "key": "(1, ('Pirkanmaa',))",
+          "relation": 1,
+          "question": "What is the capital of Pirkanmaa?",
+          "answer": "Tampere",
+          "stratum": "singleton"
+        },
+        {
+          "line": 196,
+          "key": "(9, ('Yadier Molina',))",
+          "relation": 9,
+          "question": "What sport is Yadier Molina associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 311,
+          "key": "(20, ('Lucian Boia',))",
+          "relation": 20,
+          "question": "Who is Lucian Boia employed by?",
+          "answer": "University of Bucharest",
+          "stratum": "singleton"
+        },
+        {
+          "line": 166,
+          "key": "(5, ('Martin Luther King Jr.',))",
+          "relation": 5,
+          "question": "In what city was Martin Luther King Jr. born?",
+          "answer": "Atlanta",
+          "stratum": "singleton"
+        },
+        {
+          "line": 294,
+          "key": "(12, ('Orkneyinga saga',))",
+          "relation": 12,
+          "question": "In what country was Orkneyinga saga created?",
+          "answer": "Iceland",
+          "stratum": "singleton"
+        },
+        {
+          "line": 104,
+          "key": "(9, ('Sam Cassell',))",
+          "relation": 9,
+          "question": "What sport is Sam Cassell associated with?",
+          "answer": "basketball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 341,
+          "key": "(11, ('Windows Phone',))",
+          "relation": 11,
+          "question": "Who developed Windows Phone?",
+          "answer": "Microsoft",
+          "stratum": "singleton"
+        },
+        {
+          "line": 170,
+          "key": "(20, ('James Watt',))",
+          "relation": 20,
+          "question": "Who is James Watt employed by?",
+          "answer": "University of Glasgow",
+          "stratum": "singleton"
+        },
+        {
+          "line": 352,
+          "key": "(3, ('Mohandas Karamchand Gandhi',))",
+          "relation": 3,
+          "question": "Who is Mohandas Karamchand Gandhi married to?",
+          "answer": "Kasturba Gandhi",
+          "stratum": "singleton"
+        },
+        {
+          "line": 313,
+          "key": "(9, ('Philippine Basketball Association Draft',))",
+          "relation": 9,
+          "question": "What sport is Philippine Basketball Association Draft associated with?",
+          "answer": "basketball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 74,
+          "key": "(2, ('Moscow',))",
+          "relation": 2,
+          "question": "What continent is Moscow located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 128,
+          "key": "(4, ('S\u00f8ren Kierkegaard',))",
+          "relation": 4,
+          "question": "In what city did S\u00f8ren Kierkegaard die?",
+          "answer": "Copenhagen",
+          "stratum": "singleton"
+        },
+        {
+          "line": 427,
+          "key": "(13, ('The Sopranos',))",
+          "relation": 13,
+          "question": "In what language was The Sopranos written?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 286,
+          "key": "(21, ('William Gibson',))",
+          "relation": 21,
+          "question": "What is William Gibson famous for?",
+          "answer": "Neuromancer",
+          "stratum": "singleton"
+        },
+        {
+          "line": 340,
+          "key": "(17, ('Stojko Vrankovi\u0107',))",
+          "relation": 17,
+          "question": "What position does Stojko Vrankovi\u0107 play?",
+          "answer": "center",
+          "stratum": "singleton"
+        },
+        {
+          "line": 378,
+          "key": "(5, ('George Lucas',))",
+          "relation": 5,
+          "question": "In what city was George Lucas born?",
+          "answer": "Modesto",
+          "stratum": "singleton"
+        },
+        {
+          "line": 430,
+          "key": "(3, ('Philip Roth',))",
+          "relation": 3,
+          "question": "Who is Philip Roth married to?",
+          "answer": "Claire Bloom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 234,
+          "key": "(2, ('Warsaw',))",
+          "relation": 2,
+          "question": "What continent is Warsaw located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 86,
+          "key": "(8, ('Clare Boothe Luce',))",
+          "relation": 8,
+          "question": "What religion is Clare Boothe Luce affiliated with?",
+          "answer": "Catholic Church",
+          "stratum": "singleton"
+        },
+        {
+          "line": 228,
+          "key": "(4, ('George Harrison',))",
+          "relation": 4,
+          "question": "In what city did George Harrison die?",
+          "answer": "Los Angeles",
+          "stratum": "singleton"
+        },
+        {
+          "line": 296,
+          "key": "(8, ('Princess Alice, Duchess of Gloucester',))",
+          "relation": 8,
+          "question": "What religion is Princess Alice, Duchess of Gloucester affiliated with?",
+          "answer": "Anglicanism",
+          "stratum": "singleton"
+        }
+      ],
+      "confirmation": [
+        {
+          "key": "(12, ('The Canterbury Tales',))",
+          "line": 399,
+          "block": 16,
+          "relation": 12,
+          "question": "In what country was The Canterbury Tales created?",
+          "answer": "England",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(14, ('Nicomachean Ethics',))",
+          "line": 386,
+          "block": 16,
+          "relation": 14,
+          "question": "Who is the author of Nicomachean Ethics?",
+          "answer": "Aristotle",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(1, ('Austria',))",
+          "line": 189,
+          "block": 6,
+          "relation": 1,
+          "question": "What is the capital of Austria?",
+          "answer": "Vienna",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(18, ('Ilyushin',))",
+          "line": 316,
+          "block": 12,
+          "relation": 18,
+          "question": "In what city was Ilyushin founded?",
+          "answer": "Moscow",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(17, ('Rafael Palmeiro',))",
+          "line": 379,
+          "block": 15,
+          "relation": 17,
+          "question": "What position does Rafael Palmeiro play?",
+          "answer": "first baseman",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('GNU Project',))",
+          "line": 96,
+          "block": 1,
+          "relation": 6,
+          "question": "Who founded GNU Project?",
+          "answer": "Richard Stallman",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Claire Bloom',))",
+          "line": 257,
+          "block": 9,
+          "relation": 0,
+          "question": "What is the country of citizenship of Claire Bloom?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('Atl\u00e9tico Nacional',))",
+          "line": 383,
+          "block": 16,
+          "relation": 9,
+          "question": "What sport is Atl\u00e9tico Nacional associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(4, ('James Agee',))",
+          "line": 385,
+          "block": 16,
+          "relation": 4,
+          "question": "In what city did James Agee die?",
+          "answer": "New York City",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(19, ('Pedro Pierluisi',))",
+          "line": 169,
+          "block": 5,
+          "relation": 19,
+          "question": "In what city did Pedro Pierluisi work?",
+          "answer": "Washington, D.C",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(3, ('Vince McMahon',))",
+          "line": 209,
+          "block": 7,
+          "relation": 3,
+          "question": "Who is Vince McMahon married to?",
+          "answer": "Linda McMahon",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(2, ('Classical Athens',))",
+          "line": 355,
+          "block": 14,
+          "relation": 2,
+          "question": "What continent is Classical Athens located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(21, ('T. E. Lawrence',))",
+          "line": 180,
+          "block": 6,
+          "relation": 21,
+          "question": "What is T. E. Lawrence famous for?",
+          "answer": "Seven Pillars of Wisdom",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, (\"Patrick O'Brian\",))",
+          "line": 326,
+          "block": 13,
+          "relation": 7,
+          "question": "What language does Patrick O'Brian speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(5, ('Jari Kurri',))",
+          "line": 243,
+          "block": 9,
+          "relation": 5,
+          "question": "In what city was Jari Kurri born?",
+          "answer": "Helsinki",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Love Me Tender',))",
+          "line": 172,
+          "block": 5,
+          "relation": 10,
+          "question": "Who performed Love Me Tender?",
+          "answer": "Elvis Presley",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(14, (\"Gulliver's Travels\",))",
+          "line": 72,
+          "block": 0,
+          "relation": 14,
+          "question": "Who is the author of Gulliver's Travels?",
+          "answer": "Jonathan Swift",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(17, ('Drew Brees',))",
+          "line": 247,
+          "block": 9,
+          "relation": 17,
+          "question": "What position does Drew Brees play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('Armani',))",
+          "line": 310,
+          "block": 12,
+          "relation": 6,
+          "question": "Who founded Armani?",
+          "answer": "Giorgio Armani",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Betty Ford',))",
+          "line": 262,
+          "block": 10,
+          "relation": 0,
+          "question": "What is the country of citizenship of Betty Ford?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('closer',))",
+          "line": 289,
+          "block": 11,
+          "relation": 9,
+          "question": "What sport is closer associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(3, ('Anton Chekhov',))",
+          "line": 99,
+          "block": 1,
+          "relation": 3,
+          "question": "Who is Anton Chekhov married to?",
+          "answer": "Olga Knipper",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(21, ('Ferdowsi',))",
+          "line": 429,
+          "block": 18,
+          "relation": 21,
+          "question": "What is Ferdowsi famous for?",
+          "answer": "Shahnameh",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Kristen Stewart',))",
+          "line": 401,
+          "block": 17,
+          "relation": 7,
+          "question": "What language does Kristen Stewart speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Meredith Grey',))",
+          "line": 182,
+          "block": 6,
+          "relation": 10,
+          "question": "Who performed Meredith Grey?",
+          "answer": "Ellen Pompeo",
+          "stratum": "singleton"
+        }
+      ]
+    },
+    {
+      "row": 2,
+      "start": 30,
+      "context_sha256": "55d33d55c2e891be6ef28f8cfb80df93a3387673da9e424e0202b1c056c70869",
+      "discovery": [
+        {
+          "line": 337,
+          "key": "(0, ('Doyle Brunson',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Doyle Brunson?",
+          "answer": "India",
+          "stratum": "current"
+        },
+        {
+          "line": 294,
+          "key": "(8, ('Cardinal Stritch University',))",
+          "relation": 8,
+          "question": "What religion is Cardinal Stritch University affiliated with?",
+          "answer": "Methodism",
+          "stratum": "current"
+        },
+        {
+          "line": 304,
+          "key": "(14, ('Tender Is the Night',))",
+          "relation": 14,
+          "question": "Who is the author of Tender Is the Night?",
+          "answer": "Vladimir Lenin",
+          "stratum": "current"
+        },
+        {
+          "line": 394,
+          "key": "(14, ('American Gods',))",
+          "relation": 14,
+          "question": "Who is the author of American Gods?",
+          "answer": "Maria von Trapp",
+          "stratum": "current"
+        },
+        {
+          "line": 62,
+          "key": "(1, ('Duchy of Lorraine',))",
+          "relation": 1,
+          "question": "What is the capital of Duchy of Lorraine?",
+          "answer": "Nancy",
+          "stratum": "singleton"
+        },
+        {
+          "line": 335,
+          "key": "(0, ('Roger Ebert',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Roger Ebert?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 369,
+          "key": "(11, ('Spotlight',))",
+          "relation": 11,
+          "question": "Who developed Spotlight?",
+          "answer": "Apple Inc",
+          "stratum": "singleton"
+        },
+        {
+          "line": 121,
+          "key": "(12, ('vallenato',))",
+          "relation": 12,
+          "question": "In what country was vallenato created?",
+          "answer": "Colombia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 123,
+          "key": "(9, ('A. J. Pierzynski',))",
+          "relation": 9,
+          "question": "What sport is A. J. Pierzynski associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 280,
+          "key": "(9, ('Burleigh Grimes',))",
+          "relation": 9,
+          "question": "What sport is Burleigh Grimes associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 400,
+          "key": "(0, ('Simon Blackburn',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Simon Blackburn?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 142,
+          "key": "(0, ('Eleazar Wheelock',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Eleazar Wheelock?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 418,
+          "key": "(18, ('Tupolev',))",
+          "relation": 18,
+          "question": "In what city was Tupolev founded?",
+          "answer": "Moscow",
+          "stratum": "singleton"
+        },
+        {
+          "line": 251,
+          "key": "(11, ('Windows Phone 7.x',))",
+          "relation": 11,
+          "question": "Who developed Windows Phone 7.x?",
+          "answer": "Microsoft",
+          "stratum": "singleton"
+        },
+        {
+          "line": 268,
+          "key": "(9, ('Terry Collins',))",
+          "relation": 9,
+          "question": "What sport is Terry Collins associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 305,
+          "key": "(17, ('Aaron Hernandez',))",
+          "relation": 17,
+          "question": "What position does Aaron Hernandez play?",
+          "answer": "tight end",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Ulrike Meinhof',))",
+          "line": 408,
+          "block": 17,
+          "relation": 0,
+          "question": "What is the country of citizenship of Ulrike Meinhof?",
+          "answer": "Germany",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Mike Mignola',))",
+          "line": 216,
+          "block": 7,
+          "relation": 7,
+          "question": "What language does Mike Mignola speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('Blue Origin',))",
+          "line": 112,
+          "block": 2,
+          "relation": 6,
+          "question": "Who founded Blue Origin?",
+          "answer": "Jeff Bezos",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Julie Chen',))",
+          "line": 392,
+          "block": 16,
+          "relation": 0,
+          "question": "What is the country of citizenship of Julie Chen?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Wilbert Awdry',))",
+          "line": 83,
+          "block": 1,
+          "relation": 0,
+          "question": "What is the country of citizenship of Wilbert Awdry?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Benjamin Mazar',))",
+          "line": 61,
+          "block": 0,
+          "relation": 0,
+          "question": "What is the country of citizenship of Benjamin Mazar?",
+          "answer": "Israel",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Robert Rich, 2nd Earl of Warwick',))",
+          "line": 425,
+          "block": 18,
+          "relation": 0,
+          "question": "What is the country of citizenship of Robert Rich, 2nd Earl of Warwick?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        }
+      ],
+      "legacy_discovery": [
+        {
+          "line": 337,
+          "key": "(0, ('Doyle Brunson',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Doyle Brunson?",
+          "answer": "India",
+          "stratum": "current"
+        },
+        {
+          "line": 294,
+          "key": "(8, ('Cardinal Stritch University',))",
+          "relation": 8,
+          "question": "What religion is Cardinal Stritch University affiliated with?",
+          "answer": "Methodism",
+          "stratum": "current"
+        },
+        {
+          "line": 304,
+          "key": "(14, ('Tender Is the Night',))",
+          "relation": 14,
+          "question": "Who is the author of Tender Is the Night?",
+          "answer": "Vladimir Lenin",
+          "stratum": "current"
+        },
+        {
+          "line": 394,
+          "key": "(14, ('American Gods',))",
+          "relation": 14,
+          "question": "Who is the author of American Gods?",
+          "answer": "Maria von Trapp",
+          "stratum": "current"
+        },
+        {
+          "line": 62,
+          "key": "(1, ('Duchy of Lorraine',))",
+          "relation": 1,
+          "question": "What is the capital of Duchy of Lorraine?",
+          "answer": "Nancy",
+          "stratum": "singleton"
+        },
+        {
+          "line": 335,
+          "key": "(0, ('Roger Ebert',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Roger Ebert?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 369,
+          "key": "(11, ('Spotlight',))",
+          "relation": 11,
+          "question": "Who developed Spotlight?",
+          "answer": "Apple Inc",
+          "stratum": "singleton"
+        },
+        {
+          "line": 121,
+          "key": "(12, ('vallenato',))",
+          "relation": 12,
+          "question": "In what country was vallenato created?",
+          "answer": "Colombia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 123,
+          "key": "(9, ('A. J. Pierzynski',))",
+          "relation": 9,
+          "question": "What sport is A. J. Pierzynski associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 280,
+          "key": "(9, ('Burleigh Grimes',))",
+          "relation": 9,
+          "question": "What sport is Burleigh Grimes associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 400,
+          "key": "(0, ('Simon Blackburn',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Simon Blackburn?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 142,
+          "key": "(0, ('Eleazar Wheelock',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Eleazar Wheelock?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 418,
+          "key": "(18, ('Tupolev',))",
+          "relation": 18,
+          "question": "In what city was Tupolev founded?",
+          "answer": "Moscow",
+          "stratum": "singleton"
+        },
+        {
+          "line": 251,
+          "key": "(11, ('Windows Phone 7.x',))",
+          "relation": 11,
+          "question": "Who developed Windows Phone 7.x?",
+          "answer": "Microsoft",
+          "stratum": "singleton"
+        },
+        {
+          "line": 268,
+          "key": "(9, ('Terry Collins',))",
+          "relation": 9,
+          "question": "What sport is Terry Collins associated with?",
+          "answer": "baseball",
+          "stratum": "singleton"
+        },
+        {
+          "line": 305,
+          "key": "(17, ('Aaron Hernandez',))",
+          "relation": 17,
+          "question": "What position does Aaron Hernandez play?",
+          "answer": "tight end",
+          "stratum": "singleton"
+        }
+      ],
+      "development": [
+        {
+          "line": 395,
+          "key": "(14, (\"Mrs. Warren's Profession\",))",
+          "relation": 14,
+          "question": "Who is the author of Mrs. Warren's Profession?",
+          "answer": "Clamp",
+          "stratum": "current"
+        },
+        {
+          "line": 385,
+          "key": "(8, ('Emmanuel de Rohan-Polduc',))",
+          "relation": 8,
+          "question": "What religion is Emmanuel de Rohan-Polduc affiliated with?",
+          "answer": "Sikhism",
+          "stratum": "current"
+        },
+        {
+          "line": 186,
+          "key": "(0, ('William S. Hart',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of William S. Hart?",
+          "answer": "Germany",
+          "stratum": "current"
+        },
+        {
+          "line": 360,
+          "key": "(8, ('Buddhist temple',))",
+          "relation": 8,
+          "question": "What religion is Buddhist temple affiliated with?",
+          "answer": "Islam",
+          "stratum": "current"
+        },
+        {
+          "line": 396,
+          "key": "(0, ('Paul Rodriguez',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Paul Rodriguez?",
+          "answer": "United Kingdom",
+          "stratum": "current"
+        },
+        {
+          "line": 175,
+          "key": "(6, (\"Colt's Manufacturing Company\",))",
+          "relation": 6,
+          "question": "Who founded Colt's Manufacturing Company?",
+          "answer": "Lech Wa\u0142\u0119sa",
+          "stratum": "current"
+        },
+        {
+          "line": 435,
+          "key": "(17, ('Shawn Bradley',))",
+          "relation": 17,
+          "question": "What position does Shawn Bradley play?",
+          "answer": "midfielder",
+          "stratum": "current"
+        },
+        {
+          "line": 287,
+          "key": "(8, ('Sebastian of Portugal',))",
+          "relation": 8,
+          "question": "What religion is Sebastian of Portugal affiliated with?",
+          "answer": "Methodism",
+          "stratum": "current"
+        },
+        {
+          "line": 342,
+          "key": "(12, ('Little Miss Sunshine',))",
+          "relation": 12,
+          "question": "In what country was Little Miss Sunshine created?",
+          "answer": "United Kingdom",
+          "stratum": "current"
+        },
+        {
+          "line": 164,
+          "key": "(8, ('Siena College',))",
+          "relation": 8,
+          "question": "What religion is Siena College affiliated with?",
+          "answer": "Jainism",
+          "stratum": "current"
+        },
+        {
+          "line": 118,
+          "key": "(4, ('Umberto Eco',))",
+          "relation": 4,
+          "question": "In what city did Umberto Eco die?",
+          "answer": "Milan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 73,
+          "key": "(0, ('Mark Haddon',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Mark Haddon?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 151,
+          "key": "(14, ('A Study in Scarlet',))",
+          "relation": 14,
+          "question": "Who is the author of A Study in Scarlet?",
+          "answer": "Arthur Conan Doyle",
+          "stratum": "singleton"
+        },
+        {
+          "line": 183,
+          "key": "(4, ('Sigmund Freud',))",
+          "relation": 4,
+          "question": "In what city did Sigmund Freud die?",
+          "answer": "London",
+          "stratum": "singleton"
+        },
+        {
+          "line": 127,
+          "key": "(0, ('Te Rauparaha',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Te Rauparaha?",
+          "answer": "New Zealand",
+          "stratum": "singleton"
+        },
+        {
+          "line": 316,
+          "key": "(0, ('Mick Jagger',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Mick Jagger?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 192,
+          "key": "(6, ('Death Eater',))",
+          "relation": 6,
+          "question": "Who founded Death Eater?",
+          "answer": "Lord Voldemort",
+          "stratum": "singleton"
+        },
+        {
+          "line": 270,
+          "key": "(20, ('Lewis Carroll',))",
+          "relation": 20,
+          "question": "Who is Lewis Carroll employed by?",
+          "answer": "University of Oxford",
+          "stratum": "singleton"
+        },
+        {
+          "line": 223,
+          "key": "(19, ('Kristen Bell',))",
+          "relation": 19,
+          "question": "In what city did Kristen Bell work?",
+          "answer": "Los Angeles",
+          "stratum": "singleton"
+        },
+        {
+          "line": 292,
+          "key": "(11, ('Windows Communication Foundation',))",
+          "relation": 11,
+          "question": "Who developed Windows Communication Foundation?",
+          "answer": "Microsoft",
+          "stratum": "singleton"
+        },
+        {
+          "line": 129,
+          "key": "(18, ('Oasis',))",
+          "relation": 18,
+          "question": "In what city was Oasis founded?",
+          "answer": "Manchester",
+          "stratum": "singleton"
+        },
+        {
+          "line": 190,
+          "key": "(13, ('Autobiography of a Yogi',))",
+          "relation": 13,
+          "question": "In what language was Autobiography of a Yogi written?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 245,
+          "key": "(2, ('Iceland',))",
+          "relation": 2,
+          "question": "What continent is Iceland located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 350,
+          "key": "(10, ('Born This Way Ball',))",
+          "relation": 10,
+          "question": "Who performed Born This Way Ball?",
+          "answer": "Lady Gaga",
+          "stratum": "singleton"
+        },
+        {
+          "line": 96,
+          "key": "(0, ('Dax Shepard',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Dax Shepard?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 312,
+          "key": "(0, ('Kim Kardashian',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Kim Kardashian?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 217,
+          "key": "(9, ('1993 UNCAF Nations Cup',))",
+          "relation": 9,
+          "question": "What sport is 1993 UNCAF Nations Cup associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 159,
+          "key": "(0, ('Jack Dorsey',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Jack Dorsey?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 139,
+          "key": "(19, ('Edmund Husserl',))",
+          "relation": 19,
+          "question": "In what city did Edmund Husserl work?",
+          "answer": "Freiburg im Breisgau",
+          "stratum": "singleton"
+        },
+        {
+          "line": 203,
+          "key": "(11, ('Kinsey scale',))",
+          "relation": 11,
+          "question": "Who developed Kinsey scale?",
+          "answer": "Alfred Kinsey",
+          "stratum": "singleton"
+        },
+        {
+          "line": 200,
+          "key": "(12, ('old-time music',))",
+          "relation": 12,
+          "question": "In what country was old-time music created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 432,
+          "key": "(14, ('American Pastoral',))",
+          "relation": 14,
+          "question": "Who is the author of American Pastoral?",
+          "answer": "Philip Roth",
+          "stratum": "singleton"
+        },
+        {
+          "line": 145,
+          "key": "(22, ('Girls',))",
+          "relation": 22,
+          "question": "Who created Girls?",
+          "answer": "Lena Dunham",
+          "stratum": "singleton"
+        },
+        {
+          "line": 102,
+          "key": "(0, ('Alexander I of Russia',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Alexander I of Russia?",
+          "answer": "Russian Empire",
+          "stratum": "singleton"
+        },
+        {
+          "line": 182,
+          "key": "(0, ('Mario Monti',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Mario Monti?",
+          "answer": "Italy",
+          "stratum": "singleton"
+        },
+        {
+          "line": 364,
+          "key": "(10, ('The Joshua Tree Tour',))",
+          "relation": 10,
+          "question": "Who performed The Joshua Tree Tour?",
+          "answer": "U2",
+          "stratum": "singleton"
+        },
+        {
+          "line": 167,
+          "key": "(9, ('Galwegians RFC',))",
+          "relation": 9,
+          "question": "What sport is Galwegians RFC associated with?",
+          "answer": "rugby union",
+          "stratum": "singleton"
+        },
+        {
+          "line": 160,
+          "key": "(0, ('Linda McMahon',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Linda McMahon?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 437,
+          "key": "(4, ('Ursula K. Le Guin',))",
+          "relation": 4,
+          "question": "In what city did Ursula K. Le Guin die?",
+          "answer": "Portland",
+          "stratum": "singleton"
+        },
+        {
+          "line": 119,
+          "key": "(17, ('Rick Adelman',))",
+          "relation": 17,
+          "question": "What position does Rick Adelman play?",
+          "answer": "point guard",
+          "stratum": "singleton"
+        },
+        {
+          "line": 272,
+          "key": "(2, ('Mexico',))",
+          "relation": 2,
+          "question": "What continent is Mexico located in?",
+          "answer": "North America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 379,
+          "key": "(12, ('17 Again',))",
+          "relation": 12,
+          "question": "In what country was 17 Again created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 411,
+          "key": "(0, ('Donald Trump',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Donald Trump?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 246,
+          "key": "(3, ('Donald Trump',))",
+          "relation": 3,
+          "question": "Who is Donald Trump married to?",
+          "answer": "Melania Trump",
+          "stratum": "singleton"
+        },
+        {
+          "line": 235,
+          "key": "(10, ('The Inner Light',))",
+          "relation": 10,
+          "question": "Who performed The Inner Light?",
+          "answer": "The Beatles",
+          "stratum": "singleton"
+        },
+        {
+          "line": 206,
+          "key": "(17, ('Damon Stoudamire',))",
+          "relation": 17,
+          "question": "What position does Damon Stoudamire play?",
+          "answer": "point guard",
+          "stratum": "singleton"
+        },
+        {
+          "line": 249,
+          "key": "(0, ('Jalal Talabani',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Jalal Talabani?",
+          "answer": "Iraq",
+          "stratum": "singleton"
+        },
+        {
+          "line": 221,
+          "key": "(9, ('Lega Pro Seconda Divisione',))",
+          "relation": 9,
+          "question": "What sport is Lega Pro Seconda Divisione associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 120,
+          "key": "(3, ('Rainier III',))",
+          "relation": 3,
+          "question": "Who is Rainier III married to?",
+          "answer": "Grace Kelly",
+          "stratum": "singleton"
+        },
+        {
+          "line": 404,
+          "key": "(9, ('Ian St. John',))",
+          "relation": 9,
+          "question": "What sport is Ian St. John associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        }
+      ],
+      "confirmation": [
+        {
+          "key": "(9, ('Pep Guardiola',))",
+          "line": 296,
+          "block": 11,
+          "relation": 9,
+          "question": "What sport is Pep Guardiola associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(12, ('Shades of Blue',))",
+          "line": 271,
+          "block": 10,
+          "relation": 12,
+          "question": "In what country was Shades of Blue created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(11, ('iPhone 7',))",
+          "line": 338,
+          "block": 13,
+          "relation": 11,
+          "question": "Who developed iPhone 7?",
+          "answer": "Apple Inc",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(14, ('Major Barbara',))",
+          "line": 222,
+          "block": 8,
+          "relation": 14,
+          "question": "Who is the author of Major Barbara?",
+          "answer": "George Bernard Shaw",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(17, ('Tyrone Willingham',))",
+          "line": 260,
+          "block": 10,
+          "relation": 17,
+          "question": "What position does Tyrone Willingham play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(3, ('Edward Cullen',))",
+          "line": 413,
+          "block": 17,
+          "relation": 3,
+          "question": "Who is Edward Cullen married to?",
+          "answer": "Bella Swan",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Kristen Bell',))",
+          "line": 387,
+          "block": 16,
+          "relation": 0,
+          "question": "What is the country of citizenship of Kristen Bell?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Matti Vanhanen',))",
+          "line": 388,
+          "block": 16,
+          "relation": 7,
+          "question": "What language does Matti Vanhanen speak?",
+          "answer": "Finnish",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Yellow Submarine',))",
+          "line": 225,
+          "block": 8,
+          "relation": 10,
+          "question": "Who performed Yellow Submarine?",
+          "answer": "The Beatles",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(8, ('David II of Scotland',))",
+          "line": 144,
+          "block": 4,
+          "relation": 8,
+          "question": "What religion is David II of Scotland affiliated with?",
+          "answer": "Christianity",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(21, ('Nennius',))",
+          "line": 63,
+          "block": 0,
+          "relation": 21,
+          "question": "What is Nennius famous for?",
+          "answer": "Historia Brittonum",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(4, ('J. D. Salinger',))",
+          "line": 331,
+          "block": 13,
+          "relation": 4,
+          "question": "In what city did J. D. Salinger die?",
+          "answer": "Cornish",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('Santiago',))",
+          "line": 122,
+          "block": 3,
+          "relation": 6,
+          "question": "Who founded Santiago?",
+          "answer": "Pedro de Valdivia",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('NK Dugopolje',))",
+          "line": 248,
+          "block": 9,
+          "relation": 9,
+          "question": "What sport is NK Dugopolje associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(12, ('Jurassic Park',))",
+          "line": 307,
+          "block": 12,
+          "relation": 12,
+          "question": "In what country was Jurassic Park created?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(14, ('Gesta Danorum',))",
+          "line": 290,
+          "block": 11,
+          "relation": 14,
+          "question": "Who is the author of Gesta Danorum?",
+          "answer": "Saxo Grammaticus",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(17, ('Fred Davis',))",
+          "line": 205,
+          "block": 7,
+          "relation": 17,
+          "question": "What position does Fred Davis play?",
+          "answer": "tight end",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Dino Meneghin',))",
+          "line": 109,
+          "block": 2,
+          "relation": 0,
+          "question": "What is the country of citizenship of Dino Meneghin?",
+          "answer": "Italy",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Edgar Reitz',))",
+          "line": 172,
+          "block": 5,
+          "relation": 7,
+          "question": "What language does Edgar Reitz speak?",
+          "answer": "German",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(10, ('Blonde on Blonde',))",
+          "line": 298,
+          "block": 11,
+          "relation": 10,
+          "question": "Who performed Blonde on Blonde?",
+          "answer": "Bob Dylan",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(8, ('Shivraj Singh Chauhan',))",
+          "line": 147,
+          "block": 4,
+          "relation": 8,
+          "question": "What religion is Shivraj Singh Chauhan affiliated with?",
+          "answer": "Hinduism",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(21, ('Masashi Kishimoto',))",
+          "line": 421,
+          "block": 18,
+          "relation": 21,
+          "question": "What is Masashi Kishimoto famous for?",
+          "answer": "Naruto",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(4, ('Paul VI',))",
+          "line": 423,
+          "block": 18,
+          "relation": 4,
+          "question": "In what city did Paul VI die?",
+          "answer": "Castel Gandolfo",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(6, ('Montanism',))",
+          "line": 383,
+          "block": 16,
+          "relation": 6,
+          "question": "Who founded Montanism?",
+          "answer": "Montanus of Phrygia",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('Vauxhall Motors F.C.',))",
+          "line": 301,
+          "block": 12,
+          "relation": 9,
+          "question": "What sport is Vauxhall Motors F.C. associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        }
+      ]
+    },
+    {
+      "row": 3,
+      "start": 30,
+      "context_sha256": "d68e966b8d9d194f9f520e15f0ba96506bd1748b8c643bc9568199e57b3bb371",
+      "discovery": [
+        {
+          "line": 358,
+          "key": "(0, ('Francis, Duke of C\u00e1diz',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Francis, Duke of C\u00e1diz?",
+          "answer": "United States of America",
+          "stratum": "current"
+        },
+        {
+          "line": 191,
+          "key": "(19, ('Charles Dana Gibson',))",
+          "relation": 19,
+          "question": "In what city did Charles Dana Gibson work?",
+          "answer": "New York City",
+          "stratum": "singleton"
+        },
+        {
+          "line": 96,
+          "key": "(0, ('Joel Madden',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Joel Madden?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 354,
+          "key": "(22, ('Susan Calvin',))",
+          "relation": 22,
+          "question": "Who created Susan Calvin?",
+          "answer": "Isaac Asimov",
+          "stratum": "singleton"
+        },
+        {
+          "line": 437,
+          "key": "(8, ('Albert II',))",
+          "relation": 8,
+          "question": "What religion is Albert II affiliated with?",
+          "answer": "Catholic Church",
+          "stratum": "singleton"
+        },
+        {
+          "line": 192,
+          "key": "(9, ('Michael Atherton',))",
+          "relation": 9,
+          "question": "What sport is Michael Atherton associated with?",
+          "answer": "cricket",
+          "stratum": "singleton"
+        },
+        {
+          "line": 94,
+          "key": "(6, ('Saint Petersburg',))",
+          "relation": 6,
+          "question": "Who founded Saint Petersburg?",
+          "answer": "Peter the Great",
+          "stratum": "singleton"
+        },
+        {
+          "line": 185,
+          "key": "(17, ('Eli Manning',))",
+          "relation": 17,
+          "question": "What position does Eli Manning play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "line": 178,
+          "key": "(0, ('Hitomi Shimatani',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Hitomi Shimatani?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 280,
+          "key": "(3, ('Igor of Kiev',))",
+          "relation": 3,
+          "question": "Who is Igor of Kiev married to?",
+          "answer": "Olga of Kiev",
+          "stratum": "singleton"
+        },
+        {
+          "line": 390,
+          "key": "(7, ('Graham Linehan',))",
+          "relation": 7,
+          "question": "What language does Graham Linehan speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 227,
+          "key": "(0, ('50 Cent',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of 50 Cent?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 360,
+          "key": "(19, ('Risto Ryti',))",
+          "relation": 19,
+          "question": "In what city did Risto Ryti work?",
+          "answer": "Helsinki",
+          "stratum": "singleton"
+        }
+      ],
+      "legacy_discovery": [
+        {
+          "line": 358,
+          "key": "(0, ('Francis, Duke of C\u00e1diz',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Francis, Duke of C\u00e1diz?",
+          "answer": "United States of America",
+          "stratum": "current"
+        },
+        {
+          "line": 191,
+          "key": "(19, ('Charles Dana Gibson',))",
+          "relation": 19,
+          "question": "In what city did Charles Dana Gibson work?",
+          "answer": "New York City",
+          "stratum": "singleton"
+        },
+        {
+          "line": 96,
+          "key": "(0, ('Joel Madden',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Joel Madden?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 354,
+          "key": "(22, ('Susan Calvin',))",
+          "relation": 22,
+          "question": "Who created Susan Calvin?",
+          "answer": "Isaac Asimov",
+          "stratum": "singleton"
+        },
+        {
+          "line": 437,
+          "key": "(8, ('Albert II',))",
+          "relation": 8,
+          "question": "What religion is Albert II affiliated with?",
+          "answer": "Catholic Church",
+          "stratum": "singleton"
+        },
+        {
+          "line": 192,
+          "key": "(9, ('Michael Atherton',))",
+          "relation": 9,
+          "question": "What sport is Michael Atherton associated with?",
+          "answer": "cricket",
+          "stratum": "singleton"
+        },
+        {
+          "line": 94,
+          "key": "(6, ('Saint Petersburg',))",
+          "relation": 6,
+          "question": "Who founded Saint Petersburg?",
+          "answer": "Peter the Great",
+          "stratum": "singleton"
+        },
+        {
+          "line": 185,
+          "key": "(17, ('Eli Manning',))",
+          "relation": 17,
+          "question": "What position does Eli Manning play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "line": 178,
+          "key": "(0, ('Hitomi Shimatani',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Hitomi Shimatani?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 280,
+          "key": "(3, ('Igor of Kiev',))",
+          "relation": 3,
+          "question": "Who is Igor of Kiev married to?",
+          "answer": "Olga of Kiev",
+          "stratum": "singleton"
+        },
+        {
+          "line": 390,
+          "key": "(7, ('Graham Linehan',))",
+          "relation": 7,
+          "question": "What language does Graham Linehan speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "line": 227,
+          "key": "(0, ('50 Cent',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of 50 Cent?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 360,
+          "key": "(19, ('Risto Ryti',))",
+          "relation": 19,
+          "question": "In what city did Risto Ryti work?",
+          "answer": "Helsinki",
+          "stratum": "singleton"
+        }
+      ],
+      "development": [
+        {
+          "line": 420,
+          "key": "(22, ('Mickey Mouse Clubhouse',))",
+          "relation": 22,
+          "question": "Who created Mickey Mouse Clubhouse?",
+          "answer": "Microsoft",
+          "stratum": "current"
+        },
+        {
+          "line": 417,
+          "key": "(0, ('John Francis Dodge',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of John Francis Dodge?",
+          "answer": "France",
+          "stratum": "current"
+        },
+        {
+          "line": 387,
+          "key": "(22, ('A Charlie Brown Christmas',))",
+          "relation": 22,
+          "question": "Who created A Charlie Brown Christmas?",
+          "answer": "Harper Lee",
+          "stratum": "current"
+        },
+        {
+          "line": 203,
+          "key": "(0, ('Tom Clancy',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Tom Clancy?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 344,
+          "key": "(11, ('Ultimate Mortal Kombat 3',))",
+          "relation": 11,
+          "question": "Who developed Ultimate Mortal Kombat 3?",
+          "answer": "Midway Games",
+          "stratum": "singleton"
+        },
+        {
+          "line": 287,
+          "key": "(9, ('2010 FIFA World Cup',))",
+          "relation": 9,
+          "question": "What sport is 2010 FIFA World Cup associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 333,
+          "key": "(20, ('Steven Levitt',))",
+          "relation": 20,
+          "question": "Who is Steven Levitt employed by?",
+          "answer": "University of Chicago",
+          "stratum": "singleton"
+        },
+        {
+          "line": 214,
+          "key": "(5, ('Tina Louise',))",
+          "relation": 5,
+          "question": "In what city was Tina Louise born?",
+          "answer": "New York City",
+          "stratum": "singleton"
+        },
+        {
+          "line": 282,
+          "key": "(7, ('Nichita St\u0103nescu',))",
+          "relation": 7,
+          "question": "What language does Nichita St\u0103nescu speak?",
+          "answer": "Romanian",
+          "stratum": "singleton"
+        },
+        {
+          "line": 127,
+          "key": "(22, (\"Archie Bunker's Place\",))",
+          "relation": 22,
+          "question": "Who created Archie Bunker's Place?",
+          "answer": "Norman Lear",
+          "stratum": "singleton"
+        },
+        {
+          "line": 351,
+          "key": "(9, ('FC Spartak Yoshkar-Ola',))",
+          "relation": 9,
+          "question": "What sport is FC Spartak Yoshkar-Ola associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 398,
+          "key": "(17, ('London Fletcher',))",
+          "relation": 17,
+          "question": "What position does London Fletcher play?",
+          "answer": "linebacker",
+          "stratum": "singleton"
+        },
+        {
+          "line": 439,
+          "key": "(9, ('Vale of Leven F.C.',))",
+          "relation": 9,
+          "question": "What sport is Vale of Leven F.C. associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 201,
+          "key": "(8, ('Robert Grosseteste',))",
+          "relation": 8,
+          "question": "What religion is Robert Grosseteste affiliated with?",
+          "answer": "Catholic Church",
+          "stratum": "singleton"
+        },
+        {
+          "line": 95,
+          "key": "(0, ('Bernard Cornwell',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Bernard Cornwell?",
+          "answer": "United Kingdom",
+          "stratum": "singleton"
+        },
+        {
+          "line": 231,
+          "key": "(6, ('Roc Nation',))",
+          "relation": 6,
+          "question": "Who founded Roc Nation?",
+          "answer": "Jay-Z",
+          "stratum": "singleton"
+        },
+        {
+          "line": 83,
+          "key": "(7, ('Myl\u00e8ne Farmer',))",
+          "relation": 7,
+          "question": "What language does Myl\u00e8ne Farmer speak?",
+          "answer": "French",
+          "stratum": "singleton"
+        },
+        {
+          "line": 246,
+          "key": "(5, ('Tabar\u00e9 V\u00e1zquez',))",
+          "relation": 5,
+          "question": "In what city was Tabar\u00e9 V\u00e1zquez born?",
+          "answer": "Montevideo",
+          "stratum": "singleton"
+        },
+        {
+          "line": 129,
+          "key": "(20, ('Andr\u00e9 Leon Talley',))",
+          "relation": 20,
+          "question": "Who is Andr\u00e9 Leon Talley employed by?",
+          "answer": "Vogue",
+          "stratum": "singleton"
+        },
+        {
+          "line": 210,
+          "key": "(4, ('Moli\u00e8re',))",
+          "relation": 4,
+          "question": "In what city did Moli\u00e8re die?",
+          "answer": "Paris",
+          "stratum": "singleton"
+        },
+        {
+          "line": 436,
+          "key": "(8, ('S\u00f8ren Kierkegaard',))",
+          "relation": 8,
+          "question": "What religion is S\u00f8ren Kierkegaard affiliated with?",
+          "answer": "Lutheranism",
+          "stratum": "singleton"
+        },
+        {
+          "line": 300,
+          "key": "(0, ('Evelyn Nesbit',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Evelyn Nesbit?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 289,
+          "key": "(0, ('Dan Povenmire',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Dan Povenmire?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 355,
+          "key": "(5, ('Ulysses S. Grant',))",
+          "relation": 5,
+          "question": "In what city was Ulysses S. Grant born?",
+          "answer": "Point Pleasant",
+          "stratum": "singleton"
+        },
+        {
+          "line": 207,
+          "key": "(2, ('Reykjav\u00edk',))",
+          "relation": 2,
+          "question": "What continent is Reykjav\u00edk located in?",
+          "answer": "Europe",
+          "stratum": "singleton"
+        },
+        {
+          "line": 171,
+          "key": "(0, ('James Whitcomb Riley',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of James Whitcomb Riley?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 335,
+          "key": "(17, ('J. P. Losman',))",
+          "relation": 17,
+          "question": "What position does J. P. Losman play?",
+          "answer": "quarterback",
+          "stratum": "singleton"
+        },
+        {
+          "line": 372,
+          "key": "(0, ('Elena Dementieva',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Elena Dementieva?",
+          "answer": "Russia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 199,
+          "key": "(9, ('FF Jaro',))",
+          "relation": 9,
+          "question": "What sport is FF Jaro associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 313,
+          "key": "(0, ('Squanto',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Squanto?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 180,
+          "key": "(5, ('Robert Pattinson',))",
+          "relation": 5,
+          "question": "In what city was Robert Pattinson born?",
+          "answer": "London",
+          "stratum": "singleton"
+        },
+        {
+          "line": 222,
+          "key": "(0, ('Hikaru Sato',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Hikaru Sato?",
+          "answer": "Japan",
+          "stratum": "singleton"
+        },
+        {
+          "line": 369,
+          "key": "(10, ('Rudolph the Red-Nosed Reindeer',))",
+          "relation": 10,
+          "question": "Who performed Rudolph the Red-Nosed Reindeer?",
+          "answer": "Gene Autry",
+          "stratum": "singleton"
+        },
+        {
+          "line": 423,
+          "key": "(0, ('Dale Bumpers',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Dale Bumpers?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 301,
+          "key": "(2, ('Hong Kong',))",
+          "relation": 2,
+          "question": "What continent is Hong Kong located in?",
+          "answer": "Asia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 123,
+          "key": "(4, ('Connie Mack',))",
+          "relation": 4,
+          "question": "In what city did Connie Mack die?",
+          "answer": "Philadelphia",
+          "stratum": "singleton"
+        },
+        {
+          "line": 331,
+          "key": "(14, ('Posterior Analytics',))",
+          "relation": 14,
+          "question": "Who is the author of Posterior Analytics?",
+          "answer": "Aristotle",
+          "stratum": "singleton"
+        },
+        {
+          "line": 422,
+          "key": "(9, ('Suwon FC',))",
+          "relation": 9,
+          "question": "What sport is Suwon FC associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 151,
+          "key": "(5, ('Curly Lambeau',))",
+          "relation": 5,
+          "question": "In what city was Curly Lambeau born?",
+          "answer": "Green Bay",
+          "stratum": "singleton"
+        },
+        {
+          "line": 375,
+          "key": "(0, ('Jason Blum',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Jason Blum?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        },
+        {
+          "line": 167,
+          "key": "(3, ('Anthony Weiner',))",
+          "relation": 3,
+          "question": "Who is Anthony Weiner married to?",
+          "answer": "Huma Abedin",
+          "stratum": "singleton"
+        },
+        {
+          "line": 74,
+          "key": "(3, ('Nicholas Ray',))",
+          "relation": 3,
+          "question": "Who is Nicholas Ray married to?",
+          "answer": "Gloria Grahame",
+          "stratum": "singleton"
+        },
+        {
+          "line": 218,
+          "key": "(3, ('Kate Hudson',))",
+          "relation": 3,
+          "question": "Who is Kate Hudson married to?",
+          "answer": "Chris Robinson",
+          "stratum": "singleton"
+        },
+        {
+          "line": 131,
+          "key": "(17, ('Hakeem Olajuwon',))",
+          "relation": 17,
+          "question": "What position does Hakeem Olajuwon play?",
+          "answer": "center",
+          "stratum": "singleton"
+        },
+        {
+          "line": 196,
+          "key": "(7, ('Jean Giraudoux',))",
+          "relation": 7,
+          "question": "What language does Jean Giraudoux speak?",
+          "answer": "French",
+          "stratum": "singleton"
+        },
+        {
+          "line": 359,
+          "key": "(5, ('Ray Charles',))",
+          "relation": 5,
+          "question": "In what city was Ray Charles born?",
+          "answer": "Albany",
+          "stratum": "singleton"
+        },
+        {
+          "line": 310,
+          "key": "(9, ('Halifax Town A.F.C.',))",
+          "relation": 9,
+          "question": "What sport is Halifax Town A.F.C. associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "line": 283,
+          "key": "(5, ('Niels Bohr',))",
+          "relation": 5,
+          "question": "In what city was Niels Bohr born?",
+          "answer": "Copenhagen",
+          "stratum": "singleton"
+        },
+        {
+          "line": 62,
+          "key": "(0, ('Beatrix of the Netherlands',))",
+          "relation": 0,
+          "question": "What is the country of citizenship of Beatrix of the Netherlands?",
+          "answer": "Kingdom of the Netherlands",
+          "stratum": "singleton"
+        },
+        {
+          "line": 153,
+          "key": "(9, ('Pepe Reina',))",
+          "relation": 9,
+          "question": "What sport is Pepe Reina associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        }
+      ],
+      "confirmation": [
+        {
+          "key": "(2, ('Uganda',))",
+          "line": 419,
+          "block": 17,
+          "relation": 2,
+          "question": "What continent is Uganda located in?",
+          "answer": "Africa",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(4, ('Lu\u00eds de Cam\u00f5es',))",
+          "line": 120,
+          "block": 3,
+          "relation": 4,
+          "question": "In what city did Lu\u00eds de Cam\u00f5es die?",
+          "answer": "Lisbon",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(7, ('Coretta Scott King',))",
+          "line": 97,
+          "block": 1,
+          "relation": 7,
+          "question": "What language does Coretta Scott King speak?",
+          "answer": "English",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('Midland Football Combination',))",
+          "line": 338,
+          "block": 13,
+          "relation": 9,
+          "question": "What sport is Midland Football Combination associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Joan Laporta',))",
+          "line": 244,
+          "block": 9,
+          "relation": 0,
+          "question": "What is the country of citizenship of Joan Laporta?",
+          "answer": "Spain",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(9, ('S.S. Chieti Calcio',))",
+          "line": 66,
+          "block": 0,
+          "relation": 9,
+          "question": "What sport is S.S. Chieti Calcio associated with?",
+          "answer": "association football",
+          "stratum": "singleton"
+        },
+        {
+          "key": "(0, ('Adam Silver',))",
+          "line": 266,
+          "block": 10,
+          "relation": 0,
+          "question": "What is the country of citizenship of Adam Silver?",
+          "answer": "United States of America",
+          "stratum": "singleton"
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "window_blocks": 19,
+    "target_blocks": 9,
+    "start_line": 30,
+    "scoring": "teacher_forced_answer_token_exact_match",
+    "candidates": [
+      "raw",
+      "normalized",
+      "coverage",
+      "taylor",
+      "taylor_coverage"
+    ],
+    "sampling": "relation-balanced, no support-position or selected-block filter",
+    "selection": "development eligible lost, then all correct, then mean CE, then name",
+    "development_is_previous_g2c_heldout": true,
+    "confirmation_is_fresh_questions_not_new_contexts": true,
+    "initial_improvement": "confirmation eligible lost reduction >= 10%, positive total correct delta",
+    "strong_gate": "eligible lost reduction >= 30% and exact paired p < .05",
+    "confirmation_opened_after_choice": true,
+    "b2_generation": false
+  }
+}
