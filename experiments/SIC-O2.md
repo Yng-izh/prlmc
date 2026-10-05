@@ -2,7 +2,7 @@
 
 ## 状态
 
-开发完成；选出eligible_normalized，128 eligible丢25→23（8%），200题正确107→115。82道确认题的唯一冻结方案验证运行中，不用确认结果重选方法。G3继续暂停。
+开发及O2首次新问题确认已完成；开发128 eligible丢25→23、200题正确107→115，首次82题确认eligible丢10→11，未过门。后续swap/local-oracle复用已开封82题，只作探索评估，不是新的独立确认。G3继续暂停。
 本轮不按事实位于上下文开头/结尾或支撑块位置判断重要性。
 
 ## 实现级假设
@@ -85,16 +85,16 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 新增 `tools/sic_support_oracle.py`，在开发题上枚举全部 `C(19,9)=92378` 个原生组合，使用已知最终事实所在 block 最大化 eligible 问题的支撑 block 保留数。它不运行 reader CE，而是一个答案支撑上界，只用于诊断原生选择空间，确认题未读取。
 
-结果（eligible lost 下界 / 当前 select lost / 冻结O2 lost）：
+结果是指定文本支撑块遗漏数，不是 reader eligible lost 下界。下表三列均属于支撑覆盖目标；真实 select 开发 reader lost 为 9/9/4/3，已经在 row1–3 低于所谓的“下界”，直接否定其 reader 下界解释。
 
-| row | oracle下界 | select | O2 eligible_normalized |
+| row | 最小支撑遗漏 | select支撑遗漏 | O2支撑遗漏 |
 |---|---:|---:|---:|
 | 0 | 5 | 11 | 10 |
 | 1 | 10 | 14 | 14 |
 | 2 | 10 | 20 | 20 |
 | 3 | 5 | 12 | 12 |
 
-oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这个差距证明原生19选9组合仍有空间，但不能证明换成oracle集合后reader CE一定达到该下界，因为reader存在冗余、读出失败和格式错误。
+oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。差距仅证明指定文本支撑覆盖目标有更优集合；不证明reader CE或exact-match有对应可达上限/下界。删除该文本块后其他潜在块可能仍携带其信息，保留该块也未保证正确读取。
 
 曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。
 
@@ -102,7 +102,7 @@ oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这�
 
 `tools/sic_swap.py` 从冻结 O2 集合开始，每窗生成90个 one-for-one swap，按 discovery eligible 梯度增益预筛8个，再用真实 discovery CE 选择；support oracle只做事后结构gap诊断。四窗冻结结果：row0保持原集合；row1替换14→10，CE 0.69916→0.66098、正确14→15；row2替换15→12，CE 0.92626→0.55419、正确18→18；row3替换1→6，CE 0.60391→0.60087、正确12→12。候选和冻结输入分别见`runs/sic_swap_row0.json`至`row3.json`及`sic_swap_choice.json`。
 
-独立确认由`tools/sic_swap_confirm.py`执行，确认题只评分、不选型。82题总正确为select 55、finite_ce_swap 56；64道eligible题的丢题为10→11，rescue/harm为5/4，净-1，精确McNemar `p=1.0`。逐窗eligible丢题变化：row0 5→5，row1 3→4，row2 2→2，row3 0→0。确认CE为row0 1.51361→1.64323、row1 1.05970→1.05954、row2 0.85957→0.79346、row3 1.07840→0.88440。CE的局部改善没有转化为eligible exact-match改善；finite_ce_swap不通过独立确认门槛，不替换O2冻结方案。确认报告见`runs/sic_swap_confirm.json`。
+复用已开封的82题探索评估由`tools/sic_swap_confirm.py`执行，评估代码只评分、不选型，但这不构成新的独立确认。82题总正确为select 55、finite_ce_swap 56，全题rescue/harm为5/4、净+1；64道eligible题的丢题为10→11，eligible rescue/harm为3/4、净-1，题级精确McNemar `p=1.0`。逐窗eligible丢题变化：row0 5→5，row1 3→4，row2 2→2，row3 0→0。确认CE为row0 1.51361→1.64323、row1 1.05970→1.05954、row2 0.85957→0.79346、row3 1.07840→0.88440。CE的局部改善没有转化为eligible exact-match改善；finite_ce_swap不通过独立确认门槛，不替换O2冻结方案。确认报告见`runs/sic_swap_confirm.json`。
 
 ## Complete one-swap reader oracle audit
 
@@ -110,5 +110,5 @@ oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这�
 
 row1完整90交换的实测耗时为685.6秒；按同一成本估计，单窗92,378组合约8.1天，四窗约32.6天，且未计显存并发和非确定性重跑。因此全组合真实CE oracle被保留为计算上界目标，没有用部分枚举冒充全局oracle；当前可复现的真实reader oracle是完整one-swap邻域oracle。
 
-row1完整90交换局部oracle冻结后确认CE为1.05970→1.02926，但eligible丢题为3→4；四窗总体仍为总正确55→56、eligible lost 10→11。因此预筛漏解不是主要问题，开发CE目标本身没有迁移到确认eligible exact-match。结果见`runs/sic_local_oracle_row1.json`、`runs/sic_local_oracle_confirm.json`和`sic_local_oracle_choice.json`。
+row1完整90交换局部oracle冻结后确认CE为1.05970→1.02926，但eligible丢题为3→4；四窗总体仍为总正确55→56、eligible lost 10→11。因此row1此次完整邻域搜索排除了该实例中“只因8候选预筛漏解而未改善”的解释；其他窗口及其他目标尚未被这次审计排除。真实discovery CE改善在本轮复用评估中未对应eligible token匹配改善。结果见`runs/sic_local_oracle_row1.json`、`runs/sic_local_oracle_confirm.json`和`sic_local_oracle_choice.json`。
 

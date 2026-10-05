@@ -163,7 +163,7 @@ def probe_loss_scalar(manager, probe, pool, mask, max_probe_tokens):
     ``pool.grad`` accumulates the window gradient. The pool tensor is created
     by the caller as a leaf with requires_grad.
     """
-    device = manager.model.memory.device
+    device = pool.device if pool is not None else manager.model.memory.device
     stem = probe.prompt if probe.prompt else f"{probe.question}\nAnswer:"
     answer = probe.answers[0]
     encoded = manager.tokenizer(
