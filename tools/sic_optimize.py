@@ -109,6 +109,24 @@ def reduction_gate(base_wrong, candidate_wrong, percent):
     return base_wrong > 0 and 100*(base_wrong-candidate_wrong) >= percent*base_wrong
 
 
+def validate_development_choice(choice, development):
+    if choice.get("source_sha256") != development.get("source_sha256"):
+        raise ValueError("choice/development source hashes differ")
+    records, windows = development.get("records",[]), development.get("windows",[])
+    if development.get("stage")!="develop" or len(records)!=200 or len(windows)!=4:
+        raise ValueError("confirmation requires a complete development report")
+    names = list(development["eligible"])
+    for name in names:
+        if development["eligible"][name]!=stats(records,name) or development["all"][name]!=stats(records,name,False):
+            raise ValueError("development statistics do not match records")
+    best = min((name for name in names if name!="select"),
+               key=lambda name:(development["eligible"][name]["wrong"],
+                                development["all"][name]["wrong"],
+                                sum(w["gold_loss"][name] for w in windows),name))
+    if choice["selected"]!=best or development["selected"]!=best:
+        raise ValueError("frozen selection differs from development ranking")
+
+
 def collect(manager, probes, E, S, torch):
     from methods.prlmc.sic import block_taylor_salience
     window_slots = E.WINDOW_BLOCKS * manager.block
@@ -186,6 +204,7 @@ def main():
         digest = hashlib.sha256(plan_bytes).hexdigest()
         if choice["plan_sha256"] != digest or development["plan_sha256"] != digest:
             raise ValueError("choice/development plan hash differs")
+        validate_development_choice(choice,development)
         chosen = choice["selected"]
         allowed = development["eligible"] if args.frozen_kept else plan["protocol"]["candidates"]
         if chosen not in allowed or development["selected"] != chosen:

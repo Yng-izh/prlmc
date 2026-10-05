@@ -235,7 +235,7 @@ def main():
                                gradient_checkpointing=True, use_cache=False,
                                cross_process_reproduction_tested=False,
                                cached_reference=True, base_pool_reproduction_tested=False),
-                  cross_process_kept_equal=True, cached_reference=True)
+                  cross_process_kept_equal=False, cross_process_native_kept_equal=False, cached_reference=True)
     O.save(args.out, report)
     for p in plan["plans"]:
         row = p["row"]
@@ -358,6 +358,7 @@ def main():
             torch.cuda.empty_cache()
         O.save(args.out, report)
 
+    report["cross_process_native_kept_equal"] = all(w["native_kept_equal"] for w in report["windows"])
     common = set.intersection(*(set(w["kept"]) for w in report["windows"]))
     names = [name for name in SOURCE_ARMS + ELIGIBLE_ARMS + ("joint",) if name in common]
     report["names"] = names

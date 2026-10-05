@@ -2,7 +2,7 @@
 
 ## 状态
 
-开发运行中；SIC-O1开发已完成，coverage在128 eligible上丢25→24，仅4%改善。82道确认题尚未评分。G3继续暂停。
+开发完成；选出eligible_normalized，128 eligible丢25→23（8%），200题正确107→115。82道确认题的唯一冻结方案验证运行中，不用确认结果重选方法。G3继续暂停。
 本轮不按事实位于上下文开头/结尾或支撑块位置判断重要性。
 
 ## 实现级假设
@@ -40,7 +40,7 @@ O2开发重建原窗口，核对原生选择与O1缓存一致。所有开发题�
 
 ## 实现与验证
 
-`tools/sic_refine.py`仅对训练探针进行筛选/校准，开发完整报告按哈希验证后复用。4组CPU回归测试通过，覆盖输入完整性、缓存参考逐题变化、CE异常、单/双次评分及异常清理；与O1的23项单测合计27组。
+`tools/sic_refine.py`仅对训练探针进行筛选/校准，开发完整报告按哈希验证后复用。4组CPU回归测试通过，覆盖输入完整性、缓存参考逐题变化、CE异常、单/双次评分及异常清理；加上SIC评分/统计/确认入口24项单测，合计28组。审计后修正了开发报告中夸大的`cross_process_kept_equal`，明确仅native重算通过，其他源arm使用缓存；修改仅涉及元数据，不涉及分数、块集或胜者。确认入口另增加来源哈希绑定、完整开发统计与排序复核，已在当前真实输入上独立通过。
 
 ```bash
 python -u tools/sic_refine.py --plan runs/sic_o1_plan.json --source runs/sic_o1_dev.json --out runs/sic_o2_dev.json --choice runs/sic_o2_choice.json
@@ -56,4 +56,19 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 ## 结果
 
-待运行后追加。只读代码复核指出的两个目标错位目前是待验证机制，不是已经证实的收益解释。
+开发报告 `runs/sic_o2_dev.json`，冻结选择 `runs/sic_o2_choice.json`；远端进程退出码0。
+
+| 方法 | 200题正确 | 128 eligible丢题 | rescued/harmed vs select | eligible减少 | eligible精确p |
+|---|---:|---:|---:|---:|---:|
+| select | 107 | 25 | 0/0 | 0% | 1.000 |
+| O1 coverage | 112 | 24 | 6/5 | 4% | 1.000 |
+| eligible_normalized | 115 | 23 | 10/8 | 8% | 0.815 |
+| eligible_coverage | 115 | 24 | 10/9 | 4% | 1.000 |
+| eligible_taylor_coverage | 107 | 27 | 6/8 | -8% | 0.791 |
+| joint（训练真实CE选型） | 110 | 26 | 8/9 | -4% | 1.000 |
+
+按冻结规则选择eligible_normalized。全部题正确净增8，b=17/c=9，精确p=0.169；仍只是已知开发题上的非显著改善，不当成独立验证证据。
+
+训练合格探针为19/17/20/12，合计68/97。eligible_normalized逐窗eligible丢题9→10、9→9、4→2、3→2，净收益为-1/0/+2/+1，开发收益并非四窗一致。joint训练选型为eligible_normalized、eligible_coverage、raw、raw；其中row2选raw的开发正确数28，而资格过滤臂为33，说明训练CE最低在本轮没有确保开发题最好。该观察不能强归因为单一过拟合机制，但足以否定“真实训练CE校准必然提高未见题”的强说法。
+
+确认：冻结eligible_normalized后运行82道全新问题，select/raw为预设对照；不通过查看确认结果替换胜者。确认数字待追加。

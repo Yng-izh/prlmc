@@ -34,6 +34,26 @@ class OptimizationStatisticsTests(unittest.TestCase):
         self.assertEqual(result["exact_mcnemar_p"], 0.03125)
         self.assertEqual(stats(records, "candidate", False)["harmed"], 1)
 
+    def test_development_choice_validation(self):
+        import copy
+        from sic_optimize import stats, validate_development_choice
+        records = [dict(eligible=True,arms=dict(select=False,raw=True)) for _ in range(200)]
+        development = dict(stage="develop",selected="raw",source_sha256="source",
+                           records=records,windows=[dict(gold_loss=dict(select=2.,raw=1.)) for _ in range(4)],
+                           eligible={name:stats(records,name) for name in ("select","raw")},
+                           all={name:stats(records,name,False) for name in ("select","raw")})
+        choice = dict(selected="raw",source_sha256="source")
+        validate_development_choice(choice,development)
+        for field,value in (("stage","confirm"),("selected","select"),("source_sha256","other")):
+            changed = copy.deepcopy(development)
+            changed[field] = value
+            with self.assertRaises(ValueError):
+                validate_development_choice(choice,changed)
+        changed = copy.deepcopy(development)
+        changed["eligible"]["raw"]["wrong"] = 1
+        with self.assertRaises(ValueError):
+            validate_development_choice(choice,changed)
+
     def test_no_discordance(self):
         from sic_optimize import stats
         result = stats([dict(eligible=True, arms=dict(select=True, candidate=True))], "candidate")
