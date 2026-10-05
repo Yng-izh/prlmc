@@ -86,8 +86,7 @@ def main():
     if built is None:
         raise SystemExit("window build failed")
     covered, indices, dropped, original = built
-    all_indices = [i for lo, hi, *_ in covered for i in range(lo, hi)]
-    expanded = E.probes_from_lines(lines, all_indices, len(all_indices) + 1)
+    expanded = E.probes_from_lines(lines, indices, len(indices) + 1)
     by_q = {q.question: q for q in original}
     by_q.update({q.question: q for q in expanded})
     probes = list(by_q.values())
@@ -115,9 +114,14 @@ def main():
         torch.cuda.empty_cache()
         return result
 
+    print("[s1] scoring full on %d probes" % len(probes), flush=True)
     full = E.score_uncompacted(manager, probes, 256)
+    print("[s1] scoring no-memory on %d original probes" % len(original), flush=True)
     no_mem = E.score_no_memory(manager, original, 256)
-    selected, before = score(base(selection=True)), score(base())
+    print("[s1] scoring native selection", flush=True)
+    selected = score(base(selection=True))
+    print("[s1] scoring checkpoint", flush=True)
+    before = score(base())
     lost = [q.question for q in original if full["correct"].get(q.question, False)
             and not no_mem["correct"].get(q.question, False)
             and not before["correct"].get(q.question, False)]
@@ -134,7 +138,9 @@ def main():
         "gate": "final rescue >= 7; select-relative harm <= floor(oracle harm/2); "
                 "harm strictly below oracle and no greater than unconstrained or UL; "
                 "net vs select >= 0; retained >= 10",
-        "checkpoint_sha256": digest(args.carrier_ckpt), "s0_rows_sha256": digest(args.s0_rows)},
+        "checkpoint_sha256": digest(args.carrier_ckpt), "s0_rows_sha256": digest(args.s0_rows),
+        "driver_sha256": digest(__file__), "torch_version": torch.__version__,
+        "gpu": torch.cuda.get_device_name(0)},
         "sets": {"lost": lost, "retained_full_and_select": retained,
                  "retained_also_correct_at_D0": before_retained}, "arms": {}}
 
@@ -228,6 +234,9 @@ def main():
         arm = base(fixed=name == "coefficient_oracle")
         if name == "coefficient_oracle":
             oracle = CoefficientOracle(int(cfg.carrier_rank), max_deviation=0.5).to("cuda:0")
+            # The inner arm owns checkpoint dispatch; expose E to its trainable
+            # parameter scan without unfreezing any checkpoint parameter.
+            arm.add_module("_s1_oracle", oracle)
             wrapper = OracleCompactor(arm, oracle)
             arm._layer_delta = wrapper._layer_delta
             trainable, displacement = [oracle.residual], None

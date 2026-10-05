@@ -36,6 +36,33 @@ class ProtectedBasisTest(unittest.TestCase):
         self.assertEqual(safe.shape, (8, 2))
         self.assertLess(float((uk.T @ safe).norm()), 1e-10)
 
+    def test_oracle_checkpoint_dispatch_and_gradient(self):
+        import os
+        from unittest.mock import patch
+        import torch.utils.checkpoint as checkpoint
+        os.environ["S0B_GPU_SET"] = "1"
+        from s0b_coefficient_oracle import OracleCompactor
+        from methods.prlmc.consolidate import CarrierResidualCompactor, FixedBasisCarrierResidualCompactor
+        from methods.prlmc.functional_subspace import CoefficientOracle
+        warm = CarrierResidualCompactor(num_layers=2, hidden=8, block=2, rank=2)
+        with torch.no_grad():
+            warm.up.weight.normal_(std=0.1)
+        arm = FixedBasisCarrierResidualCompactor.from_warmup(warm)
+        for parameter in arm.parameters():
+            parameter.requires_grad_(False)
+        oracle = CoefficientOracle(2, max_deviation=0.5)
+        arm.add_module("_s1_oracle", oracle)
+        wrapper = OracleCompactor(arm, oracle)
+        arm._layer_delta = wrapper._layer_delta
+        with patch.object(checkpoint, "checkpoint", wraps=checkpoint.checkpoint) as called:
+            result = wrapper(torch.randn(2, 8, 8), target=4, block=2)
+            self.assertEqual(called.call_count, 2)
+            result.sum().backward()
+        self.assertIsNotNone(oracle.residual.grad)
+        self.assertGreater(float(oracle.residual.grad.norm()), 0)
+        self.assertTrue(all(parameter.grad is None for parameter in arm.parameters()
+                            if parameter is not oracle.residual))
+
     def test_no_protection_and_nonfinite(self):
         ul = orth(torch.randn(3, 12))
         safe, _ = protect(ul, torch.empty(12, 0, dtype=torch.float64))

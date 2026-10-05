@@ -42,6 +42,6 @@
 
 ## 当前状态
 
-实现与数值验证完成；GPU 短程链路验证已启动。尚无 S1-local 方法结果。
+实现与数值验证完成；首轮 GPU 短程验证在基线阶段主动终止，尚未产生训练结论。独立代码审查发现：原 S0b 外置 oracle 的系数参数未被内部 compactor 的检查点开关扫描到。S1-local 将同一个 oracle 注册到内部 arm，启用逐层 checkpoint，不解冻其他参数、不改变前向公式与实验门槛；新增 CPU 回归测试核实检查点调用与系数梯度。扩展探针复用 `probe_indices` 的实际窗口边界过滤。修正后从独立输出名重新运行短验证。尚无 S1-local 方法结果。
 
 S1-local 过门后才执行：train 窗口建基和 interleave 训练→冻结→held-out 窗口无监督压缩评测。held-out 题的答案与 Jacobian 不参与建基、优化或模型选择。S1-paper 主表仅 native selection / unconstrained residual / subspace residual / protected subspace residual，预算 0.25/0.5/0.75；SIC、semantic router、reader adapter、SVD retuning 仅保留历史诊断。
