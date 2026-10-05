@@ -96,7 +96,9 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这个差距证明原生19选9组合仍有空间，但不能证明换成oracle集合后reader CE一定达到该下界，因为reader存在冗余、读出失败和格式错误。
 
-曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。## Finite CE swap approximation
+曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。
+
+## Finite CE swap approximation
 
 `tools/sic_swap.py` 从冻结 O2 集合开始，每窗生成90个 one-for-one swap，按 discovery eligible 梯度增益预筛8个，再用真实 discovery CE 选择；support oracle只做事后结构gap诊断。四窗冻结结果：row0保持原集合；row1替换14→10，CE 0.69916→0.66098、正确14→15；row2替换15→12，CE 0.92626→0.55419、正确18→18；row3替换1→6，CE 0.60391→0.60087、正确12→12。候选和冻结输入分别见`runs/sic_swap_row0.json`至`row3.json`及`sic_swap_choice.json`。
 
@@ -106,5 +108,7 @@ oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这�
 
 为检验8候选预筛是否漏掉真实reader更优解，row1完整评估90个one-for-one交换。局部reader oracle将discovery CE从0.69916降至0.65451，优于预筛swap的0.66098；集合为`[0,2,4,6,11,13,15,17,18]`，support gap为4，exact-match仍14/17。
 
-该局部oracle冻结后在同一封闭确认题上重跑：row1确认CE从1.05970降至1.02926，但eligible丢题从3增至4；四窗总体仍为select 55→局部oracle方案56，总体eligible lost 10→11。因此预筛漏解不是主要问题，开发CE目标本身没有迁移到确认eligible exact-match。结果见`runs/sic_local_oracle_row1.json`、`runs/sic_local_oracle_confirm.json`和`sic_local_oracle_choice.json`。
+row1完整90交换的实测耗时为685.6秒；按同一成本估计，单窗92,378组合约8.1天，四窗约32.6天，且未计显存并发和非确定性重跑。因此全组合真实CE oracle被保留为计算上界目标，没有用部分枚举冒充全局oracle；当前可复现的真实reader oracle是完整one-swap邻域oracle。
+
+row1完整90交换局部oracle冻结后确认CE为1.05970→1.02926，但eligible丢题为3→4；四窗总体仍为总正确55→56、eligible lost 10→11。因此预筛漏解不是主要问题，开发CE目标本身没有迁移到确认eligible exact-match。结果见`runs/sic_local_oracle_row1.json`、`runs/sic_local_oracle_confirm.json`和`sic_local_oracle_choice.json`。
 
