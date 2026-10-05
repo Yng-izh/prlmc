@@ -63,6 +63,18 @@ class ProtectedBasisTest(unittest.TestCase):
         self.assertTrue(all(parameter.grad is None for parameter in arm.parameters()
                             if parameter is not oracle.residual))
 
+    def test_reader_dropout_disabled_without_disabling_parent(self):
+        from s1_local_protected import disable_reader_dropout
+        model = torch.nn.Sequential(torch.nn.Linear(5, 5), torch.nn.Dropout(0.7)).train()
+        changed = disable_reader_dropout(model)
+        self.assertTrue(model.training)
+        self.assertFalse(model[1].training)
+        self.assertEqual(changed[0]["p"], 0.7)
+        x = torch.randn(3, 5, requires_grad=True)
+        self.assertTrue(torch.equal(model(x), model(x)))
+        model(x).sum().backward()
+        self.assertIsNotNone(x.grad)
+
     def test_no_protection_and_nonfinite(self):
         ul = orth(torch.randn(3, 12))
         safe, _ = protect(ul, torch.empty(12, 0, dtype=torch.float64))

@@ -33,6 +33,16 @@ def digest(path):
     return h.hexdigest()
 
 
+def disable_reader_dropout(model):
+    import torch
+    changed = []
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.modules.dropout._DropoutNd):
+            changed.append({"name": name, "p": module.p, "was_training": module.training})
+            module.eval()
+    return changed
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ("carrier-ckpt", "s0-rows", "out"):
@@ -86,6 +96,13 @@ def main():
     if built is None:
         raise SystemExit("window build failed")
     covered, indices, dropped, original = built
+    # Preserve S0's seeded window writes; deterministic reader evaluation starts
+    # here. Parent train mode remains on solely for gradient checkpointing.
+    if float(getattr(model.config, "attention_dropout", 0.0)) != 0.0:
+        raise RuntimeError("nonzero attention dropout needs explicit deterministic dispatch")
+    dropout_audit = disable_reader_dropout(model)
+    print("[s1] disabled %d reader dropout modules; active p>0 before disable=%d" %
+          (len(dropout_audit), sum(x["was_training"] and x["p"] > 0 for x in dropout_audit)), flush=True)
     expanded = E.probes_from_lines(lines, indices, len(indices) + 1)
     by_q = {q.question: q for q in original}
     by_q.update({q.question: q for q in expanded})
@@ -106,31 +123,46 @@ def main():
             x.requires_grad_(False)
         return arm
 
-    def score(arm):
+    def score(arm, which=None):
         with torch.no_grad():
             pool, mask_m = E.candidate_pool(manager, arm, "cuda:0")
-            result = E.score_probes(manager, probes, pool, 256, mask=mask_m)
+            result = E.score_probes(manager, probes if which is None else which, pool, 256, mask=mask_m)
         del pool, mask_m
         torch.cuda.empty_cache()
         return result
 
-    print("[s1] scoring full on %d probes" % len(probes), flush=True)
-    full = E.score_uncompacted(manager, probes, 256)
-    print("[s1] scoring no-memory on %d original probes" % len(original), flush=True)
+    print("[s1] reproducing S0 no-memory on 60 original probes", flush=True)
     no_mem = E.score_no_memory(manager, original, 256)
-    print("[s1] scoring native selection", flush=True)
-    selected = score(base(selection=True))
-    print("[s1] scoring checkpoint", flush=True)
-    before = score(base())
+    print("[s1] reproducing S0 full on 60 original probes", flush=True)
+    full = E.score_uncompacted(manager, original, 256)
+    print("[s1] reproducing S0 checkpoint on 60 original probes", flush=True)
+    before = score(base(), original)
+    selected = {"status": "not-yet-scored"}
     lost = [q.question for q in original if full["correct"].get(q.question, False)
             and not no_mem["correct"].get(q.question, False)
             and not before["correct"].get(q.question, False)]
+    saved = torch.load(args.s0_rows, map_location="cpu", weights_only=True)
+    historical_audit = {
+        "historical_lost": saved["lost_questions"],
+        "deterministic_lost": lost,
+        "extra_lost": sorted(set(lost) - set(saved["lost_questions"])),
+        "missing_lost": sorted(set(saved["lost_questions"]) - set(lost)),
+        "original_probes": [{"question": q.question, "answers": q.answers} for q in original],
+        "full": full, "no_memory": no_mem, "before": before,
+        "dropped": dropped, "covered": covered,
+    }
+    print("[s1] deterministic baseline lost=%d; historical differences: %s" %
+          (len(lost), json.dumps({k: historical_audit[k] for k in
+                                ("extra_lost", "missing_lost")})), flush=True)
+    print("[s1] scoring full on %d expanded probes" % len(probes), flush=True)
+    full = E.score_uncompacted(manager, probes, 256)
+    print("[s1] scoring expanded native selection", flush=True)
+    selected = score(base(selection=True))
+    print("[s1] scoring expanded checkpoint", flush=True)
+    before = score(base())
     retained = [q.question for q in probes if full["correct"].get(q.question, False)
                 and selected["correct"].get(q.question, False)]
     before_retained = [q for q in retained if before["correct"].get(q, False)]
-    saved = torch.load(args.s0_rows, map_location="cpu", weights_only=True)
-    if set(lost) != set(saved["lost_questions"]) or len(lost) != 13:
-        raise SystemExit("S0 lost set did not reproduce")
     report = {"status": "running", "diagnostic_only": True, "protocol": {
         "window": [3, 17890], "original_probes": len(original), "expanded_probes": len(probes),
         "steps": args.steps, "lr": args.lr, "parameter_budget": args.budget,
@@ -142,7 +174,9 @@ def main():
         "driver_sha256": digest(__file__), "torch_version": torch.__version__,
         "gpu": torch.cuda.get_device_name(0)},
         "sets": {"lost": lost, "retained_full_and_select": retained,
-                 "retained_also_correct_at_D0": before_retained}, "arms": {}}
+                 "retained_also_correct_at_D0": before_retained},
+        "historical_s0_audit": historical_audit, "reader_dropout_audit": dropout_audit,
+        "reader_config": model.config.to_dict(), "arms": {}}
 
     def flush():
         path = Path(args.out)
@@ -170,6 +204,16 @@ def main():
     print("[s1] original=%d expanded=%d lost=%d retained=%d D0_retained=%d" %
           (len(original), len(probes), len(lost), len(retained), len(before_retained)), flush=True)
     flush()
+    if any(full["correct"].get(q.question) != historical_audit["full"]["correct"].get(q.question)
+           or before["correct"].get(q.question) != historical_audit["before"]["correct"].get(q.question)
+           for q in original):
+        report.update(status="stopped", verdict="INVALID-BASELINE", reason="repeated original scores differ")
+        flush()
+        return
+    if not lost:
+        report.update(status="stopped", verdict="NO-GO", reason="no deterministic lost probes")
+        flush()
+        return
     if len(retained) < 10:
         report.update(status="stopped", verdict="NO-GO", reason="expanded retained set < 10")
         flush()

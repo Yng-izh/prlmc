@@ -8,6 +8,12 @@
 
 本文件只做索引。每条实验的正文在 `experiments/` 目录下，一实验一文件；本文件不随实验追加内容。
 
+## 当前方法主线
+
+当前推进 **Protected Functional Subspace Residual**，先 S1-local，过门后才 S1-generalization，再进入 S1-paper。selection 固定为压缩底座，新增 residual 仅沿 `U_safe = orth[(I - U_K U_K^T) U_L]` 更新，不在完整 down.weight 空间自由学习。S0 历史扰动显示 lost 信息有可操作的低维功能信号，S0b 提供全局更新耦合 rescue/harm 的局部证据；当前复现审计发现 reader 的 LoRA dropout=0.1，历史训练态诊断的确定性边界须由本轮关闭 dropout 的评分与 Jacobian 重测校验。protected 更新是否有效、是否泛化仍待实验，不提前宣称。
+
+E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方法主表。后续主表仅 native selection、unconstrained residual、subspace residual、protected subspace residual，预算 0.25/0.5/0.75。held-out 答案和 Jacobian 不参与建基或训练；原 SIC-P1 测试集保持封存。
+
 ## 目录（experiments/）
 
 | 编号 | 运行 | 目的 | 状态 | 正文 |

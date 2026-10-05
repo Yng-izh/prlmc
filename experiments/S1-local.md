@@ -4,9 +4,11 @@
 
 本实验验证模块机制，不验证泛化，也不提供论文主表结果。
 
-固定 S0 的 row 3 / start 17890、19→9 blocks 和 E6d interleave 检查点。原始 60 道 dropped-block 探针仅用于复现 S0 的 13 个 lost；保护探针扩展到同一个已写入窗口内全部可生成的有效事实问答，仍遵守全文 latest-fact、窗口归属、去重、答案长度和官方 QUERY_TEMPLATE 规则。保护集合严格为 `full正确且native select正确`。不将 `full正确但select错误` 冒充 retained，不增加 fullK 分支。
+固定 S0 的 row 3 / start 17890、19→9 blocks 和 E6d interleave 检查点。保留原始 60 道 dropped-block 探针作为 rescue 候选；保护探针扩展到同一个已写入窗口内全部可生成的有效事实问答，仍遵守全文 latest-fact、窗口归属、去重、答案长度和官方 QUERY_TEMPLATE 规则。保护集合严格为 `full正确且native select正确`。不将 `full正确但select错误` 冒充 retained，不增加 fullK 分支。
 
-重新计算 lost 和 retained 在同一运行状态、同一 D0 上的逐题 gold-answer CE Jacobian。S0 保存行只用于核实原 lost 问题集合与输入来源，不以集合相同代替运行池一致性证明。
+**结果前执行修正：**实际 reader 配置是 attention_dropout=0，但 LoRA dropout=0.1。原 S0/S0b 的 `model.train()` 同时启用了 LoRA dropout，冻结权重未关闭这一随机性。S1 保留原 seed=0 窗口写入流程，写入结束后将所有 dropout 子模块置为 eval，父级仍 train 以启用梯度检查点。原 60 题按 no-memory→full→checkpoint 重测本轮确定性 lost；旧 13 题列表保留为历史审计（extra/missing 完整记录），不强迫本轮分母等于随机历史计数。原始题单在扩展评分中重复测量，一致性未过则停在基线阶段。rescue≥7 和所有 harm 门槛保持不变；此修正发生于任何五臂训练结果之前。
+
+重新计算本轮 lost 和 retained 在同一运行状态、同一 D0 上的逐题 gold-answer CE Jacobian。S0 保存行仅保留历史来源，不用于本轮建基。
 
 `U_L = orth(J_L^T)`，`U_K = orth(J_K^T)`，`U_safe = orth[(I - U_K U_K^T) U_L]`。小矩阵薄 SVD 使用 CPU float64；绝不构造 131072×131072 矩阵。保护仅是一阶 CE 不变条件，不预先声称有限步 EM 无损。
 
@@ -22,7 +24,7 @@
 
 ## 指标与门槛
 
-主 rescue 分母固定为复现出的 S0 13 个 lost。harm 对全部 `full正确且select正确` 统计，同时单列 D0 原本正确、训练后变错的新增 harm；不混淆部署相对 select 的破坏与新增训练破坏。报告完整逐题正确性、rescue、harm 数/率、净收益与 teacher-forced token-exact accuracy。本地 token-exact accuracy 不称作官方生成 EM。
+主 rescue 分母固定为本轮确定性 reader 在原 60 题上的 lost 集合，另列旧 S0 13 题的集合差异。harm 对全部 `full正确且select正确` 统计，同时单列 D0 原本正确、训练后变错的新增 harm；不混淆部署相对 select 的破坏与新增训练破坏。报告完整逐题正确性、rescue、harm 数/率、净收益与 teacher-forced token-exact accuracy。本地 token-exact accuracy 不称作官方生成 EM。
 
 运行前冻结的保守操作门槛：retained 至少 10 道；protected 最终 rescue≥7；相对 select 的 harm 严格低于重跑的 coefficient oracle 且至多为其一半；harm 不高于 unconstrained 和 U_L；相对 select 的 rescued-minus-harmed 净收益≥0。任何一项未过即 NO-GO，不启动 S1-generalization。该计数门是工程判断，不冒充统计显著性检验。
 
@@ -42,6 +44,8 @@
 
 ## 当前状态
 
-实现与数值验证完成；首轮 GPU 短程验证在基线阶段主动终止，尚未产生训练结论。独立代码审查发现：原 S0b 外置 oracle 的系数参数未被内部 compactor 的检查点开关扫描到。S1-local 将同一个 oracle 注册到内部 arm，启用逐层 checkpoint，不解冻其他参数、不改变前向公式与实验门槛；新增 CPU 回归测试核实检查点调用与系数梯度。扩展探针复用 `probe_indices` 的实际窗口边界过滤。修正后从独立输出名重新运行短验证。尚无 S1-local 方法结果。
+实现与数值验证完成；首轮 GPU 短程验证在基线阶段主动终止，尚未产生训练结论。独立代码审查发现：原 S0b 外置 oracle 的系数参数未被内部 compactor 的检查点开关扫描到。S1-local 将同一个 oracle 注册到内部 arm，启用逐层 checkpoint，不解冻其他参数、不改变前向公式与实验门槛；新增 CPU 回归测试核实检查点调用与系数梯度。扩展探针复用 `probe_indices` 的实际窗口边界过滤。修正后的第二轮短验证完成窗口构建与 296 题基线评分，但在 S0 lost 集合一致性断言处退出，尚未建基或训练。CPU 检查证实：原 60 题与扩展集合中同名题的 gold 差异为 0；原 `/tmp` 输入与持久备份 SHA256 完全一致。失配原因尚待定位，该现象不构成方法失败结论，也不使用旧 rows 强行继续。
+
+第三轮在原始基线审计阶段主动停止：实际配置与 reader 源码确认 PEFT 两个 adapter 使用 LoRA dropout=0.1，原训练态评分存在随机性。改为窗口写入后仅关闭 dropout 子模块，再以确定性评分、Jacobian、训练和重复评分一致性检查继续；父模型训练态及梯度检查点保留，所有 reader 权重冻结。7 项测试通过，包含 dropout 关闭后父级仍 train、前向可重复且梯度有效的回归测试。第四轮确定性短验证已启动，尚无 S1-local 方法结果。
 
 S1-local 过门后才执行：train 窗口建基和 interleave 训练→冻结→held-out 窗口无监督压缩评测。held-out 题的答案与 Jacobian 不参与建基、优化或模型选择。S1-paper 主表仅 native selection / unconstrained residual / subspace residual / protected subspace residual，预算 0.25/0.5/0.75；SIC、semantic router、reader adapter、SVD retuning 仅保留历史诊断。
