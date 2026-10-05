@@ -75,6 +75,21 @@ class ProtectedBasisTest(unittest.TestCase):
         model(x).sum().backward()
         self.assertIsNotNone(x.grad)
 
+    def test_fixed_primary_excludes_extra_losses(self):
+        from s1_local_protected import s0_primary_lost
+        historical = ["q%d" % i for i in range(13)]
+        self.assertEqual(s0_primary_lost(historical, historical + ["extra"]), historical)
+
+    def test_fixed_primary_rejects_missing_or_invalid_fixture(self):
+        from s1_local_protected import s0_primary_lost
+        historical = ["q%d" % i for i in range(13)]
+        with self.assertRaises(ValueError):
+            s0_primary_lost(historical, historical[:-1])
+        with self.assertRaises(ValueError):
+            s0_primary_lost(historical[:-1], historical)
+        with self.assertRaises(ValueError):
+            s0_primary_lost(["q0"] * 13, historical)
+
     def test_no_protection_and_nonfinite(self):
         ul = orth(torch.randn(3, 12))
         safe, _ = protect(ul, torch.empty(12, 0, dtype=torch.float64))

@@ -33,6 +33,15 @@ def digest(path):
     return h.hexdigest()
 
 
+def s0_primary_lost(historical, deterministic):
+    if len(historical) != 13 or len(set(historical)) != 13:
+        raise ValueError("historical S0 fixture must contain exactly 13 distinct lost probes")
+    missing = sorted(set(historical) - set(deterministic))
+    if missing:
+        raise ValueError("historical S0 targets are no longer lost: " + json.dumps(missing))
+    return list(historical)
+
+
 def disable_reader_dropout(model):
     import torch
     changed = []
@@ -154,6 +163,17 @@ def main():
     print("[s1] deterministic baseline lost=%d; historical differences: %s" %
           (len(lost), json.dumps({k: historical_audit[k] for k in
                                 ("extra_lost", "missing_lost")})), flush=True)
+    # Extra deterministic losses stay in the audit, never in the primary target.
+    try:
+        lost = s0_primary_lost(saved["lost_questions"], lost)
+    except ValueError:
+        path = Path(args.out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w") as f:
+            json.dump({"status": "invalid-baseline", "historical_s0_audit": historical_audit,
+                       "reader_dropout_audit": dropout_audit, "driver_sha256": digest(__file__)}, f, indent=2)
+        raise
+    print("[s1] fixed historical primary lost=%d" % len(lost), flush=True)
     print("[s1] scoring full on %d expanded probes" % len(probes), flush=True)
     full = E.score_uncompacted(manager, probes, 256)
     print("[s1] scoring expanded native selection", flush=True)
@@ -191,13 +211,17 @@ def main():
         rescue = [q for q in lost if correct.get(q, False)]
         harm = [q for q in retained if not correct.get(q, False)]
         added = [q for q in before_retained if not correct.get(q, False)]
+        added_all = [q for q, was_correct in before["correct"].items()
+                     if was_correct and not correct.get(q, False)]
         gains = [q.question for q in probes if full["correct"].get(q.question, False)
                  and not selected["correct"].get(q.question, False) and correct.get(q.question, False)]
         return {"step": step, "rescued": len(rescue), "harmed_vs_select": len(harm),
-                "newly_harmed_vs_D0": len(added), "harm_rate": len(harm) / max(1, len(retained)),
+                "newly_harmed_vs_D0": len(added), "newly_harmed_vs_D0_all": len(added_all),
+                "newly_harmed_vs_D0_scope": "full-and-native-select retained only",
+                "harm_rate": len(harm) / max(1, len(retained)),
                 "net_vs_select": len(gains) - len(harm), "accuracy": scored["accuracy"],
                 "rescued_questions": rescue, "harmed_questions": harm,
-                "newly_harmed_questions": added, "correct": correct}
+                "newly_harmed_questions": added, "newly_harmed_questions_all": added_all, "correct": correct}
 
     report["arms"]["select"] = {"final": metrics(selected)}
     report["checkpoint_diagnostic"] = metrics(before)
@@ -318,9 +342,9 @@ def main():
                 history.append(entry)
                 report["arms"][name]["final"] = entry
                 flush()
-                print("[s1] %s step=%d rescue=%d harm=%d/%d added_harm=%d net=%d" %
+                print("[s1] %s step=%d rescue=%d harm=%d/%d added_harm_retained=%d added_harm_all=%d net=%d" %
                     (name, step, entry["rescued"], entry["harmed_vs_select"], len(retained),
-                     entry["newly_harmed_vs_D0"], entry["net_vs_select"]), flush=True)
+                     entry["newly_harmed_vs_D0"], entry["newly_harmed_vs_D0_all"], entry["net_vs_select"]), flush=True)
         torch.save(wrapper.state_dict(), str(Path(args.out).with_suffix("." + name + ".pt")))
         del wrapper, arm, optimizer, trainable, displacement
         if name == "coefficient_oracle":
