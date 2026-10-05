@@ -34,6 +34,10 @@
 
 第四轮短验证：原始题单 60，扩展题单 296；确定性 lost 总数 14，原 S0 13 题全部仍 lost，仅新增 `Who founded Tiantai?`。保护集合 full∧native select 正确共 75 题，而现有 D0 检查点只保住其中 31 题，基线相对 select 已损失 44 题。后续同时报告相对 select 的总破坏和相对 D0 的新增破坏，避免把既有错误归因给更新，也避免用“新增 harm 少”掩盖系统仍低于 native select。
 
+正式运行基线重复通过，主 lost=13、retained=75。native selection：原目标 7/13，保护题 75/75，全题单 78/296；D0：原目标 0/13，保护题 31/75，全题单 54/296。selection 自身已满足 7/13 的计数，因此 rescue 达标不是超过 selection 的证据，必须同时报告总 harm、select-relative 净收益与全题单正确数。正式建基完成：`U_L` rank=13、`U_K` rank=75、`U_safe` rank=6，CPU float64 保护正交误差 5.48e-15。首个过程测量为 unconstrained 第 5 步：rescued=9/13、总 harm=13/75、保护集合新增 harm=0、全题单 D0 新增 harm=10、full-eligible select-relative 净收益=-4、全题单正确 88/296。保护臂尚未运行；以上不用于最终判门，也不把控制臂分数称作 protected 方法效果。
+
+正式原始记录为 `runs/s1_local_protected.json`，状态仍为 running，没有最终方法结论。
+
 这批数字仅是基线，尚无正式 60 步方法结论。快照见 `runs/s1_local_smoke_v4_snapshot.json`，实际 reader 配置见 `runs/s1_reader_config.json`。旧 13 个 rescue 目标与 75 个 select-retained 中有 7 题重叠：lost 指 D0 丢失，retained 指 select 保住，两套参照的含义不同；不通过偷偷删保护题或改分母消除该事实。
 
 ## 运行
