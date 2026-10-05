@@ -96,5 +96,5 @@ python -u tools/sic_optimize.py --stage confirm --plan runs/sic_o1_plan.json --o
 
 oracle与select每窗重合5–6个block，与O2每窗重合5–6个block。这个差距证明原生19选9组合仍有空间，但不能证明换成oracle集合后reader CE一定达到该下界，因为reader存在冗余、读出失败和格式错误。
 
-曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。下一轮逼近方案应采用有限实际损失 swap/leave-one-out 代理，并在确认题前冻结。
+曾启动真实reader CE组合oracle的100组合标定，但单组合要对50道题完整运行8B reader，成本过高，进程在模型加载阶段终止，未产生数值结果；没有把它计入实验结果。有限逼近脚本 `tools/sic_swap.py` 已实现：从冻结O2集合出发，用discovery eligible题的梯度增益从90个one-for-one交换中预筛8个，再用真实discovery CE排序；support oracle只在结果后计算结构gap，`oracle_aware=false`。row0真实运行在base评分阶段因远端GPU并发显存占用触发OOM，未生成swap数值报告；脚本已增加`--cuda-device`，待空闲GPU后重跑。该失败是资源状态，不计入算法结果。
 
