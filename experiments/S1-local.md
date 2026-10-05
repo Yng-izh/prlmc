@@ -40,6 +40,12 @@
 
 这批数字仅是基线，尚无正式 60 步方法结论。快照见 `runs/s1_local_smoke_v4_snapshot.json`，实际 reader 配置见 `runs/s1_reader_config.json`。旧 13 个 rescue 目标与 75 个 select-retained 中有 7 题重叠：lost 指 D0 丢失，retained 指 select 保住，两套参照的含义不同；不通过偷偷删保护题或改分母消除该事实。
 
+## 已完成训练臂（正式比较仍在运行）
+
+unconstrained 第 60 步：rescued **10/13**、总 harm **17/75**、保护集合内新增 harm **1/31**、全题单 D0 新增 harm **11**、full-eligible select-relative 净收益 **−7**、全题单正确 **84/296**。其余三臂尚未完成，不给出保护方法结论。
+
+`tools/verify_s1_local_result.py` 独立核验固定原 13 题、历史仍丢失条件、所有测量的 rescue/harm 与逐题列表、全题单新增破坏、accuracy/harm rate、测量顺序；计数篡改和未完成结果的检测测试通过。完成状态还要求四训练臂均第 60 步、各 12 次测量，并重新检查冻结门槛。核验限制：运行报告未序列化扩展全池逐题正确性，所以 full-eligible 净收益只能检查所记录值参与判门，其 full-eligibility 条件未由此独立核验器重建；该限制不影响 rescue/harm 的逐题重算。
+
 ## 运行
 
 ```bash
