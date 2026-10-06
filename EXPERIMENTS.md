@@ -9,7 +9,7 @@
 
 ## 当前方法主线
 
-**Protected Functional Subspace Residual 已在 S1-local 判定 NO-GO 并停止。**同 S0 hard window、原13题、扩大至75道 retained，关闭 reader LoRA dropout 后重算 Jacobian，完成指定五臂60步正式比较。protected 最终 rescue1/13、harm37/75、净收益−32；未满足 rescue≥7 或压低harm门槛。UL 控制臂为7/13、6/75、净收益+8，但仅为本地监督机制结果，不宣称泛化，不将它替换为新主线。不启动 S1-generalization 或 S1-paper，不增加变体。历史S0/S0b训练态存在LoRA dropout随机性，其旧分数不作为本轮确定性可比对照。
+**S1-local 的 hard-nullspace 保护构造 NO-GO；functional-subspace 限制保留为待验证主线。**同 S0 hard window、原13题、扩大至75道 retained，关闭 reader LoRA dropout 后重算 Jacobian，完成指定五臂60步。protected 最终rescue1/13、harm37/75、净−32；UL控制臂为7/13、6/75、净+8，给出本地正证据但不宣称泛化。原冻结判门与停止决定保持；新获批准的S1-soft-local独立固定原13维UL与原13题监督，分开rescue/repair/protect，仅处罚有限CE恶化，不重开reader/SIC/SVD或其他分支。不启动S1-generalization或S1-paper。历史S0/S0b训练态存在LoRA dropout随机性，其旧分数不作为本轮确定性可比对照。
 
 E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方法主表。此前条件方案中的主表与预算0.25/0.5/0.75实验因local未过门均未执行。没有held-out建基或答案监督；原 SIC-P1 测试集保持封存。
 
@@ -58,7 +58,8 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 | SIC-O2 | 训练探针资格过滤 + discovery真实压缩CE校准 | 排除与记忆保留目标无关的梯度，避免完整池一阶代理直接决定离散压缩 | Finite CE swap四窗开发完成：row1/2/3 CE改善，row0不变；82题确认总正确55→56，但64 eligible丢题10→11，净-1、p=1.0，未通过确认门槛。swap不替换O2方案，G3继续暂停 | [SIC-O2.md](experiments/SIC-O2.md) |
 
 | SIC-P1 | 论文级受控实验：实体隔离24 episode、冻结协议、真实生成EM | 脱离旧4上下文/旧82题，主指标贪心生成EM、support oracle逼近门、episode级推断；16测试episode仍封存 | 数据冻结+smoke完成：ep0 SIC稳定性候选22/64低于native 23/64；候选未达标。按新要求暂停开发，仅保留历史诊断 | [SIC-P1.md](experiments/SIC-P1.md) |
-| S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 正式五臂60步完成；**NO-GO，方法停止**：protected rescue1/13、harm37/75；UL为7/13、6/75。逐题计数与真实权重核验通过，不启动泛化或论文预算实验 | [S1-local.md](experiments/S1-local.md) |
+| S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 正式五臂60步完成；**hard-nullspace构造NO-GO**：protected rescue1/13、harm37/75；UL为7/13、6/75、净+8。本地正证据待独立验证，历史判门不变 | [S1-local.md](experiments/S1-local.md) |
+| S1-soft-local | 固定13维UL的单边有限CE保护 | 原监督与UL不变，P=31保护与K=75消融，分开rescue/repair/protect | 预注册冻结，三臂smoke运行中；不启动泛化或论文预算 | [S1-soft-local.md](experiments/S1-soft-local.md) |
 
 ## 证据边界（论文推进审计）
 

@@ -128,7 +128,7 @@ def margin_scalar(manager, probe, pool, mask, max_probe_tokens):
 
     This is the per-probe functional quantity the sketch is fitted on. The
     forward is the same teacher-forced path `score_probes` uses, but the loss
-    is a scalar (sum over the answer span, not batch mean), because the row set
+    is one scalar per probe (mean over its answer tokens), because the row set
     must be one row per probe, and `enable_grad` is on so `down.weight` gets a
     gradient. The reader is never trained: only this scalar's gradient is read.
     """

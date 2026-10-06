@@ -1,6 +1,6 @@
 # S1-local：Protected Functional Subspace Residual
 
-## 最终结论：NO-GO
+## 最终结论：NO-GO（本轮hard-nullspace构造）
 
 同一 S0 hard window（row=3、start=17890）、E6d interleave 检查点上的五臂正式比较完成，运行退出码 0。所有训练臂固定 60 步、每 5 步测量，最终第 60 步判门，没有选择中间峰值。
 
@@ -66,3 +66,13 @@ python3 tools/verify_s1_local_result.py runs/s1_local_protected.json --require-c
 此前首轮短验证因oracle外置参数未被内部checkpoint扫描而主动停止；修正为同一oracle注册到内部arm，不改变前向或门槛。第二轮因历史lost失配在基线处退出；gold差异=0、输入哈希一致。第三轮在确认LoRA dropout后主动停止。第四轮关闭dropout的短验证完成五臂，标记SMOKE-ONLY；压力检查使用14题、2步，与正式13题/60步分开，未用于正式判门。正式驱动九项回归测试通过。
 
 本实验仅为同一窗口的监督局部机制验证，没有held-out泛化结果，也没有论文主表。泛化与论文实验的条件未满足，均未启动；SIC、router、reader adapter、SVD保持历史诊断，不新增分支。
+
+## 后续研究判读修订
+
+原NO-GO的对象是本轮hard-nullspace保护构造，不是全部functional-subspace路线。UL以13个自由度得到rescue7/13、harm6/75、净+8，优于指定自由更新和系数oracle的本地折中，构成继续受控验证的正证据；单窗口监督、不同优化坐标与最终位移范数仍限制其归因，不宣称普遍有效或已证实泛化。
+
+K=75题是在select正确状态定义的，但JK取自D0；其中31题D0正确、44题D0错误。原13题中7题也是K，实际属于checkpoint退化repair，不能称为selection丢失。硬约束对正确与错误基点的CE变化同样限制，不允许一阶改善；这与“保留已有正确能力”的目标不同。它不是把44题永久冻结：有限更新仍修复7题，CE局部约束也不等价于token预测不变。
+
+保存基CPU复核：投影奇异值6个非零（0.540、0.653、0.714、0.777、0.826、0.862），另7个约1e-14。lost与K的7题重叠已足以解释全部精确秩下降，因此13→6本身不独立证明公共轴被删，也不称剩余6维为边缘tail。投影后的span一般不是原UL与K正交补的交集；实际safe基在原UL外的Frobenius残差1.656。S0公共轴比例是历史训练态证据，不能直接当作本轮确定性谱的解释。
+
+经用户明确批准，另立S1-soft-local协议：固定正式13维UL与原13题监督，按真实R（full正确/select错误）、P（full/select/D0正确）、T（full/select正确/D0错误）分开评价，仅对有限CE恶化作单边惩罚。它不撤回原判门、不改原工件，也不自动启动泛化或论文预算；预注册与新结果见[S1-soft-local](S1-soft-local.md)。
