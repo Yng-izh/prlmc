@@ -49,7 +49,8 @@ def validate(report, require_complete=False, historical=None, historical_sha256=
     for key, value in expected.items():
         assert protocol[key] == value, key
     assert type(protocol["smoke"]) is bool
-    for key in ("checkpoint_sha256", "basis_sha256", "historical_result_sha256", "driver_sha256"):
+    for key in ("checkpoint_sha256", "basis_sha256", "historical_result_sha256", "driver_sha256",
+                "gradient_repair_audit_sha256"):
         assert isinstance(protocol[key], str) and re.fullmatch(r"[0-9a-f]{64}", protocol[key]), key
     if require_complete:
         assert status == "complete" and not protocol["smoke"], "formal completed result required"
@@ -147,10 +148,20 @@ def validate(report, require_complete=False, historical=None, historical_sha256=
     ul_arm = report["arms"].get("ul")
     ul = ul_arm["final"] if ul_arm else None
     control = None
+    control_detail = None
     if ul is not None and ul["step"] == 60 and not protocol["smoke"]:
+        # Repaired regime: the control is the in-run fixed-gradient UL final
+        # against the historical count invariants (7/6/+8). The historical
+        # buggy-gradient UL trajectory is diagnostic only; its per-question
+        # final is recorded, not enforced, since the alias it trained through
+        # is exactly the defect this run repaired.
         control = ul["original_rescue"] == 7 and ul["retained_harmed"] == 6 and ul["net_vs_select"] == 8
+        control_detail = {"original_rescue": ul["original_rescue"],
+                          "retained_harmed": ul["retained_harmed"],
+                          "net_vs_select": ul["net_vs_select"]}
         if historical is not None and not protocol["smoke"]:
-            control = control and ul["correct"] == historical["arms"]["subspace_ul"]["final"]["correct"]
+            control_detail["historical_per_question_match"] = (
+                ul["correct"] == historical["arms"]["subspace_ul"]["final"]["correct"])
     gate = None
     if status == "complete":
         p = report["arms"]["soft_p"]["final"]
@@ -168,13 +179,13 @@ def validate(report, require_complete=False, historical=None, historical_sha256=
         verdict = "SMOKE-ONLY" if protocol["smoke"] else ("INVALID-CONTROL" if not control else ("LOCAL-PASS" if all(gate.values()) else "NO-IMPROVEMENT"))
         assert report["verdict"] == verdict, "verdict"
         if require_complete:
-            assert control, "UL differs from historical control"
+            assert control, "UL control invariants 7/6/+8 failed"
     elif status == "invalid-control":
         assert report["verdict"] == "INVALID-CONTROL"
         assert ul is not None and ul["step"] == protocol["steps"], "invalid control needs final UL"
         assert control is False, "invalid-control must have a failed control"
     return {"status": status, "metrics_verified": True, "arms": summaries,
-            "control_verified": control, "gate": gate,
+            "control_verified": control, "control_detail": control_detail, "gate": gate,
             "historical_verified": historical is not None}
 
 

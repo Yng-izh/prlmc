@@ -139,6 +139,75 @@ class SoftLocalTest(unittest.TestCase):
                 raise RuntimeError("fixture")
         self.assertTrue(torch.equal(model.memory, before))
 
+    def test_production_compactor_cloned_source_gradient_equality(self):
+        """Regression for the s1-soft training-graph defect.
+
+        Promoted from tools/audit_s1_checkpoint_recompute.py: the production
+        `CarrierResidualCompactor` runs through `_pool_in_place` with (a) a
+        cloned source (the repaired driver path) and (b) an aliased `.data`
+        view of the pool storage (the historical defect). The layout mirrors
+        the real run — filler prefix, window, remainder — so the injection
+        range [new_start, new_start+target) lands inside the view's tail, the
+        exact overlap that corrupted the historical backward. The cloned
+        path's parameter gradients must equal the no-injection reference
+        exactly; the aliased path must differ, proving the test has teeth.
+        See runs/s1_checkpoint_recompute_production_cpu.json.
+        """
+        from types import SimpleNamespace
+        from methods.prlmc.consolidate import CarrierResidualCompactor
+        from methods.prlmc.probes import _pool_in_place
+        layers, block, d, rank = 2, 2, 11, 2
+        b, remainder, filler = 3, 4, 2
+        torch.manual_seed(23)
+        total = filler + b * block + remainder * block
+        used = b * block + remainder * block
+        model = torch.nn.Module()
+        model.memory = torch.nn.Parameter(torch.randn(1, total, d), requires_grad=False)
+        pristine = model.memory.detach().clone()
+        manager = SimpleNamespace(model=model, total=total, used=used)
+        compactor = CarrierResidualCompactor(num_layers=layers, hidden=d, block=block, rank=rank)
+        for p in compactor.parameters():
+            p.requires_grad_(True)
+        compactor.train()
+        begin = total - used
+        window_used = b * block
+        weights = torch.rand(used)
+        goal = torch.randn(1, d)
+        select_w = {"importance": 0.5}
+        target = 2 * block
+
+        def run(source, inject=True):
+            for p in compactor.parameters():
+                p.grad = None
+            torch.manual_seed(31)
+            cand = compactor(source, weights, target=target, block=block,
+                             goal_direction=goal, select_weights=select_w)
+            loss = cand.square().sum()
+            if inject:
+                # Backward inside the with-block, exactly like the driver's
+                # training step. With `window_used` set to the source width,
+                # the injection lands at new_start = total - target, inside
+                # the view's tail — the overlap that corrupted the historical
+                # backward. An independent source must be immune to it.
+                with _pool_in_place(manager, "cpu", cand, window_used, target) as injection:
+                    injection.reinject()
+                    loss.backward()
+            else:
+                loss.backward()
+            return float(loss.detach()), [p.grad.clone() for p in compactor.parameters()]
+
+        view = model.memory.data[:, begin:begin + used, :]
+        direct_loss, direct_grads = run(view.clone(), inject=False)
+        clone_loss, clone_grads = run(view.clone())
+        alias_loss, alias_grads = run(view)
+        self.assertEqual(clone_loss, direct_loss)
+        self.assertEqual(alias_loss, direct_loss)
+        for got, ref in zip(clone_grads, direct_grads):
+            torch.testing.assert_close(got, ref, rtol=0, atol=0)
+        self.assertTrue(any(not torch.equal(a, r) for a, r in zip(alias_grads, direct_grads)),
+                        "aliased source must corrupt gradients, else this test is blind")
+        self.assertTrue(torch.equal(model.memory.detach(), pristine), "pool must be restored")
+
     def test_net_and_penalty_are_rebuilt_per_question(self):
         correct = dict(self.select)
         correct["q7"] = True

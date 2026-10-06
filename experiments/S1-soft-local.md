@@ -90,3 +90,12 @@ python3 tools/verify_s1_soft_result.py runs/s1_soft_local.json --historical runs
 证据见[生产CPU复现JSON](../runs/s1_checkpoint_recompute_production_cpu.json)与[独立审计脚本](../tools/audit_s1_checkpoint_recompute.py)。对应代码位置是[源切片](../methods/prlmc/layout.py#L309)、[compactor view](../methods/prlmc/consolidate.py#L583)、[checkpoint](../methods/prlmc/consolidate.py#L639)、[原地注入](../methods/prlmc/probes.py#L821)、[soft训练反向](../tools/s1_soft_local.py#L293)。因此UL第5/10步虽可完成指标计算，逐题与历史轨迹已有差异，不能判为控制复现；不把其中间数字解释成方法效果。
 
 修复方向已确定为：在candidate进入checkpoint前使用独立source副本，使保存的checkpoint输入不再与可注入memory共享storage；修复后需要重新冻结driver hash、重新运行三臂，并重新审视“UL必须逐题复现历史S1-local”的控制门。当前不提交未经用户确认的修复运行，也不启动泛化或论文预算。
+
+## 修复后的协议修订（结果前冻结）
+
+用户已授权先修复再继续。修订内容如下，其余预注册条款不变：
+
+- **驱动修复**：`tools/s1_soft_local.py`的`candidate()`改为对`manager._memory`窗口切片`.clone()`，切断checkpoint保存输入与注入区间的storage别名。`s1_local_protected.py`保持逐字节不变，历史driver hash链继续成立。
+- **梯度回归测试**：`tools/test_s1_soft_local.py`新增`test_production_compactor_cloned_source_gradient_equality`，用生产`CarrierResidualCompactor`+`_pool_in_place`在CPU上对比clone/别名/无注入三路径：clone路径参数梯度与无注入参照逐位相等，别名路径必须不相等（证明测试有判别力）。
+- **控制门修订**：修复后UL不再要求逐题复现历史UL终点——那条轨迹本身就是别名梯度缺陷的产物，其逐题终点是bug产物而非控制目标。修订后的控制为运行内UL第60步的计数不变量：original rescue 7、K harm 6、net+8；历史逐题匹配降级为诊断字段（`control_checks.per_question_match`与核验器`control_detail.historical_per_question_match`），不参与判门。不满足计数不变量仍标INVALID-CONTROL。
+- **审计链**：驱动新增`--gradient-audit`必选参数，指向`runs/s1_checkpoint_recompute_production_cpu.json`；其verdict全部为真才允许启动，hash记入protocol（`gradient_repair_audit_sha256`）。核验器同步要求该字段为64位十六进制。

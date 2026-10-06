@@ -49,7 +49,7 @@ def fixture():
               "protocol": {"window": [3, 17890], "steps": 60, "measure_every": 5,
                            "lr": .003, "weight_decay": .01, "parameter_budget": 1,
                            "seed": 0, "smoke": False, "lambda": 1, "expanded_probes": 296,
-                           **{k: "0" * 64 for k in ("checkpoint_sha256", "basis_sha256", "historical_result_sha256", "driver_sha256")}},
+                           **{k: "0" * 64 for k in ("checkpoint_sha256", "basis_sha256", "historical_result_sha256", "driver_sha256", "gradient_repair_audit_sha256")}},
               "probes": [{"question": q, "answers": ["a"]} for q in qs],
               "baselines": {name: {"correct": values, "ce": {q: 1.0 for q in qs}}
                             for name, values in (("full", full), ("select", select), ("d0", d0))},
@@ -164,10 +164,25 @@ class ResultTests(unittest.TestCase):
         report, old, digest = fixture()
         old["arms"]["subspace_ul"]["final"]["correct"] = dict(old["arms"]["subspace_ul"]["final"]["correct"])
         old["arms"]["subspace_ul"]["final"]["correct"]["q200"] = True
+        # Repaired regime: the historical per-question match is diagnostic, not
+        # gating; the control holds only on the count invariants 7/6/+8.
+        result = validate(report, historical=old, historical_sha256=digest)
+        self.assertTrue(result["control_verified"])
+        self.assertFalse(result["control_detail"]["historical_per_question_match"])
+        report, old, digest = fixture()
+        # Drop one original rescue while keeping recorded counts consistent:
+        # original_7 fails on its own, so control is False. The verdict then
+        # must be recorded as INVALID-CONTROL.
+        set_arm(report, "ul", {**report["arms"]["ul"]["final"]["correct"], "q75": False})
+        report["verdict"] = "INVALID-CONTROL"
+        result = validate(report, historical=old, historical_sha256=digest)
+        self.assertFalse(result["control_verified"])
+        report, old, digest = fixture()
+        changed = dict(report["arms"]["ul"]["final"]["correct"])
+        changed["q75"] = False
+        set_arm(report, "ul", changed)
         report["verdict"] = "INVALID-CONTROL"
         self.assertFalse(validate(report, historical=old, historical_sha256=digest)["control_verified"])
-        with self.assertRaises(AssertionError):
-            validate(report, True, old, digest)
 
     def test_recorded_gate_corruption(self):
         report, _, _ = fixture()
