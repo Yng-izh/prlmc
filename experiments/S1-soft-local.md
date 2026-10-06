@@ -98,4 +98,29 @@ python3 tools/verify_s1_soft_result.py runs/s1_soft_local.json --historical runs
 - **驱动修复**：`tools/s1_soft_local.py`的`candidate()`改为对`manager._memory`窗口切片`.clone()`，切断checkpoint保存输入与注入区间的storage别名。`s1_local_protected.py`保持逐字节不变，历史driver hash链继续成立。
 - **梯度回归测试**：`tools/test_s1_soft_local.py`新增`test_production_compactor_cloned_source_gradient_equality`，用生产`CarrierResidualCompactor`+`_pool_in_place`在CPU上对比clone/别名/无注入三路径：clone路径参数梯度与无注入参照逐位相等，别名路径必须不相等（证明测试有判别力）。
 - **控制门修订**：修复后UL不再要求逐题复现历史UL终点——那条轨迹本身就是别名梯度缺陷的产物，其逐题终点是bug产物而非控制目标。修订后的控制为运行内UL第60步的计数不变量：original rescue 7、K harm 6、net+8；历史逐题匹配降级为诊断字段（`control_checks.per_question_match`与核验器`control_detail.historical_per_question_match`），不参与判门。不满足计数不变量仍标INVALID-CONTROL。
+- **net 边界的单边化（运行后裁决）**：修复梯度使UL控制臂终步落在net=+9（比历史buggy终点多救回1题，逐题差恰为"Who is Ethel Skakel Kennedy married to?"；original 7与K harm 6逐位成立，rescued清单其余逐题一致）。等式net==8会把更强的控制判为失败，与控制的目的（恢复original、伤害受限）相悖。经用户裁决，net不变量单边化为net≥8：超出幅度与逐题差异记录在`control_detail`，等式语义废弃。该裁决在看到soft臂终点之后作出，但UL终态在soft臂运行前已冻结，两臂终点不因该裁决改变。
 - **审计链**：驱动新增`--gradient-audit`必选参数，指向`runs/s1_checkpoint_recompute_production_cpu.json`；其verdict全部为真才允许启动，hash记入protocol（`gradient_repair_audit_sha256`）。核验器同步要求该字段为64位十六进制。
+
+## 修复后正式运行结果（60步，GPU9）
+
+修复提交`00c4880`（driver hash `17db9cfe…`）与远端逐字节同步后，先跑smoke 2/1（`runs/s1_soft_smoke2.json`，verdict=SMOKE-ONLY，双端指标/权重audit通过），随后启动正式三臂60步。命令行在预注册基础上新增`--gradient-audit runs/s1_checkpoint_recompute_production_cpu.json`（sha256 `63059678…`，verdict全真）。
+
+三臂终步（step 60，296题全量）：
+
+| 臂 | original | R | T | K_harm | P_harm | net | penalty |
+|---|---|---|---|---|---|---|---|
+| ul（控制） | 7 | 15 | 38 | 6 | 0 | +9 | 0 |
+| soft_p | 7 | 14 | 38 | 6 | 0 | +8 | 0.001407 |
+| soft_k | 7 | 15 | 38 | 6 | 0 | +9 | 0.007022 |
+
+UL轨迹：net从step5的−34单调爬升，step40达+8，step45起+9并保持到终步；soft_p在step25-40停在+7、step45起+8；soft_k在step30-35停在+7、step40起+8、step45起+9。soft_k的penalty从0.067（step15）单调降到0.007（step60），即惩罚随训练被最小化，但未换来任何超过控制的恢复。
+
+**verdict=NO-IMPROVEMENT**。gate七项中`rescue_not_below_control`与`strict_improvement`失败：soft_p的R=14低于控制15，soft_k与控制打平（R15/T38/K6逐项相同）。λ=1的单边CE保护罚项在两种形式（P臂保护rescue_d0_correct、K臂保护retained）下都未能产生任何严格优于无约束UL的指标。S1-soft-local的结论为：在该预算（13 DOF、60步、AdamW lr.003）下，单边软惩罚不优于无约束基线。
+
+控制判定（修订语义）：original_7 ✓、harm_6 ✓、net≥8 ✓（+9，超出记录为诊断）。历史逐题匹配为False（1题差异，诊断字段）。
+
+权重audit（远端+本地独立各一次）三臂全部通过：13 DOF、源compactor参数冻结逐位一致、span泄漏~1.1e-8、delta范数UL 0.4420/soft_p 0.4420/soft_k 0.4405。指标audit：`verify_s1_soft_result.py --require-complete --historical`通过，报告sha256 `e707b139…`。
+
+工件：[结果JSON](../runs/s1_soft_local.json)、[训练日志](../runs/s1_soft_local.log)、四组.pt（basis/ul/soft_p/soft_k，hash见下）。smoke2工件：`runs/s1_soft_smoke2.*`（json sha256 `4b25c47b…`）。正式driver hash：`17db9cfe76bb841af30eb0999e9c5a2cc4c06f9ac337083eeb53fb0de84ff984`。核验器/测试同步修订（net单边化）后全部测试通过（`test_s1_soft_local.py` 11项、`test_verify_s1_soft_result.py` 10项）。
+
+无效运行快照（别名缺陷期的step5/10）保留为`runs/s1_soft_local_invalid_training_graph.json`与`runs/s1_soft_local_snapshot.json`，仅作缺陷证据，不参与判门。

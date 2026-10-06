@@ -165,7 +165,8 @@ class ResultTests(unittest.TestCase):
         old["arms"]["subspace_ul"]["final"]["correct"] = dict(old["arms"]["subspace_ul"]["final"]["correct"])
         old["arms"]["subspace_ul"]["final"]["correct"]["q200"] = True
         # Repaired regime: the historical per-question match is diagnostic, not
-        # gating; the control holds only on the count invariants 7/6/+8.
+        # gating; the control holds on the count invariants 7/6 and the
+        # one-sided net >= 8 (a repaired gradient may recover more).
         result = validate(report, historical=old, historical_sha256=digest)
         self.assertTrue(result["control_verified"])
         self.assertFalse(result["control_detail"]["historical_per_question_match"])
@@ -177,6 +178,17 @@ class ResultTests(unittest.TestCase):
         report["verdict"] = "INVALID-CONTROL"
         result = validate(report, historical=old, historical_sha256=digest)
         self.assertFalse(result["control_verified"])
+        report, old, digest = fixture()
+        # One-sided net bound: a repaired-gradient control that lands above 8
+        # is a *stronger* control, so the verdict stays NO-IMPROVEMENT rather
+        # than INVALID-CONTROL. q95 is a rescue-cohort D0-correct question,
+        # so original_7 is untouched and the d0-harm count drops instead.
+        set_arm(report, "ul", {**report["arms"]["ul"]["final"]["correct"], "q95": True})
+        report["verdict"] = "NO-IMPROVEMENT"  # soft_p no longer matches control
+        result = validate(report, historical=old, historical_sha256=digest)
+        self.assertTrue(result["control_verified"])
+        self.assertEqual(result["control_detail"]["net_vs_select"], 9)
+        self.assertFalse(all(result["gate"].values()))
         report, old, digest = fixture()
         changed = dict(report["arms"]["ul"]["final"]["correct"])
         changed["q75"] = False
