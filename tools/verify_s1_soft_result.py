@@ -147,7 +147,7 @@ def validate(report, require_complete=False, historical=None, historical_sha256=
     ul_arm = report["arms"].get("ul")
     ul = ul_arm["final"] if ul_arm else None
     control = None
-    if ul is not None and ul["step"] == protocol["steps"]:
+    if ul is not None and ul["step"] == 60 and not protocol["smoke"]:
         control = ul["original_rescue"] == 7 and ul["retained_harmed"] == 6 and ul["net_vs_select"] == 8
         if historical is not None and not protocol["smoke"]:
             control = control and ul["correct"] == historical["arms"]["subspace_ul"]["final"]["correct"]

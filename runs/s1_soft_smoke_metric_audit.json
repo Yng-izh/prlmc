@@ -1,0 +1,33 @@
+{
+  "status": "complete",
+  "metrics_verified": true,
+  "arms": [
+    {
+      "arm": "ul",
+      "step": 2,
+      "net": -39
+    },
+    {
+      "arm": "soft_p",
+      "step": 2,
+      "net": -39
+    },
+    {
+      "arm": "soft_k",
+      "step": 2,
+      "net": -39
+    }
+  ],
+  "control_verified": null,
+  "gate": {
+    "original_rescue_at_least_7": false,
+    "no_new_protect_harm": true,
+    "rescue_not_below_control": true,
+    "repair_not_below_control": true,
+    "harm_not_above_control": true,
+    "net_at_least_8": false,
+    "strict_improvement": false
+  },
+  "historical_verified": true,
+  "report_sha256": "3db626fa896b0cdb816ae0fbf0945d41aacf12f1e2be3707f3e905f2811c98b4"
+}

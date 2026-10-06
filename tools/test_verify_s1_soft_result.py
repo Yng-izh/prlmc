@@ -156,7 +156,7 @@ class ResultTests(unittest.TestCase):
             arm["final"] = copy.deepcopy(arm["history"][-1])
         with self.assertRaises(AssertionError):
             validate(report)
-        validate(report, allow_smoke=True)
+        self.assertIsNone(validate(report, allow_smoke=True)["control_verified"])
         with self.assertRaises(AssertionError):
             validate(report, True, old, digest, allow_smoke=True)
         with self.assertRaises(AssertionError):

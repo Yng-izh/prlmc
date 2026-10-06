@@ -53,4 +53,28 @@ native select与D0为无训练参照，历史hard臂只作历史对照。UL-soft
 
 ## 运行与结果
 
-尚未完成正式训练。结果与复现命令在完成独立核验后追加，本预注册段保留不改。
+尚未完成正式训练。预注册实现与解释修订已在结果前以`ae254bf`推送；本地和原远端均20项新增测试通过。原历史五臂JSON继续通过原核验器、SHA256未变。
+
+完整基线快照独立核验通过：R=36（D0正确4、错误32），P=31，T=44，原13题与R/T交集为6/7。此处是基线分解，不是三臂最终方法结果。
+
+```bash
+/share/latent/mllm_env/bin/python -B -m unittest discover -s tools -p 'test_*s1_soft*.py' -v
+/share/latent/mllm_env/bin/python -u tools/s1_soft_local.py --carrier-ckpt runs/e6d_interleave_ckpt.pt --basis runs/s1_local_protected.basis.pt --historical-result runs/s1_local_protected.json --smoke --cuda-device 9 --out runs/s1_soft_smoke.json
+/share/latent/mllm_env/bin/python -u tools/s1_soft_local.py --carrier-ckpt runs/e6d_interleave_ckpt.pt --basis runs/s1_local_protected.basis.pt --historical-result runs/s1_local_protected.json --cuda-device 9 --out runs/s1_soft_local.json
+python3 tools/verify_s1_soft_result.py runs/s1_soft_local.json --historical runs/s1_local_protected.json --require-complete
+/share/latent/mllm_env/bin/python tools/audit_s1_soft_checkpoints.py runs/s1_soft_local.json runs/e6d_interleave_ckpt.pt --source-basis runs/s1_local_protected.basis.pt
+```
+
+三臂短验证与正式训练结果在完成独立核验后追加，以上命令列为复现入口，不表示尚未执行的步骤已经完成。本预注册段保留不改。
+
+### 已完成的短验证
+
+三臂完整296题、2steps、每步测量，进程exit0，verdict=SMOKE-ONLY。初始化均逐题正确性和CE等于D0；全部基线检查通过。三臂末步original rescue0/13、R恢复4/36、T repair1/44、P新增harm0/31、K harm43/75、net−39；短步数仅验证链路，不用于方法判门。
+
+候选soft-P第2步罚项约8e-6；soft-K约5.95e-4。真实alpha/位移已不同于UL，单边罚项梯度实际参与更新。三臂13DOF，全部源compactor参数冻结，预算通过；实际delta范数UL0.01964989、soft-P0.01965276、soft-K0.01972804，正式UL span泄漏约4.9e-10。
+
+原远端Torch2.5.1与本地Torch2.8独立指标/权重审计均通过，四个二进制工件已收回、hash逐项匹配远端；权重不纳入普通Git提交。结果见[smoke JSON](../runs/s1_soft_smoke.json)与[日志](../runs/s1_soft_smoke.log)，[远端指标audit](../runs/s1_soft_smoke_metric_audit.json)、[权重audit](../runs/s1_soft_smoke_checkpoint_audit.json)、[本地指标audit](../runs/s1_soft_smoke_metric_audit_local.json)、[本地权重audit](../runs/s1_soft_smoke_checkpoint_audit_local.json)、[工件清单](../runs/s1_soft_smoke_artifact_manifest.json)。smoke audit的正式control门不适用，记null；gate仅为诊断重算，不影响SMOKE-ONLY状态。
+
+### 正式运行状态
+
+短验证双audit通过后，已在原GPU9启动固定60步的正式运行。训练驱动与预注册版本相同。先完成UL并逐题核对历史第60步结果，控制通过才继续两个soft臂；不选中间峰值，不改lambda或门槛。正式终点与核验结果尚待完成。

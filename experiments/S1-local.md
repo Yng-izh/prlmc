@@ -71,7 +71,7 @@ python3 tools/verify_s1_local_result.py runs/s1_local_protected.json --require-c
 
 原NO-GO的对象是本轮hard-nullspace保护构造，不是全部functional-subspace路线。UL以13个自由度得到rescue7/13、harm6/75、净+8，优于指定自由更新和系数oracle的本地折中，构成继续受控验证的正证据；单窗口监督、不同优化坐标与最终位移范数仍限制其归因，不宣称普遍有效或已证实泛化。
 
-K=75题是在select正确状态定义的，但JK取自D0；其中31题D0正确、44题D0错误。原13题中7题也是K，实际属于checkpoint退化repair，不能称为selection丢失。硬约束对正确与错误基点的CE变化同样限制，不允许一阶改善；这与“保留已有正确能力”的目标不同。它不是把44题永久冻结：有限更新仍修复7题，CE局部约束也不等价于token预测不变。
+K=75题是在select正确状态定义的，但JK取自D0；其中31题D0正确、44题D0错误。原13题中7题也是K，实际属于checkpoint退化repair，不能称为selection丢失。逐题比对select与UL的rescued列表，UL的7/13由6道repair和1道原始selection-loss恢复组成，不能将7/13整体解释为压缩恢复。硬约束对正确与错误基点的CE变化同样限制，不允许一阶改善；这与“保留已有正确能力”的目标不同。它不是把44题永久冻结：有限更新仍修复7题，CE局部约束也不等价于token预测不变。
 
 保存基CPU复核：投影奇异值6个非零（0.540、0.653、0.714、0.777、0.826、0.862），另7个约1e-14。lost与K的7题重叠已足以解释全部精确秩下降，因此13→6本身不独立证明公共轴被删，也不称剩余6维为边缘tail。投影后的span一般不是原UL与K正交补的交集；实际safe基在原UL外的Frobenius残差1.656。S0公共轴比例是历史训练态证据，不能直接当作本轮确定性谱的解释。
 
