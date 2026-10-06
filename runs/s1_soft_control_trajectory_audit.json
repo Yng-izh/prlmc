@@ -1,0 +1,58 @@
+{
+  "status": "trajectory-diagnostic",
+  "measurements": [
+    {
+      "step": 5,
+      "changed_questions": [
+        "What position does Sami Khedira play?",
+        "What religion is Evan Mecham affiliated with?"
+      ],
+      "original_rescue_old_new": [
+        0,
+        0
+      ],
+      "harm_old_new": [
+        39,
+        39
+      ],
+      "net_old_new": [
+        -35,
+        -34
+      ],
+      "accuracy_old_new": [
+        0.21283783783783783,
+        0.2195945945945946
+      ],
+      "deviation_old_new": [
+        0.04900070279836655,
+        0.04899762570858002
+      ]
+    },
+    {
+      "step": 10,
+      "changed_questions": [
+        "Who is the author of canon of Sherlock Holmes?"
+      ],
+      "original_rescue_old_new": [
+        3,
+        3
+      ],
+      "harm_old_new": [
+        28,
+        28
+      ],
+      "net_old_new": [
+        -23,
+        -22
+      ],
+      "accuracy_old_new": [
+        0.26013513513513514,
+        0.2635135135135135
+      ],
+      "deviation_old_new": [
+        0.10212597250938416,
+        0.10211601853370667
+      ]
+    }
+  ]
+}

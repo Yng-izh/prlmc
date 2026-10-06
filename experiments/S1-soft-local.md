@@ -78,3 +78,15 @@ python3 tools/verify_s1_soft_result.py runs/s1_soft_local.json --historical runs
 ### 正式运行状态
 
 短验证双audit通过后，已在原GPU9启动固定60步的正式运行。训练驱动与预注册版本相同。先完成UL并逐题核对历史第60步结果，控制通过才继续两个soft臂；不选中间峰值，不改lambda或门槛。正式终点与核验结果尚待完成。
+
+运行中第5/10步快照独立指标核验通过，baseline与P/T/R集合匹配；与历史UL的rescue/harm计数相同，但逐题分别2/1题预测不同，alpha范数相差约3.1e-6/1.0e-5，net分别−34/−22而历史−35/−23。见[控制轨迹诊断](../runs/s1_soft_control_trajectory_audit.json)。这不是已通过复现：继续按第60步逐题一致与7/6/+8的原门核对，不放宽门槛。当前尚未确认偏差原因，不将其直接归因为数值非确定性。
+
+### 正式运行中止：训练图无效
+
+第10步时发现并独立复现了训练图缺陷，正式运行随即停止，未完成第60步，也未运行soft-P/soft-K。中间文件保留为[无效运行记录](../runs/s1_soft_local_invalid_training_graph.json)，原始状态快照为[运行JSON](../runs/s1_soft_local_snapshot.json)。该记录不参与任何方法判门。
+
+缺陷链为：`layout.py`的`_memory`返回`model.memory.data`；`s1_soft_local.py`先从其切片构建candidate；`CarrierResidualCompactor`在`use_reentrant=False` checkpoint中保存该storage-backed view；随后`_pool_in_place`把candidate写回重叠的memory区间；backward重算读取了已改变的source。CPU直接调用生产`CarrierResidualCompactor`、`_pool_in_place`与`make_displacement`的审计显示，forward和loss逐位相同，但`.data`路径梯度与未注入路径不同；clone source路径梯度逐位一致，memory退出逐位恢复。fp32/13D alpha梯度差范数为0.2081410736，fp16/13D为0.2125255316；不是CUDA数值波动。
+
+证据见[生产CPU复现JSON](../runs/s1_checkpoint_recompute_production_cpu.json)与[独立审计脚本](../tools/audit_s1_checkpoint_recompute.py)。对应代码位置是[源切片](../methods/prlmc/layout.py#L309)、[compactor view](../methods/prlmc/consolidate.py#L583)、[checkpoint](../methods/prlmc/consolidate.py#L639)、[原地注入](../methods/prlmc/probes.py#L821)、[soft训练反向](../tools/s1_soft_local.py#L293)。因此UL第5/10步虽可完成指标计算，逐题与历史轨迹已有差异，不能判为控制复现；不把其中间数字解释成方法效果。
+
+修复方向已确定为：在candidate进入checkpoint前使用独立source副本，使保存的checkpoint输入不再与可注入memory共享storage；修复后需要重新冻结driver hash、重新运行三臂，并重新审视“UL必须逐题复现历史S1-local”的控制门。当前不提交未经用户确认的修复运行，也不启动泛化或论文预算。

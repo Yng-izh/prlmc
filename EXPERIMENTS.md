@@ -59,7 +59,7 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 
 | SIC-P1 | 论文级受控实验：实体隔离24 episode、冻结协议、真实生成EM | 脱离旧4上下文/旧82题，主指标贪心生成EM、support oracle逼近门、episode级推断；16测试episode仍封存 | 数据冻结+smoke完成：ep0 SIC稳定性候选22/64低于native 23/64；候选未达标。按新要求暂停开发，仅保留历史诊断 | [SIC-P1.md](experiments/SIC-P1.md) |
 | S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 正式五臂60步完成；**hard-nullspace构造NO-GO**：protected rescue1/13、harm37/75；UL为7/13、6/75、净+8。本地正证据待独立验证，历史判门不变 | [S1-local.md](experiments/S1-local.md) |
-| S1-soft-local | 固定13维UL的单边有限CE保护 | 原监督与UL不变，P=31保护与K=75消融，分开rescue/repair/protect | 三臂2步SMOKE-ONLY及双audit通过；固定60步正式运行中，不启动泛化或论文预算 | [S1-soft-local.md](experiments/S1-soft-local.md) |
+| S1-soft-local | 固定13维UL的单边有限CE保护 | 原监督与UL不变，P=31保护与K=75消融，分开rescue/repair/protect | smoke及双audit通过；正式运行第10步发现checkpoint输入与原地注入storage别名，已中止并标记INVALID-TRAINING-GRAPH；未运行soft臂终点，不判方法门，不启动泛化或论文预算 | [S1-soft-local.md](experiments/S1-soft-local.md) |
 
 ## 证据边界（论文推进审计）
 
