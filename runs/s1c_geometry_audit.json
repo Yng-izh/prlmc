@@ -1,0 +1,2990 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "diagnostic_only": true,
+  "protocol": {
+    "window": [
+      3,
+      17890
+    ],
+    "probes_per_cohort": {
+      "rescue": 36,
+      "protect": 31,
+      "repair": 44
+    },
+    "basis_sha256": "07fa8b78b55f64a368eca7c1613d2ef3cc18c3defdcc9d6ea63bbfdd57d83273",
+    "checkpoint_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+    "gradient_repair_audit_sha256": "630596787cacb39d2a4b579c0c2ce1366a27e9ee706a9fd8184923f1eeae687f",
+    "historical_result_sha256": "12538514f04b76b7391881e188210e50f3d54b2abd1d9102606567fab013e52c",
+    "driver_sha256": "b5ba8fa0edf11f0efae9903afe1ebc4cf8687883d5ab3c0d7cd2fad344e7fcb7",
+    "analysis_only": false
+  },
+  "analysis": {
+    "basis_sha256": "07fa8b78b55f64a368eca7c1613d2ef3cc18c3defdcc9d6ea63bbfdd57d83273",
+    "checkpoint_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+    "rows_count": 111,
+    "cohort_counts": {
+      "rescue": 36,
+      "protect": 31,
+      "repair": 44
+    },
+    "cos_full": {
+      "rescue|rescue": 1.0000000000000013,
+      "rescue|protect": 0.8259716762708442,
+      "rescue|repair": 0.7947584733427514,
+      "protect|rescue": 0.8259716762708442,
+      "protect|protect": 0.9999999999999996,
+      "protect|repair": 0.7636331290142291,
+      "repair|rescue": 0.7947584733427514,
+      "repair|protect": 0.7636331290142291,
+      "repair|repair": 1.0000000000000107
+    },
+    "cos_projected": {
+      "rescue|rescue": 0.9999999999999998,
+      "rescue|protect": 0.9497560263191075,
+      "rescue|repair": 0.9252497369591037,
+      "protect|rescue": 0.9497560263191075,
+      "protect|protect": 1.0,
+      "protect|repair": 0.8642787808922808,
+      "repair|rescue": 0.9252497369591037,
+      "repair|protect": 0.8642787808922808,
+      "repair|repair": 0.9999999999999998
+    },
+    "conflict_energy": {
+      "protect": 0.9497560263191075,
+      "repair": 0.9252497369591037
+    },
+    "projected_energy_fraction": {
+      "rescue": 0.4406236162321327,
+      "protect": 0.30333784370499983,
+      "repair": 0.4063648890204997
+    },
+    "per_question": [
+      {
+        "question": "In what city was Bj\u00f6rk born?",
+        "cohort": "protect",
+        "grad_norm": 1.6546741056531582,
+        "proj_norm": 0.8295480349449035,
+        "residual_norm": 1.4317110230902492,
+        "projected_fraction": 0.2513379894166815
+      },
+      {
+        "question": "In what city was Charles FitzRoy, 2nd Duke of Grafton born?",
+        "cohort": "protect",
+        "grad_norm": 3.8900766896805172,
+        "proj_norm": 2.400279483519984,
+        "residual_norm": 3.0612669031936384,
+        "projected_fraction": 0.3807214095182059
+      },
+      {
+        "question": "In what country was American Beauty created?",
+        "cohort": "protect",
+        "grad_norm": 2.778222622601505,
+        "proj_norm": 1.5756840987750418,
+        "residual_norm": 2.2881740671553525,
+        "projected_fraction": 0.32166530326160664
+      },
+      {
+        "question": "In what country was Dota 2 created?",
+        "cohort": "protect",
+        "grad_norm": 5.366358031597465,
+        "proj_norm": 1.905155846904173,
+        "residual_norm": 5.016789782549939,
+        "projected_fraction": 0.12603806496033548
+      },
+      {
+        "question": "In what country was Variety created?",
+        "cohort": "protect",
+        "grad_norm": 4.3625184572038815,
+        "proj_norm": 1.808744836944349,
+        "residual_norm": 3.969887832706574,
+        "projected_fraction": 0.17190165346956693
+      },
+      {
+        "question": "In what country was rock music created?",
+        "cohort": "protect",
+        "grad_norm": 5.730168883065264,
+        "proj_norm": 3.880795771581152,
+        "residual_norm": 4.215952989269125,
+        "projected_fraction": 0.45867675668850955
+      },
+      {
+        "question": "What continent is Japan located in?",
+        "cohort": "protect",
+        "grad_norm": 3.6212975736755655,
+        "proj_norm": 1.4665424099670559,
+        "residual_norm": 3.3110496035058965,
+        "projected_fraction": 0.16400641134156954
+      },
+      {
+        "question": "What continent is Kingdom of England located in?",
+        "cohort": "protect",
+        "grad_norm": 2.252031463312667,
+        "proj_norm": 0.594123491260393,
+        "residual_norm": 2.1722483718218673,
+        "projected_fraction": 0.06959924705498133
+      },
+      {
+        "question": "What continent is Sri Lanka located in?",
+        "cohort": "protect",
+        "grad_norm": 0.6921057623424398,
+        "proj_norm": 0.1255033825203232,
+        "residual_norm": 0.6806315355929133,
+        "projected_fraction": 0.032882583500481476
+      },
+      {
+        "question": "What continent is Sweden located in?",
+        "cohort": "protect",
+        "grad_norm": 1.9763168532874857,
+        "proj_norm": 0.6005224486108395,
+        "residual_norm": 1.8828704398610625,
+        "projected_fraction": 0.09233053354186921
+      },
+      {
+        "question": "What is Charles M. Schulz famous for?",
+        "cohort": "protect",
+        "grad_norm": 0.05189258128392187,
+        "proj_norm": 0.03308982179293233,
+        "residual_norm": 0.03997378748655698,
+        "projected_fraction": 0.40661023655898115
+      },
+      {
+        "question": "What is the capital of Indonesia?",
+        "cohort": "protect",
+        "grad_norm": 6.186091216450649,
+        "proj_norm": 4.336138159144808,
+        "residual_norm": 4.411987126347508,
+        "projected_fraction": 0.4913303407000169
+      },
+      {
+        "question": "What is the capital of Lapland?",
+        "cohort": "protect",
+        "grad_norm": 1.1046105940104787,
+        "proj_norm": 0.948280496837997,
+        "residual_norm": 0.5665056607986049,
+        "projected_fraction": 0.7369791968392161
+      },
+      {
+        "question": "What is the country of citizenship of David Eagleman?",
+        "cohort": "protect",
+        "grad_norm": 2.920027372802985,
+        "proj_norm": 1.8212446072204087,
+        "residual_norm": 2.2824609391157784,
+        "projected_fraction": 0.38901174384519827
+      },
+      {
+        "question": "What is the country of citizenship of Hideo Kojima?",
+        "cohort": "protect",
+        "grad_norm": 1.2893253285254402,
+        "proj_norm": 1.021451074092049,
+        "residual_norm": 0.7867639455474772,
+        "projected_fraction": 0.6276392722085191
+      },
+      {
+        "question": "What is the country of citizenship of John M. Parker?",
+        "cohort": "protect",
+        "grad_norm": 0.8151122761378805,
+        "proj_norm": 0.7386786182904364,
+        "residual_norm": 0.34461851603070914,
+        "projected_fraction": 0.8212515238652915
+      },
+      {
+        "question": "What is the country of citizenship of Justin Welby?",
+        "cohort": "protect",
+        "grad_norm": 2.91739028180208,
+        "proj_norm": 2.649275013208251,
+        "residual_norm": 1.2216824303981948,
+        "projected_fraction": 0.8246411888968437
+      },
+      {
+        "question": "What is the country of citizenship of Mark Few?",
+        "cohort": "protect",
+        "grad_norm": 1.1387686899382239,
+        "proj_norm": 1.0613291475700746,
+        "residual_norm": 0.41276454511234045,
+        "projected_fraction": 0.8686186451128872
+      },
+      {
+        "question": "What is the country of citizenship of Tod Gordon?",
+        "cohort": "protect",
+        "grad_norm": 0.7156345690758033,
+        "proj_norm": 0.6202991033994939,
+        "residual_norm": 0.3568779326017435,
+        "projected_fraction": 0.7513108910192685
+      },
+      {
+        "question": "What is the country of citizenship of Victor Emmanuel II of Savoy?",
+        "cohort": "protect",
+        "grad_norm": 5.52625176811708,
+        "proj_norm": 1.9782794945133597,
+        "residual_norm": 5.160026050923108,
+        "projected_fraction": 0.12814862925632714
+      },
+      {
+        "question": "What language does Leslie Mann speak?",
+        "cohort": "protect",
+        "grad_norm": 4.099940990144608,
+        "proj_norm": 2.5487724910250744,
+        "residual_norm": 3.211428795981905,
+        "projected_fraction": 0.38646211845716716
+      },
+      {
+        "question": "What language does Mariah Carey speak?",
+        "cohort": "protect",
+        "grad_norm": 5.397669415721958,
+        "proj_norm": 3.109287728445395,
+        "residual_norm": 4.4121610286977395,
+        "projected_fraction": 0.33182512061492175
+      },
+      {
+        "question": "What religion is Gonzaga College High School affiliated with?",
+        "cohort": "protect",
+        "grad_norm": 1.45824881255283,
+        "proj_norm": 0.6438516046960837,
+        "residual_norm": 1.3084130503942615,
+        "projected_fraction": 0.19494329481032688
+      },
+      {
+        "question": "What religion is John Witherspoon affiliated with?",
+        "cohort": "protect",
+        "grad_norm": 3.161776756074156,
+        "proj_norm": 1.4130685138973311,
+        "residual_norm": 2.8284394337306926,
+        "projected_fraction": 0.1997395348830843
+      },
+      {
+        "question": "What religion is Paul Begala affiliated with?",
+        "cohort": "protect",
+        "grad_norm": 4.868378505874684,
+        "proj_norm": 2.1372544769488444,
+        "residual_norm": 4.374157356248714,
+        "projected_fraction": 0.1927275489917335
+      },
+      {
+        "question": "Who created centrifugal governor?",
+        "cohort": "protect",
+        "grad_norm": 1.9025875003362034,
+        "proj_norm": 0.4921982458803272,
+        "residual_norm": 1.8378193826347278,
+        "projected_fraction": 0.06692537985837115
+      },
+      {
+        "question": "Who developed Zune?",
+        "cohort": "protect",
+        "grad_norm": 2.87262036095569,
+        "proj_norm": 1.2740574586537106,
+        "residual_norm": 2.5746311056588373,
+        "projected_fraction": 0.1967077906275871
+      },
+      {
+        "question": "Who is Charles Sprague Sargent employed by?",
+        "cohort": "protect",
+        "grad_norm": 0.14527642240170088,
+        "proj_norm": 0.0622529077011199,
+        "residual_norm": 0.13126238756244404,
+        "projected_fraction": 0.18362381655733184
+      },
+      {
+        "question": "Who is John Lightfoot employed by?",
+        "cohort": "protect",
+        "grad_norm": 1.3091393698771807,
+        "proj_norm": 0.9358461973660901,
+        "residual_norm": 0.9154440368683665,
+        "projected_fraction": 0.511019170601143
+      },
+      {
+        "question": "Who is the author of Le Cid?",
+        "cohort": "protect",
+        "grad_norm": 7.992632830219265,
+        "proj_norm": 4.264695720543493,
+        "residual_norm": 6.759774402291606,
+        "projected_fraction": 0.28470583994570947
+      },
+      {
+        "question": "Who is the author of Politics?",
+        "cohort": "protect",
+        "grad_norm": 0.802014463937415,
+        "proj_norm": 0.5871495838245847,
+        "residual_norm": 0.5463355805541464,
+        "projected_fraction": 0.5359609071100446
+      },
+      {
+        "question": "In what city did Li Hongzhang die?",
+        "cohort": "repair",
+        "grad_norm": 4.628587843646587,
+        "proj_norm": 2.5488626685373275,
+        "residual_norm": 3.8635637076784093,
+        "projected_fraction": 0.30324653855103684
+      },
+      {
+        "question": "In what city was Canadair founded?",
+        "cohort": "repair",
+        "grad_norm": 8.343312264606432,
+        "proj_norm": 5.786687925526721,
+        "residual_norm": 6.01041615841161,
+        "projected_fraction": 0.4810421443786182
+      },
+      {
+        "question": "In what country was GFriend created?",
+        "cohort": "repair",
+        "grad_norm": 3.3820885649945502,
+        "proj_norm": 1.1482179824383456,
+        "residual_norm": 3.181213373270034,
+        "projected_fraction": 0.11526003209593658
+      },
+      {
+        "question": "In what language was The Monk written?",
+        "cohort": "repair",
+        "grad_norm": 5.7618700587361005,
+        "proj_norm": 4.527444051284995,
+        "residual_norm": 3.563901925733038,
+        "projected_fraction": 0.6174179686208325
+      },
+      {
+        "question": "In what language was The X-Files written?",
+        "cohort": "repair",
+        "grad_norm": 5.153937119801747,
+        "proj_norm": 5.15393575623521,
+        "residual_norm": 0.0037490626191860497,
+        "projected_fraction": 0.999999470864186
+      },
+      {
+        "question": "What is the capital of Yugoslavia?",
+        "cohort": "repair",
+        "grad_norm": 2.7024806054200154,
+        "proj_norm": 1.8471885043180358,
+        "residual_norm": 1.972636827240795,
+        "projected_fraction": 0.4671940063287212
+      },
+      {
+        "question": "What is the country of citizenship of Benny Carter?",
+        "cohort": "repair",
+        "grad_norm": 9.626959764802084,
+        "proj_norm": 5.594132290719208,
+        "residual_norm": 7.834796629591023,
+        "projected_fraction": 0.3376658586355344
+      },
+      {
+        "question": "What is the country of citizenship of Catherine Dickens?",
+        "cohort": "repair",
+        "grad_norm": 36.98963682352504,
+        "proj_norm": 17.175289941586975,
+        "residual_norm": 32.760382289568916,
+        "projected_fraction": 0.21559963433564447
+      },
+      {
+        "question": "What is the country of citizenship of Eleanor Roosevelt?",
+        "cohort": "repair",
+        "grad_norm": 5.875471017361308,
+        "proj_norm": 1.7436425665482311,
+        "residual_norm": 5.6107816100766055,
+        "projected_fraction": 0.08807031479900025
+      },
+      {
+        "question": "What is the country of citizenship of Hillary Clinton?",
+        "cohort": "repair",
+        "grad_norm": 1.100438662563057,
+        "proj_norm": 1.1004383828442292,
+        "residual_norm": 0.0007846188545489671,
+        "projected_fraction": 0.9999994916231106
+      },
+      {
+        "question": "What is the country of citizenship of Malcolm Forbes?",
+        "cohort": "repair",
+        "grad_norm": 1.1912148662422632,
+        "proj_norm": 1.1912145643007297,
+        "residual_norm": 0.0008481476263307114,
+        "projected_fraction": 0.9999994930528422
+      },
+      {
+        "question": "What is the country of citizenship of Pierre Delano\u00eb?",
+        "cohort": "repair",
+        "grad_norm": 1.4576609412218107,
+        "proj_norm": 1.1582016170379643,
+        "residual_norm": 0.8850674741816579,
+        "projected_fraction": 0.6313283622157265
+      },
+      {
+        "question": "What is the country of citizenship of Steve Jobs?",
+        "cohort": "repair",
+        "grad_norm": 5.8929245724264305,
+        "proj_norm": 2.1667670828905234,
+        "residual_norm": 5.480116825835862,
+        "projected_fraction": 0.1351956424504253
+      },
+      {
+        "question": "What language does Ian Anderson speak?",
+        "cohort": "repair",
+        "grad_norm": 5.477216206951827,
+        "proj_norm": 4.422708394001824,
+        "residual_norm": 3.2310289134146664,
+        "projected_fraction": 0.6520138816513711
+      },
+      {
+        "question": "What position does Bill Laimbeer play?",
+        "cohort": "repair",
+        "grad_norm": 19.69082691785912,
+        "proj_norm": 11.954369045220337,
+        "residual_norm": 15.646780034235896,
+        "projected_fraction": 0.36857460455379537
+      },
+      {
+        "question": "What religion is Mahmud al-Kashgari affiliated with?",
+        "cohort": "repair",
+        "grad_norm": 2.8665061845076463,
+        "proj_norm": 1.3793806760966405,
+        "residual_norm": 2.512800560377158,
+        "projected_fraction": 0.23155944981753962
+      },
+      {
+        "question": "What sport is 1959 FA Cup Final associated with?",
+        "cohort": "repair",
+        "grad_norm": 7.088121163492408,
+        "proj_norm": 7.036975375125806,
+        "residual_norm": 0.8499642334957344,
+        "projected_fraction": 0.9856206572259762
+      },
+      {
+        "question": "What sport is 2010 African Women's Championship associated with?",
+        "cohort": "repair",
+        "grad_norm": 6.891186788524321,
+        "proj_norm": 6.89118619462101,
+        "residual_norm": 0.0028610132708981845,
+        "projected_fraction": 0.9999998276339612
+      },
+      {
+        "question": "What sport is Alejandro Sabella associated with?",
+        "cohort": "repair",
+        "grad_norm": 4.832581211022047,
+        "proj_norm": 4.56148648812299,
+        "residual_norm": 1.5958327543306987,
+        "projected_fraction": 0.8909523207670815
+      },
+      {
+        "question": "What sport is CD Atl\u00e9tico Baleares associated with?",
+        "cohort": "repair",
+        "grad_norm": 6.3805993052677366,
+        "proj_norm": 6.380598939098271,
+        "residual_norm": 0.0021616570364777826,
+        "projected_fraction": 0.9999998852241184
+      },
+      {
+        "question": "What sport is Crumlin United associated with?",
+        "cohort": "repair",
+        "grad_norm": 5.829855727462489,
+        "proj_norm": 5.829855563553212,
+        "residual_norm": 0.0013824380076680205,
+        "projected_fraction": 0.9999999437690118
+      },
+      {
+        "question": "What sport is Damallsvenskan associated with?",
+        "cohort": "repair",
+        "grad_norm": 3.8809899509034165,
+        "proj_norm": 3.682966916330856,
+        "residual_norm": 1.2238617945771848,
+        "projected_fraction": 0.9005557403764268
+      },
+      {
+        "question": "What sport is HIFK Fotboll associated with?",
+        "cohort": "repair",
+        "grad_norm": 4.254625829148712,
+        "proj_norm": 4.191446520789749,
+        "residual_norm": 0.7304909372599221,
+        "projected_fraction": 0.9705213955304892
+      },
+      {
+        "question": "What sport is Hampshire Cricket Board associated with?",
+        "cohort": "repair",
+        "grad_norm": 4.401786253033755,
+        "proj_norm": 4.318895556925465,
+        "residual_norm": 0.8502137294624335,
+        "projected_fraction": 0.9626923126964847
+      },
+      {
+        "question": "What sport is Jerry West associated with?",
+        "cohort": "repair",
+        "grad_norm": 5.850913030571121,
+        "proj_norm": 5.411384562959614,
+        "residual_norm": 2.224882109926124,
+        "projected_fraction": 0.8554005229094096
+      },
+      {
+        "question": "What sport is Manchester City F.C. associated with?",
+        "cohort": "repair",
+        "grad_norm": 6.181422567040562,
+        "proj_norm": 6.139766779451504,
+        "residual_norm": 0.7164138791662521,
+        "projected_fraction": 0.9865676773518096
+      },
+      {
+        "question": "What sport is Marco Belinelli associated with?",
+        "cohort": "repair",
+        "grad_norm": 8.135812697545196,
+        "proj_norm": 7.597062464759825,
+        "residual_norm": 2.911372555355123,
+        "projected_fraction": 0.871945842246559
+      },
+      {
+        "question": "What sport is S\u00e3o Jos\u00e9 Esporte Clube associated with?",
+        "cohort": "repair",
+        "grad_norm": 5.991815379848926,
+        "proj_norm": 5.933107308387799,
+        "residual_norm": 0.8367133400092422,
+        "projected_fraction": 0.9804999134251159
+      },
+      {
+        "question": "Who created Anita Blake?",
+        "cohort": "repair",
+        "grad_norm": 3.6629652717123475,
+        "proj_norm": 3.24158696239682,
+        "residual_norm": 1.7057047068556943,
+        "projected_fraction": 0.783158654493908
+      },
+      {
+        "question": "Who founded Forza Italia?",
+        "cohort": "repair",
+        "grad_norm": 6.149541496665137,
+        "proj_norm": 2.371749039644947,
+        "residual_norm": 5.673770096871195,
+        "projected_fraction": 0.14874829414580745
+      },
+      {
+        "question": "Who is Jill Stein employed by?",
+        "cohort": "repair",
+        "grad_norm": 7.566650430578334,
+        "proj_norm": 4.352586384378881,
+        "residual_norm": 6.189441857315639,
+        "projected_fraction": 0.33089290656193315
+      },
+      {
+        "question": "Who is Pocahontas married to?",
+        "cohort": "repair",
+        "grad_norm": 4.056542927257521,
+        "proj_norm": 2.864960190818429,
+        "residual_norm": 2.8718536915568404,
+        "projected_fraction": 0.49879837642876035
+      },
+      {
+        "question": "Who is Wiz Khalifa married to?",
+        "cohort": "repair",
+        "grad_norm": 6.37037934717187,
+        "proj_norm": 2.339721068480581,
+        "residual_norm": 5.92515302322075,
+        "projected_fraction": 0.13489553722771633
+      },
+      {
+        "question": "Who is the author of Nicomachean Ethics?",
+        "cohort": "repair",
+        "grad_norm": 15.801380024280713,
+        "proj_norm": 11.715609039538684,
+        "residual_norm": 10.603212508688912,
+        "projected_fraction": 0.5497176798991913
+      },
+      {
+        "question": "Who is the author of Sharpe's Rifles?",
+        "cohort": "repair",
+        "grad_norm": 2.6332164789493233,
+        "proj_norm": 2.007926302520399,
+        "residual_norm": 1.7035436562228259,
+        "projected_fraction": 0.5814634341012276
+      },
+      {
+        "question": "Who is the author of Tam o' Shanter?",
+        "cohort": "repair",
+        "grad_norm": 3.489808153088675,
+        "proj_norm": 2.106560901809852,
+        "residual_norm": 2.7822943971352583,
+        "projected_fraction": 0.3643719466160552
+      },
+      {
+        "question": "Who is the author of The Sword of Truth?",
+        "cohort": "repair",
+        "grad_norm": 4.1312750028139655,
+        "proj_norm": 4.131274296604918,
+        "residual_norm": 0.002415592489034638,
+        "projected_fraction": 0.9999996581157212
+      },
+      {
+        "question": "Who performed Anthology 2?",
+        "cohort": "repair",
+        "grad_norm": 12.830078422904108,
+        "proj_norm": 8.93395920032048,
+        "residual_norm": 9.208435553604023,
+        "projected_fraction": 0.4848744585606003
+      },
+      {
+        "question": "Who performed Disturbia?",
+        "cohort": "repair",
+        "grad_norm": 4.593458781675566,
+        "proj_norm": 3.174061674295361,
+        "residual_norm": 3.320421067684294,
+        "projected_fraction": 0.47747548103962123
+      },
+      {
+        "question": "Who performed Helter Skelter?",
+        "cohort": "repair",
+        "grad_norm": 13.181931336481583,
+        "proj_norm": 8.641224593798052,
+        "residual_norm": 9.954524161367775,
+        "projected_fraction": 0.4297268558294023
+      },
+      {
+        "question": "Who performed Here Comes the Sun?",
+        "cohort": "repair",
+        "grad_norm": 6.132971861805056,
+        "proj_norm": 5.126099873150612,
+        "residual_norm": 3.3669636095713673,
+        "projected_fraction": 0.6986057929050795
+      },
+      {
+        "question": "Who performed I've Got a Woman?",
+        "cohort": "repair",
+        "grad_norm": 6.233386727537242,
+        "proj_norm": 3.072767212131157,
+        "residual_norm": 5.423394855170437,
+        "projected_fraction": 0.2430027431875478
+      },
+      {
+        "question": "Who performed Yellow Submarine?",
+        "cohort": "repair",
+        "grad_norm": 12.925308082192702,
+        "proj_norm": 8.089942612831887,
+        "residual_norm": 10.080496889572593,
+        "projected_fraction": 0.39175006273351703
+      },
+      {
+        "question": "Who performed Yesterday and Today?",
+        "cohort": "repair",
+        "grad_norm": 10.46072209626256,
+        "proj_norm": 6.0728540791041254,
+        "residual_norm": 8.517461482692138,
+        "projected_fraction": 0.3370251902201793
+      },
+      {
+        "question": "In what city did Alvar Aalto die?",
+        "cohort": "rescue",
+        "grad_norm": 9.088031529336883,
+        "proj_norm": 7.349329544070269,
+        "residual_norm": 5.34599591571834,
+        "projected_fraction": 0.6539669385493808
+      },
+      {
+        "question": "In what city was Diana Wynne Jones born?",
+        "cohort": "rescue",
+        "grad_norm": 1.42030630134096,
+        "proj_norm": 1.1662580374547706,
+        "residual_norm": 0.8106245614962481,
+        "projected_fraction": 0.6742567018399515
+      },
+      {
+        "question": "In what city was Erkki Tuomioja born?",
+        "cohort": "rescue",
+        "grad_norm": 10.229059403119537,
+        "proj_norm": 6.623399530548047,
+        "residual_norm": 7.795141751840317,
+        "projected_fraction": 0.4192668296613249
+      },
+      {
+        "question": "In what city was Henri Kontinen born?",
+        "cohort": "rescue",
+        "grad_norm": 9.451268242911148,
+        "proj_norm": 7.382330133841468,
+        "residual_norm": 5.9014975382894965,
+        "projected_fraction": 0.6101080379780095
+      },
+      {
+        "question": "In what city was Sam Register born?",
+        "cohort": "rescue",
+        "grad_norm": 4.032673389975968,
+        "proj_norm": 2.3535565813214703,
+        "residual_norm": 3.2746337335248126,
+        "projected_fraction": 0.34061454397933044
+      },
+      {
+        "question": "In what country was funk created?",
+        "cohort": "rescue",
+        "grad_norm": 5.097310724867156,
+        "proj_norm": 4.057994433817825,
+        "residual_norm": 3.0846811506133465,
+        "projected_fraction": 0.6337831332907863
+      },
+      {
+        "question": "What is 9/11 Commission famous for?",
+        "cohort": "rescue",
+        "grad_norm": 1.9920919670284112,
+        "proj_norm": 1.9920915792065772,
+        "residual_norm": 0.0012430419822747403,
+        "projected_fraction": 0.9999996106386626
+      },
+      {
+        "question": "What is Friedrich Nietzsche famous for?",
+        "cohort": "rescue",
+        "grad_norm": 4.011683449035939,
+        "proj_norm": 1.0440154848492362,
+        "residual_norm": 3.8734526927102,
+        "projected_fraction": 0.0677268016631159
+      },
+      {
+        "question": "What is the capital of Malawi?",
+        "cohort": "rescue",
+        "grad_norm": 4.801774134420649,
+        "proj_norm": 3.66676033100327,
+        "residual_norm": 3.1003070030195325,
+        "projected_fraction": 0.5831249082759599
+      },
+      {
+        "question": "What is the capital of Taiwan?",
+        "cohort": "rescue",
+        "grad_norm": 4.0435346314681855,
+        "proj_norm": 2.316961819804407,
+        "residual_norm": 3.313888990514197,
+        "projected_fraction": 0.3283336695611809
+      },
+      {
+        "question": "What is the country of citizenship of Marc Cherry?",
+        "cohort": "rescue",
+        "grad_norm": 0.7934293390715188,
+        "proj_norm": 0.7226523833812856,
+        "residual_norm": 0.32757235672873025,
+        "projected_fraction": 0.8295496178043683
+      },
+      {
+        "question": "What is the country of citizenship of Shonda Rhimes?",
+        "cohort": "rescue",
+        "grad_norm": 1.1139792851806751,
+        "proj_norm": 0.9985003221384241,
+        "residual_norm": 0.4939098647537943,
+        "projected_fraction": 0.8034191672360496
+      },
+      {
+        "question": "What religion is August Derleth affiliated with?",
+        "cohort": "rescue",
+        "grad_norm": 4.948416843920986,
+        "proj_norm": 4.635585336575539,
+        "residual_norm": 1.7315247178503652,
+        "projected_fraction": 0.877559572268617
+      },
+      {
+        "question": "What religion is Evan Mecham affiliated with?",
+        "cohort": "rescue",
+        "grad_norm": 6.845619122143431,
+        "proj_norm": 3.0062347725929026,
+        "residual_norm": 6.1502076109273816,
+        "projected_fraction": 0.1928503021219141
+      },
+      {
+        "question": "What religion is John Boswell affiliated with?",
+        "cohort": "rescue",
+        "grad_norm": 4.974259430382663,
+        "proj_norm": 4.974259005796372,
+        "residual_norm": 0.002055238317494462,
+        "projected_fraction": 0.9999998292866391
+      },
+      {
+        "question": "What sport is 2017 Super Rugby season associated with?",
+        "cohort": "rescue",
+        "grad_norm": 8.004819388447096,
+        "proj_norm": 8.004819030253254,
+        "residual_norm": 0.0023946928602336225,
+        "projected_fraction": 0.9999999105054551
+      },
+      {
+        "question": "What sport is Butch Jones associated with?",
+        "cohort": "rescue",
+        "grad_norm": 4.920190728936951,
+        "proj_norm": 2.871337681904517,
+        "residual_norm": 3.9954595136970563,
+        "projected_fraction": 0.34056864718350377
+      },
+      {
+        "question": "Who created Girls?",
+        "cohort": "rescue",
+        "grad_norm": 2.37703248878655,
+        "proj_norm": 2.37703166511324,
+        "residual_norm": 0.001978836971018454,
+        "projected_fraction": 0.9999993069735721
+      },
+      {
+        "question": "Who developed iPod Classic?",
+        "cohort": "rescue",
+        "grad_norm": 3.9716995152566303,
+        "proj_norm": 1.9812508990659752,
+        "residual_norm": 3.4422437325732784,
+        "projected_fraction": 0.24884343377581847
+      },
+      {
+        "question": "Who founded New York Journal-American?",
+        "cohort": "rescue",
+        "grad_norm": 1.8412584683079456,
+        "proj_norm": 1.8412579478447315,
+        "residual_norm": 0.0013844184083819753,
+        "projected_fraction": 0.9999994346658556
+      },
+      {
+        "question": "Who founded Tiantai?",
+        "cohort": "rescue",
+        "grad_norm": 4.230178142071612,
+        "proj_norm": 2.9005577591087452,
+        "residual_norm": 3.0791511492186423,
+        "projected_fraction": 0.47016004835965514
+      },
+      {
+        "question": "Who is Elizabeth II married to?",
+        "cohort": "rescue",
+        "grad_norm": 9.834247860343698,
+        "proj_norm": 3.489758828084077,
+        "residual_norm": 9.194238103316874,
+        "projected_fraction": 0.12592400537296108
+      },
+      {
+        "question": "Who is Ethel Skakel Kennedy married to?",
+        "cohort": "rescue",
+        "grad_norm": 9.510887364987084,
+        "proj_norm": 3.7792911313565702,
+        "residual_norm": 8.727768157663247,
+        "projected_fraction": 0.15789872376038872
+      },
+      {
+        "question": "Who is John Doggett employed by?",
+        "cohort": "rescue",
+        "grad_norm": 2.0026899487627206,
+        "proj_norm": 0.847065592211167,
+        "residual_norm": 1.8147305346434146,
+        "projected_fraction": 0.17889847801792613
+      },
+      {
+        "question": "Who is Kathryn Bigelow married to?",
+        "cohort": "rescue",
+        "grad_norm": 11.774614591972973,
+        "proj_norm": 3.494247878517577,
+        "residual_norm": 11.244188745880171,
+        "projected_fraction": 0.08806716560172358
+      },
+      {
+        "question": "Who is Max Tegmark employed by?",
+        "cohort": "rescue",
+        "grad_norm": 1.8472221641987772,
+        "proj_norm": 0.6385598972582694,
+        "residual_norm": 1.7333409882422794,
+        "projected_fraction": 0.11949920590914455
+      },
+      {
+        "question": "Who is Victor Turner employed by?",
+        "cohort": "rescue",
+        "grad_norm": 6.008022884998031,
+        "proj_norm": 6.008022768680516,
+        "residual_norm": 0.0011822337175579466,
+        "projected_fraction": 0.9999999612792709
+      },
+      {
+        "question": "Who is the author of Hilbert's problems?",
+        "cohort": "rescue",
+        "grad_norm": 3.0231562256442523,
+        "proj_norm": 2.318296213520894,
+        "residual_norm": 1.94035466629848,
+        "projected_fraction": 0.5880532719534368
+      },
+      {
+        "question": "Who is the author of Middlemarch?",
+        "cohort": "rescue",
+        "grad_norm": 0.6144815941530375,
+        "proj_norm": 0.23171854064155936,
+        "residual_norm": 0.5691169892700483,
+        "projected_fraction": 0.14220138022169362
+      },
+      {
+        "question": "Who is the author of Monster Manual II?",
+        "cohort": "rescue",
+        "grad_norm": 4.493356079926856,
+        "proj_norm": 1.082639965661895,
+        "residual_norm": 4.360979198043399,
+        "projected_fraction": 0.05805323665482686
+      },
+      {
+        "question": "Who is the author of Phaedo?",
+        "cohort": "rescue",
+        "grad_norm": 3.1107295010180716,
+        "proj_norm": 1.8944027699093755,
+        "residual_norm": 2.4673621894370976,
+        "projected_fraction": 0.37086866782337224
+      },
+      {
+        "question": "Who is the author of The Crow?",
+        "cohort": "rescue",
+        "grad_norm": 9.688453021135121,
+        "proj_norm": 7.68162452617103,
+        "residual_norm": 5.904131314738009,
+        "projected_fraction": 0.6286331440971473
+      },
+      {
+        "question": "Who is the author of The Final Problem?",
+        "cohort": "rescue",
+        "grad_norm": 1.8629755773846612,
+        "proj_norm": 1.4166548816027709,
+        "residual_norm": 1.2098623675289482,
+        "projected_fraction": 0.5782475506088299
+      },
+      {
+        "question": "Who is the author of The Invisible Man?",
+        "cohort": "rescue",
+        "grad_norm": 1.4796306364791116,
+        "proj_norm": 1.009508471137942,
+        "residual_norm": 1.0817575824131371,
+        "projected_fraction": 0.46549316148822817
+      },
+      {
+        "question": "Who is the author of The Magician's Nephew?",
+        "cohort": "rescue",
+        "grad_norm": 4.4040837450171875,
+        "proj_norm": 2.1229705264512835,
+        "residual_norm": 3.8586201908122257,
+        "projected_fraction": 0.23236825275163217
+      },
+      {
+        "question": "Who is the author of canon of Sherlock Holmes?",
+        "cohort": "rescue",
+        "grad_norm": 2.5337220980275332,
+        "proj_norm": 1.0163388948326633,
+        "residual_norm": 2.320948711385791,
+        "projected_fraction": 0.16090114475548573
+      }
+    ],
+    "rescue_protect_cosine": 0.9497560263191075,
+    "conflict_energy_value": 0.9497560263191075,
+    "pre_registered_reading": "co-directional: coupled but shared-benefit, no decoupling"
+  },
+  "reader_dropout_audit": [
+    {
+      "name": "model.layers.0.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.0.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.1.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.2.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.3.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.4.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.5.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.6.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.7.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.8.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.9.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.10.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.11.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.12.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.13.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.14.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.15.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.16.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.17.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.18.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.19.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.20.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.21.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.22.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.23.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.24.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.25.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.26.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.27.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.28.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.29.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.30.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.q_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.q_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.k_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.k_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.v_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.self_attn.v_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.gate_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.gate_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.up_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.up_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.down_proj.lora_dropout.default",
+      "p": 0.1,
+      "was_training": true
+    },
+    {
+      "name": "model.layers.31.mlp.down_proj.lora_dropout.decoder_adapter",
+      "p": 0.1,
+      "was_training": true
+    }
+  ],
+  "reader_config": {
+    "vocab_size": 128256,
+    "max_position_embeddings": 8192,
+    "hidden_size": 4096,
+    "intermediate_size": 14336,
+    "num_hidden_layers": 32,
+    "num_attention_heads": 32,
+    "num_key_value_heads": 8,
+    "hidden_act": "silu",
+    "initializer_range": 0.02,
+    "rms_norm_eps": 1e-05,
+    "pretraining_tp": 1,
+    "use_cache": true,
+    "rope_theta": 500000.0,
+    "rope_scaling": {
+      "factor": 1.8125,
+      "type": "linear",
+      "rope_type": "linear"
+    },
+    "attention_bias": false,
+    "attention_dropout": 0.0,
+    "mlp_bias": false,
+    "head_dim": 128,
+    "return_dict": true,
+    "output_hidden_states": false,
+    "output_attentions": false,
+    "torchscript": false,
+    "torch_dtype": "float32",
+    "use_bfloat16": false,
+    "tf_legacy_loss": false,
+    "pruned_heads": {},
+    "tie_word_embeddings": false,
+    "chunk_size_feed_forward": 0,
+    "is_encoder_decoder": false,
+    "is_decoder": false,
+    "cross_attention_hidden_size": null,
+    "add_cross_attention": false,
+    "tie_encoder_decoder": false,
+    "max_length": 512,
+    "min_length": 0,
+    "do_sample": false,
+    "early_stopping": false,
+    "num_beams": 1,
+    "num_beam_groups": 1,
+    "diversity_penalty": 0.0,
+    "temperature": 1.0,
+    "top_k": 50,
+    "top_p": 1.0,
+    "typical_p": 1.0,
+    "repetition_penalty": 1.0,
+    "length_penalty": 1.0,
+    "no_repeat_ngram_size": 0,
+    "encoder_no_repeat_ngram_size": 0,
+    "bad_words_ids": null,
+    "num_return_sequences": 1,
+    "output_scores": false,
+    "return_dict_in_generate": false,
+    "forced_bos_token_id": null,
+    "forced_eos_token_id": null,
+    "remove_invalid_values": false,
+    "exponential_decay_length_penalty": null,
+    "suppress_tokens": null,
+    "begin_suppress_tokens": null,
+    "architectures": [
+      "MemoryLLM"
+    ],
+    "finetuning_task": null,
+    "id2label": {
+      "0": "LABEL_0",
+      "1": "LABEL_1"
+    },
+    "label2id": {
+      "LABEL_0": 0,
+      "LABEL_1": 1
+    },
+    "tokenizer_class": null,
+    "prefix": null,
+    "bos_token_id": 128000,
+    "pad_token_id": 128001,
+    "eos_token_id": 128001,
+    "sep_token_id": null,
+    "decoder_start_token_id": null,
+    "task_specific_params": null,
+    "problem_type": null,
+    "_name_or_path": "/share/latent/MemoryLLM-8B",
+    "_attn_implementation_autoset": true,
+    "transformers_version": "4.48.2",
+    "add_bos_embedding": true,
+    "add_decoder_lora": true,
+    "drop_memory_per_layer": true,
+    "lora_config": {
+      "inference_mode": false,
+      "lora_alpha": 32,
+      "lora_dropout": 0.1,
+      "r": 16,
+      "target_modules": [
+        "q_proj",
+        "v_proj",
+        "k_proj",
+        "up_proj",
+        "down_proj",
+        "gate_proj"
+      ]
+    },
+    "max_seq_length": 2048,
+    "model_type": "llama",
+    "new_memory_embedding_fullset": true,
+    "num_blocks": 50,
+    "num_memory_tokens": 12800,
+    "num_tokens": 256,
+    "shrink_to_one_embedding": true
+  }
+}

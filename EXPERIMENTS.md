@@ -61,6 +61,7 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 | S1-local | Protected Functional Subspace Residual 五臂机制验证 | 同 S0 hard window，扩大 full∧select retained；U_safe 更新是否保留 rescue 并压低 harm | 正式五臂60步完成；**hard-nullspace构造NO-GO**：protected rescue1/13、harm37/75；UL为7/13、6/75、净+8。本地正证据待独立验证，历史判门不变 | [S1-local.md](experiments/S1-local.md) |
 | S1-soft-local | 固定13维UL的单边有限CE保护 | 原监督与UL不变，P=31保护与K=75消融，分开rescue/repair/protect | 别名缺陷修复（`00c4880`）后重跑smoke与正式三臂60步；控制臂UL 7/6/+9（net≥8单边裁决，逐题差1题为诊断），soft_p +8、soft_k +9均无严格超越；verdict=**NO-IMPROVEMENT**，λ=1单边罚项不优于无约束UL；双端指标/权重audit通过 | [S1-soft-local.md](experiments/S1-soft-local.md) |
 | S1c-basis-wash | 修正图上重建U_L的四臂对照：corrected/old/random/unconstrained | 同S1-soft协议仅换basis；预注册门含random差距；裁决别名是否污染basis本身 | formal完成verdict=**PASS**：corrected 15/0/+9、old 14/0/+8、random-13D 4/44/**−40**、unconstrained复现10/17/−7；corrected与old主角度≤0.005rad——basis未被别名污染（别名只污染梯度），13D**方向**承载功能（random崩溃排除"任意低维有效"），S1正结论在干净图上成立；阶段2（几何审计）放行 | [S1c-basis-wash.md](experiments/S1c-basis-wash.md) |
+| S1c-geometry | R/P/T 111题梯度行对13D子空间的投影几何（仅分析） | 干净梯度行→z_i投影、cohort均值余弦、投影能量占比；预注册cos(g_R,ḡ_P)>0.3→不解耦 | 111行全算完：13D投影cos(R,P)=**0.9498**、R–T 0.925、P–T 0.864（全空间0.76–0.83）；**共向判定成立→不做shared/private/conflict分解（零代码）**；rescue监督顺带压低protect损伤是一阶原理而非预算副作用；停止条件②触发 | [S1c-geometry.md](experiments/S1c-geometry.md) |
 
 ## 证据边界（论文推进审计）
 
