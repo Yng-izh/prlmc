@@ -66,6 +66,8 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 | S1c-lowo-coverage | 240行梯度缓存leave-one-window-out建基，rank 13/32/64未见窗口能量覆盖率，裁决FAIL根因（秩不足/窗口差异/分布偏移三选一） | ρ(U,G)=‖UᵀGᵀ‖²F/‖G‖²F，训练均值中心化，self基为上界；verifier fp64独立重算 | 完成：LOWO ρ pooled r13=**0.324**、r32=0.374、r64=0.414，self 0.91–0.98——r13→64仅+0.09且差距不缩，**排除秩不足**；8窗口自建r13基pairwise mean align=**0.256**（近正交，随机期望≈0.01）、mean cov=0.299，**窗口差异成立**；中心化后无独立偏移分量，排除分布偏移。**根因=窗口间功能子空间近正交，任何预建全局基只能覆盖未见窗口约1/3梯度能量，停线维持且获机制解释**；verifier 29+2判定项PASS，30数值项差≤1.1e-5（fp32舍入） | [S1c-lowo-coverage.md](experiments/S1c-lowo-coverage.md) |
 | S1d-selfsup-basis | 无答案窗口自监督建基 stage 1：事实行尾部遮罩补全CE的Jacobian行SVD出每窗口13D基，测对gold rescue子空间覆盖（v1模板过滤→v2扩池：移除模板过滤+latest-owner去重+40有效行/窗口，双卡分片） | 监督只用压缩前可观测事实行，held-out QA答案不触碰；gate=mean gRho≥0.20∧≥1.5×LOWO r13；SVD序基（v1 QR序缺陷已修正）；有效秩审计+rank-覆盖曲线 | v2完成：mean gRho=**0.5116**、ratio vs LOWO=**1.6226**（v1擦线1.5003），8/8窗口高于LOWO，aux回填=0（dropped primary池深199+行/窗口）；**gate PASS**但用户稳健性双标（ratio≥1.65∧有效秩≥13）未全达：有效秩均值7.41（40行时σ1/σ13=4.6–9.0，top-13占行池能量90–95%），系dropped块事实行梯度天然聚集非采样不足；v1/v2重叠203行最坏rel diff 1.24e-2（fp16非确定性）；扩池收益分解≈+0.024扩池+0.005排序修正。**stage 2（D0+U_window·α无答案优化）资格成立，待用户裁决** | [S1d-selfsup-basis.md](experiments/S1d-selfsup-basis.md) |
 
+| S1d-stage2-dev | 两个 dev 窗口无答案残差训练，selfsup-13d / random-13d / unconstrained 三训练臂，D0/selection 基线 | 冻结窗口自监督基、末4-token事实CE、60步、位移预算1.0；严格相对D0计恢复与损伤；四卡切片 | 四切片完成；TF合计selfsup **13/6/+7**、random **0/1/-1**、unconstrained **14/10/+4**；generation状态污染修复后identity和D0一致性通过。**INSUFFICIENT，TF有积极信号**：GEN整段EM全0，续写导致评分无判别力，held-out未运行 | [S1d-stage2-dev.md](experiments/S1d-stage2-dev.md) |
+
 ## 证据边界（论文推进审计）
 
 历史82题已在O2开封，后续swap/local-oracle复用只属探索验证。support oracle最优值仅是指定文本支撑块最小遗漏，不是reader错误率下界。teacher-forced答案token完全匹配不等于官方完整生成EM；同一上下文多题不增加独立上下文数。以上边界优先于旧条目的强归因表述；G3继续暂停。

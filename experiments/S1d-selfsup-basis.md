@@ -1,6 +1,6 @@
 # S1d-selfsup-basis — 无答案窗口自监督建基可行性（stage 1，v1+v2）
 
-- **状态**: 完成，gate PASS（预注册门槛），稳健性双标未全达，等用户裁决是否进 stage 2
+- **状态**: stage 1 完成，gate PASS（预注册门槛），稳健性双标未全达；stage 2 dev 已完成，见 [S1d-stage2-dev.md](S1d-stage2-dev.md)，当前 INSUFFICIENT（TF 有积极信号，GEN 未形成有效判据）
 - **日期**: 2026-10-09
 - **问题**: S1c 链证明固定全局 13D 基跨窗口失败（窗口子空间近正交，align 0.256）。S1d-B 问：用**压缩前可观测、无答案标签**的窗口事实构造监督（事实行尾部遮罩补全 CE），其 Jacobian 行 SVD 出的每窗口 13D 基，能否覆盖 gold rescue 梯度子空间明显超过 LOWO 固定全局基（≈0.32）
 - **判定**: **gate 通过**：mean gRho 0.5116 ≥ 0.20 且 ratio 1.6226 ≥ 1.5（v2 扩池后）。用户稳健性双标（ratio ≥ 1.65 ∧ 平均有效秩 ≥ 13）未全达：ratio 差 1.7%，有效秩均值 7.41
