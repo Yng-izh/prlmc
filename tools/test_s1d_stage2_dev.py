@@ -114,6 +114,15 @@ def test_oracle_answer_ce_masks_prompt():
     assert torch.count_nonzero(logits.grad[:, -1]) == 0
 
 
+def test_protection_penalty_is_hinge_over_d0_ce():
+    import torch
+    baseline = torch.tensor([2.0, 3.0])
+    current = torch.tensor([2.5, 2.0], requires_grad=True)
+    penalty = torch.relu(current - baseline).mean()
+    assert torch.equal(penalty.detach(), torch.tensor(0.25))
+    penalty.backward()
+    assert torch.equal(current.grad, torch.tensor([0.5, 0.0]))
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -122,4 +131,5 @@ if __name__ == "__main__":
     test_window_sets_partitions()
     test_reader_evaluation_restores_state()
     test_oracle_answer_ce_masks_prompt()
-    print("PASS 7/7")
+    test_protection_penalty_is_hinge_over_d0_ce()
+    print("PASS 8/8")

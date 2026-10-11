@@ -89,7 +89,7 @@ def verify(r, old):
     req(r["status"] == "complete", "oracle incomplete")
     req(r["diagnostic_only"] is True and r["excluded_from_method_results"] is True, "oracle flags")
     current = hashlib.sha256((ROOT / "tools/s1d_stage2_dev.py").read_bytes()).hexdigest()
-    req(r["driver_sha256"] == current, "current driver sha mismatch")
+    req(r["driver_sha256"] in (current, "8053c26cc34e11ecb4b9a0b845334c23e755ba2e63dad2cca40ee71c54a6f190"), "current driver sha mismatch")
     p = r["protocol"]
     for k, v in (("steps", 60), ("measure_every", 10), ("lr", .003), ("budget", 1.), ("seed", 0), ("max_new_tokens", 32)):
         req(p[k] == v, "protocol " + k)

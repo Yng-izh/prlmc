@@ -59,7 +59,9 @@ ALL_TRAIN_WINDOWS = [(3, 17890), (3, 17130), (3, 16750), (3, 14470),
                      (3, 17510), (3, 14850), (3, 16370), (3, 15230)]
 ARMS = ("selfsup_13d", "random_13d", "unconstrained")
 ORACLE_ARM = "oracle_13d"
-ALL_ARMS = ARMS + (ORACLE_ARM,)
+PROTECTED_ORACLE_ARM = "oracle_13d_protected"
+ALL_ARMS = ARMS + (ORACLE_ARM, PROTECTED_ORACLE_ARM)
+QA_ORACLE_ARMS = (ORACLE_ARM, PROTECTED_ORACLE_ARM)
 MAX_SELFSUP_LINES = 40
 MASK_SPAN = 4
 
@@ -387,6 +389,27 @@ def main() -> None:
         torch.cuda.empty_cache()
         return correct, predictions
 
+    @torch.no_grad()
+    def answer_ce(encoded, questions, arm=None):
+        """Teacher-forced answer-token CE used by the protected oracle."""
+        losses = {}
+        pool, mask_m = (None, None) if arm is None else E.candidate_pool(manager, arm, "cuda:0")
+        context = differentiable_memory(model, pool) if pool is not None else nullcontext()
+        guard = active_mask_override(model, mask_m) if mask_m is not None else nullcontext()
+        with reader_evaluation(model), context, guard:
+            for question in questions:
+                input_ids, stem_len = encoded[question]
+                labels = input_ids.clone()
+                labels[:, :stem_len] = -100
+                logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
+                losses[question] = float(F.cross_entropy(
+                    logits[:, :-1, :].float().reshape(-1, logits.shape[-1]),
+                    labels[:, 1:].reshape(-1), ignore_index=-100))
+                del logits, labels
+        del pool, mask_m
+        torch.cuda.empty_cache()
+        return losses
+
     def supervision_lines(row, start, line_to_block, dropped):
         """Stage-1 v2 supervision pool: up to 40 valid dropped-block lines."""
         lines = line_cache[row]
@@ -404,11 +427,16 @@ def main() -> None:
             chosen.append((line_idx, tokens))
         return chosen, skipped
 
-    def train_answer_arm(arm, displacement, optimizer, encoded, questions, mask):
-        """Oracle-only step: CE on the real answer span of rescue_d0_wrong."""
+    def train_answer_arm(arm, displacement, optimizer, encoded, questions, mask,
+                         protect_questions=None, protect_baseline=None,
+                         protect_weight=0.0, mean_grad=False):
+        """QA step with optional fixed-weight no-degradation penalty."""
         optimizer.zero_grad(set_to_none=True)
         cand = candidate(arm)
-        total = 0.0
+        rescue_total = 0.0
+        protect_total = 0.0
+        protect_questions = protect_questions or []
+        protect_baseline = protect_baseline or {}
         with _pool_in_place(manager, "cuda:0", cand, window_used,
                             target_used) as injection:
             pool = injection.reinject()
@@ -423,14 +451,35 @@ def main() -> None:
                 loss = F.cross_entropy(
                     shift_logits.reshape(-1, shift_logits.shape[-1]),
                     shift_labels.reshape(-1), ignore_index=-100)
-                loss.backward(retain_graph=True)
-                total += float(loss)
+                (loss / len(questions) if mean_grad else loss).backward(retain_graph=True)
+                rescue_total += float(loss)
                 del loss, logits
+            for question in protect_questions:
+                input_ids, stem_len = encoded[question]
+                labels = input_ids.clone()
+                labels[:, :stem_len] = -100
+                with differentiable_memory(model, pool), active_mask_override(model, mask):
+                    logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
+                shift_logits = logits[:, :-1, :].float()
+                shift_labels = labels[:, 1:]
+                loss = F.cross_entropy(
+                    shift_logits.reshape(-1, shift_logits.shape[-1]),
+                    shift_labels.reshape(-1), ignore_index=-100)
+                penalty = torch.relu(loss - protect_baseline[question])
+                (protect_weight * penalty / len(protect_questions)
+                 if mean_grad else protect_weight * penalty).backward(retain_graph=True)
+                protect_total += float(penalty)
+                del penalty, loss, logits
         optimizer.step()
         displacement.clamp(args.budget)
         del cand, pool
         torch.cuda.empty_cache()
-        return total / max(1, len(questions))
+        return {
+            "loss": rescue_total / max(1, len(questions)) +
+                    protect_weight * protect_total / max(1, len(protect_questions)),
+            "rescue_loss": rescue_total / max(1, len(questions)),
+            "protect_penalty": protect_total / max(1, len(protect_questions)),
+        }
 
     def train_arm(arm, displacement, optimizer, sup, mask):
         """One training step over the answer-free completion CE."""
@@ -460,9 +509,9 @@ def main() -> None:
         torch.cuda.empty_cache()
         return total / max(1, len(sup))
 
-    if ORACLE_ARM in args.arms and (args.window != "3,17510" or
-                                   args.arms != [ORACLE_ARM]):
-        raise SystemExit("oracle_13d requires an isolated run on window 3,17510")
+    if any(name in args.arms for name in QA_ORACLE_ARMS) and (
+            args.window != "3,17510" or len(args.arms) != 1):
+        raise SystemExit("QA oracle arms require an isolated run on window 3,17510")
 
     report = {
         "schema_version": "s1d_stage2_dev/1",
@@ -478,14 +527,14 @@ def main() -> None:
                      "checkpoint_sha256": digest(args.carrier_ckpt),
                      "selfsup_rows_sha256": sha256_file(args.selfsup_rows),
                      "gold_rows_sha256": sha256_file(args.rows)},
-        "diagnostic_only": ORACLE_ARM in args.arms,
-        "excluded_from_method_results": ORACLE_ARM in args.arms,
+        "diagnostic_only": any(name in args.arms for name in QA_ORACLE_ARMS),
+        "excluded_from_method_results": any(name in args.arms for name in QA_ORACLE_ARMS),
         "oracle_diagnostic": ({
             "purpose": "finite-step reachability diagnostic, not a mathematical upper bound",
             "supervision": "real QA answer-token CE on rescue_d0_wrong only",
             "basis": "unchanged selfsup SVD-13 basis; no QA-based basis rebuild",
             "evaluation": "same complete QA universe and D0-relative metrics",
-        } if ORACLE_ARM in args.arms else None),
+        } if any(name in args.arms for name in QA_ORACLE_ARMS) else None),
         "windows": [],
     }
 
@@ -500,10 +549,22 @@ def main() -> None:
             gradient_reduction="sum of per-question mean answer-token CE",
             mathematical_upper_bound=False)
 
-    def flush():
-        tmp = out.with_suffix(out.suffix + ".tmp")
-        tmp.write_text(json.dumps(report, indent=2, ensure_ascii=False))
-        tmp.replace(out)
+    elif PROTECTED_ORACLE_ARM in args.arms:
+        report["schema_version"] = "s1d_stage2_oracle_protected/1"
+        report["protocol"].update(
+            experiment="S1d dev protected oracle: frozen selfsup 13D, QA rescue CE plus D0 protection",
+            arms=[PROTECTED_ORACLE_ARM], dev_windows=[[3, 17510]],
+            supervision="rescue answer-token CE plus D0-correct answer-token CE degradation penalty; first gold alias",
+            protection_set="all questions D0 answers correctly",
+            protect_loss="mean over questions ReLU(current answer-token CE - D0 answer-token CE)",
+            protect_weight=1.0,
+            selection_rule="worst stage2 selfsup dev window; post-hoc diagnostic",
+            optimizer="AdamW", weight_decay=0.01,
+            gradient_reduction="mean rescue answer-token CE plus mean protected hinge CE",
+            mathematical_upper_bound=False)
+        report["oracle_diagnostic"].update(
+            supervision="rescue answer-token CE plus fixed-weight D0-correct CE degradation penalty",
+            protect_weight=1.0)
 
     flush()
     try:
@@ -529,6 +590,9 @@ def main() -> None:
             d0_arm = base()
             d0_correct = evaluate(encoded, probes, d0_arm)
             sets = window_sets(full, select_correct, d0_correct)
+            protect_questions = [q for q, ok in d0_correct.items() if ok]
+            protect_baseline = (answer_ce(encoded, protect_questions, d0_arm)
+                                if PROTECTED_ORACLE_ARM in args.arms else {})
             print("[s1d2] (%d,%d) rescue=%d rescue_d0_wrong=%d protect=%d"
                   % (row, start, len(sets["rescue"]),
                      len(sets["rescue_d0_wrong"]), len(sets["protect"])), flush=True)
@@ -582,7 +646,8 @@ def main() -> None:
             arms_plan = (("selfsup_13d", U_ss),
                          ("random_13d", random_ul),
                          ("unconstrained", None),
-                         (ORACLE_ARM, U_ss))
+                         (ORACLE_ARM, U_ss),
+                         (PROTECTED_ORACLE_ARM, U_ss))
             for name, basis in arms_plan:
                 if name not in args.arms:
                     continue
@@ -611,9 +676,9 @@ def main() -> None:
                              "final": stage2_metric(initial, sets, d0_correct),
                              "initial_identity_verified": True}
                 window_report["arms"][name] = arm_entry
-                if name == ORACLE_ARM:
+                if name in QA_ORACLE_ARMS:
                     if U_ss.shape != (131072, 13) or not sets["rescue_d0_wrong"]:
-                        raise RuntimeError("oracle requires rank 13 and nonempty QA supervision")
+                        raise RuntimeError("QA oracle requires rank 13 and nonempty QA supervision")
                     frozen_basis = displacement.basis.detach().clone()
                     arm_entry.update(
                         basis_sha256=basis_sha256,
@@ -621,25 +686,45 @@ def main() -> None:
                         n_supervision_questions=len(sets["rescue_d0_wrong"]),
                         supervision_answers={q: by_q[q].answers[0]
                                              for q in sets["rescue_d0_wrong"]})
+                    if name == PROTECTED_ORACLE_ARM:
+                        arm_entry.update(
+                            protection_questions=protect_questions,
+                            n_protection_questions=len(protect_questions),
+                            protection_weight=1.0,
+                            protection_baseline_ce=protect_baseline,
+                            protection_loss="mean ReLU(current CE - D0 CE)")
                     if any(p.requires_grad for p in model.parameters()):
-                        raise RuntimeError("oracle reader must remain frozen")
+                        raise RuntimeError("QA oracle reader must remain frozen")
                     trainable = [p for p in arm.parameters() if p.requires_grad]
                     if len(trainable) != 1 or trainable[0] is not displacement.value:
-                        raise RuntimeError("oracle must train only alpha")
+                        raise RuntimeError("QA oracle must train only alpha")
                 for step in range(1, args.steps + 1):
                     if name == ORACLE_ARM:
-                        loss = train_answer_arm(
+                        loss_info = train_answer_arm(
                             arm, displacement, optimizer, encoded,
                             sets["rescue_d0_wrong"], mask)
+                    elif name == PROTECTED_ORACLE_ARM:
+                        loss_info = train_answer_arm(
+                            arm, displacement, optimizer, encoded,
+                            sets["rescue_d0_wrong"], mask,
+                            protect_questions=protect_questions,
+                            protect_baseline=protect_baseline,
+                            protect_weight=1.0,
+                            mean_grad=True)
                     else:
-                        loss = train_arm(arm, displacement, optimizer, sup, mask)
+                        loss_info = {"loss": train_arm(
+                            arm, displacement, optimizer, sup, mask)}
+                    loss = loss_info["loss"]
                     if step % args.measure_every == 0 or step == args.steps:
                         tf = evaluate(encoded, probes, arm)
                         tf_m = stage2_metric(tf, sets, d0_correct)
                         tf_m["step"] = step
                         tf_m["sup_loss"] = loss
+                        if "rescue_loss" in loss_info:
+                            tf_m["rescue_loss"] = loss_info["rescue_loss"]
+                            tf_m["protect_penalty"] = loss_info.get("protect_penalty", 0.0)
                         tf_m["deviation"] = float(displacement.value.detach().norm())
-                        if name == ORACLE_ARM:
+                        if name in QA_ORACLE_ARMS:
                             if not torch.equal(displacement.basis, frozen_basis):
                                 raise RuntimeError("oracle basis changed during training")
                             tf_m["basis_unchanged"] = True
