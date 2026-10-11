@@ -58,6 +58,8 @@ DEV_WINDOWS = [(3, 16370), (3, 17510)]
 ALL_TRAIN_WINDOWS = [(3, 17890), (3, 17130), (3, 16750), (3, 14470),
                      (3, 17510), (3, 14850), (3, 16370), (3, 15230)]
 ARMS = ("selfsup_13d", "random_13d", "unconstrained")
+ORACLE_ARM = "oracle_13d"
+ALL_ARMS = ARMS + (ORACLE_ARM,)
 MAX_SELFSUP_LINES = 40
 MASK_SPAN = 4
 
@@ -227,7 +229,8 @@ def main() -> None:
     ap.add_argument("--window", default=None,
                     help="comma pair row,start -- run a single window (sharding); "
                          "output must be per-window when used")
-    ap.add_argument("--arms", nargs="+", choices=ARMS, default=list(ARMS))
+    ap.add_argument("--arms", nargs="+", choices=ALL_ARMS,
+                    default=list(ARMS))
     args = ap.parse_args()
 
     SCRIPT_SHA = sha256_file(os.path.abspath(__file__))
@@ -401,6 +404,34 @@ def main() -> None:
             chosen.append((line_idx, tokens))
         return chosen, skipped
 
+    def train_answer_arm(arm, displacement, optimizer, encoded, questions, mask):
+        """Oracle-only step: CE on the real answer span of rescue_d0_wrong."""
+        optimizer.zero_grad(set_to_none=True)
+        cand = candidate(arm)
+        total = 0.0
+        with _pool_in_place(manager, "cuda:0", cand, window_used,
+                            target_used) as injection:
+            pool = injection.reinject()
+            for question in questions:
+                input_ids, stem_len = encoded[question]
+                labels = input_ids.clone()
+                labels[:, :stem_len] = -100
+                with differentiable_memory(model, pool), active_mask_override(model, mask):
+                    logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
+                shift_logits = logits[:, :-1, :].float()
+                shift_labels = labels[:, 1:]
+                loss = F.cross_entropy(
+                    shift_logits.reshape(-1, shift_logits.shape[-1]),
+                    shift_labels.reshape(-1), ignore_index=-100)
+                loss.backward(retain_graph=True)
+                total += float(loss)
+                del loss, logits
+        optimizer.step()
+        displacement.clamp(args.budget)
+        del cand, pool
+        torch.cuda.empty_cache()
+        return total / max(1, len(questions))
+
     def train_arm(arm, displacement, optimizer, sup, mask):
         """One training step over the answer-free completion CE."""
         optimizer.zero_grad(set_to_none=True)
@@ -429,6 +460,10 @@ def main() -> None:
         torch.cuda.empty_cache()
         return total / max(1, len(sup))
 
+    if ORACLE_ARM in args.arms and (args.window != "3,17510" or
+                                   args.arms != [ORACLE_ARM]):
+        raise SystemExit("oracle_13d requires an isolated run on window 3,17510")
+
     report = {
         "schema_version": "s1d_stage2_dev/1",
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -443,8 +478,27 @@ def main() -> None:
                      "checkpoint_sha256": digest(args.carrier_ckpt),
                      "selfsup_rows_sha256": sha256_file(args.selfsup_rows),
                      "gold_rows_sha256": sha256_file(args.rows)},
+        "diagnostic_only": ORACLE_ARM in args.arms,
+        "excluded_from_method_results": ORACLE_ARM in args.arms,
+        "oracle_diagnostic": ({
+            "purpose": "finite-step reachability diagnostic, not a mathematical upper bound",
+            "supervision": "real QA answer-token CE on rescue_d0_wrong only",
+            "basis": "unchanged selfsup SVD-13 basis; no QA-based basis rebuild",
+            "evaluation": "same complete QA universe and D0-relative metrics",
+        } if ORACLE_ARM in args.arms else None),
         "windows": [],
     }
+
+    if ORACLE_ARM in args.arms:
+        report["schema_version"] = "s1d_stage2_oracle/1"
+        report["protocol"].update(
+            experiment="S1d dev oracle: frozen selfsup 13D, real QA answer CE",
+            arms=[ORACLE_ARM], dev_windows=[[3, 17510]],
+            supervision="real QA answer-token CE on rescue_d0_wrong only; first gold alias",
+            selection_rule="worst stage2 selfsup dev window; post-hoc diagnostic",
+            optimizer="AdamW", weight_decay=0.01,
+            gradient_reduction="sum of per-question mean answer-token CE",
+            mathematical_upper_bound=False)
 
     def flush():
         tmp = out.with_suffix(out.suffix + ".tmp")
@@ -490,6 +544,8 @@ def main() -> None:
                                    for q in sorted(ss_cache["rows_by_window"][wk],
                                                    key=int)]).double()
             U_ss = orth(ss_rows)[:, :13].contiguous()
+            basis_sha256 = hashlib.sha256(
+                U_ss.contiguous().numpy().tobytes()).hexdigest()
             random_ul = random_basis(131072, 13, 0, torch)
 
             gen_full, gen_full_pred = evaluate_generation(probes, None)
@@ -523,9 +579,11 @@ def main() -> None:
             gc.collect()
             torch.cuda.empty_cache()
 
-            for name, basis in (("selfsup_13d", U_ss),
-                                ("random_13d", random_ul),
-                                ("unconstrained", None)):
+            arms_plan = (("selfsup_13d", U_ss),
+                         ("random_13d", random_ul),
+                         ("unconstrained", None),
+                         (ORACLE_ARM, U_ss))
+            for name, basis in arms_plan:
                 if name not in args.arms:
                     continue
                 torch.manual_seed(0)
@@ -553,13 +611,39 @@ def main() -> None:
                              "final": stage2_metric(initial, sets, d0_correct),
                              "initial_identity_verified": True}
                 window_report["arms"][name] = arm_entry
+                if name == ORACLE_ARM:
+                    if U_ss.shape != (131072, 13) or not sets["rescue_d0_wrong"]:
+                        raise RuntimeError("oracle requires rank 13 and nonempty QA supervision")
+                    frozen_basis = displacement.basis.detach().clone()
+                    arm_entry.update(
+                        basis_sha256=basis_sha256,
+                        supervision_questions=sets["rescue_d0_wrong"],
+                        n_supervision_questions=len(sets["rescue_d0_wrong"]),
+                        supervision_answers={q: by_q[q].answers[0]
+                                             for q in sets["rescue_d0_wrong"]})
+                    if any(p.requires_grad for p in model.parameters()):
+                        raise RuntimeError("oracle reader must remain frozen")
+                    trainable = [p for p in arm.parameters() if p.requires_grad]
+                    if len(trainable) != 1 or trainable[0] is not displacement.value:
+                        raise RuntimeError("oracle must train only alpha")
                 for step in range(1, args.steps + 1):
-                    loss = train_arm(arm, displacement, optimizer, sup, mask)
+                    if name == ORACLE_ARM:
+                        loss = train_answer_arm(
+                            arm, displacement, optimizer, encoded,
+                            sets["rescue_d0_wrong"], mask)
+                    else:
+                        loss = train_arm(arm, displacement, optimizer, sup, mask)
                     if step % args.measure_every == 0 or step == args.steps:
                         tf = evaluate(encoded, probes, arm)
                         tf_m = stage2_metric(tf, sets, d0_correct)
+                        tf_m["step"] = step
                         tf_m["sup_loss"] = loss
                         tf_m["deviation"] = float(displacement.value.detach().norm())
+                        if name == ORACLE_ARM:
+                            if not torch.equal(displacement.basis, frozen_basis):
+                                raise RuntimeError("oracle basis changed during training")
+                            tf_m["basis_unchanged"] = True
+                            tf_m["alpha"] = displacement.value.detach().cpu().tolist()
                         if step == args.steps:
                             # Generation EM only at the final step: the KV-cache
                             # fix makes it ~10 s/probe instead of ~60 s, but 60

@@ -95,6 +95,25 @@ def test_reader_evaluation_restores_state():
     assert torch.equal(torch.get_rng_state(), rng)
 
 
+def test_oracle_answer_ce_masks_prompt():
+    import torch
+    import torch.nn.functional as F
+    tokens = torch.tensor([[0, 1, 2, 3, 4]])
+    stem_len = 3
+    logits = torch.randn(1, 5, 7, requires_grad=True)
+    labels = tokens.clone()
+    labels[:, :stem_len] = -100
+    masked = F.cross_entropy(logits[:, :-1].reshape(-1, 7),
+                             labels[:, 1:].reshape(-1))
+    expected = F.cross_entropy(logits[:, stem_len - 1:-1].reshape(-1, 7),
+                               tokens[:, stem_len:].reshape(-1))
+    assert torch.equal(masked, expected)
+    masked.backward()
+    assert torch.count_nonzero(logits.grad[:, :stem_len - 1]) == 0
+    assert torch.count_nonzero(logits.grad[:, stem_len - 1:-1]) > 0
+    assert torch.count_nonzero(logits.grad[:, -1]) == 0
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -102,4 +121,5 @@ if __name__ == "__main__":
     test_normalize_exact_match()
     test_window_sets_partitions()
     test_reader_evaluation_restores_state()
-    print("PASS 6/6")
+    test_oracle_answer_ce_masks_prompt()
+    print("PASS 7/7")
