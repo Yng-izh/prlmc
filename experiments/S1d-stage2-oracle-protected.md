@@ -62,6 +62,9 @@ step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 
 | 10 | 3.6297352855 | 0.0022770714 | 3.6320123569 | 0.0986444950 | 0 | 1 | -1 |
 | 20 | 3.2994640917 | 0.0099541152 | 3.3094182069 | 0.1833276302 | 3 | 5 | -2 |
 | 30 | 2.9209570673 | 0.0360448995 | 2.9570019668 | 0.2601703107 | 6 | 6 | 0 |
+| 40 | 2.7910736189 | 0.0624655173 | 2.8535391363 | 0.3232849836 | 6 | 8 | -2 |
+
+step40 快照 `runs/s1d_stage2_oracle_protected.parallel8.step40_snapshot.json` 经 --allow-running 审计通过，前缀[10,20,30,40]连续，status仍为running。固定lambda=1保护hinge当前仍未使net转正，剩余20步继续按预注册协议运行。
 
 step30 快照 `runs/s1d_stage2_oracle_protected.parallel8.step30_snapshot.json` 经统一 verifier 的 --allow-running 审计通过，已测量前缀[10,20,30]完整，status仍为running；当前TF计数与原unprotected oracle的step30相同（6/6/0），最终仍需观察step60。
 
