@@ -45,7 +45,9 @@ GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --
 
 原始 37GB FP32 safetensors 位于 GPFS，8 路并发 mmap 加载首个 shard 达 250s，因而通过 `tools/stage_s1d_reader_cache.py` 一次性生成 `/dev/shm/s1d_reader_fp16` 的共享 FP16 缓存。每个浮点张量按驱动原本的 torch.float16 加载精度转换，并对保存后张量逐项重算 SHA256，保留原 tokenizer/config/index。缓存仅改变加载位置与存储精度，reader 实际 FP16 权重不变；多卡 smoke 必须复现原基线/cohort 才放行。完整测试含启动器状态认证，`PASS 12/12`。
 
-后台流程 PID=45274，缓存构建 PID=45060；日志分别为 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`、`runs/s1d_stage2_oracle_protected.parallel8.parallel_smoke.log`、`runs/s1d_stage2_oracle_protected.parallel8.log`。当前为缓存完成后启动多卡 smoke 的执行状态，尚无多卡正式最终指标。
+后台流程 PID=45274；共享缓存已经生成并逐张量校验，约19GB。8卡 smoke 全部 worker 成功退出（torchrun exit=0，launcher all_workers_succeeded=true），报告 `runs/s1d_stage2_oracle_protected.w17510.parallel_smoke.json` 已复制本地。与单卡 smoke 的 full/select/D0 基线、cohort、逐题 TF 图、loss=3.7742887547141626、norm=0.010816652327775955 全部一致，alpha 最大差异2.3283064365386963e-10为FP32梯度求和顺序舍入，basis 未变，step1 recovery/harm/net=0/0/0。
+
+启动器自动进入正式60步，torchrun PID=46728。日志分别为 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`、`runs/s1d_stage2_oracle_protected.parallel8.parallel_smoke.log`、`runs/s1d_stage2_oracle_protected.parallel8.log`。正式结果尚未完成，最终报告需通过独立 verifier 与全worker退出码认证。
 
 ## 解释边界
 
