@@ -565,6 +565,10 @@ def main() -> None:
         report["oracle_diagnostic"].update(
             supervision="rescue answer-token CE plus fixed-weight D0-correct CE degradation penalty",
             protect_weight=1.0)
+    def flush():
+        tmp = out.with_suffix(out.suffix + ".tmp")
+        tmp.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        tmp.replace(out)
 
     flush()
     try:
