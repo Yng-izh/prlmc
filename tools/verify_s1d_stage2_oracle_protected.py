@@ -44,7 +44,8 @@ def verify(r, old):
     req(r["driver_sha256"] == current, "driver sha")
     p = r["protocol"]
     for k, v in (("steps", 60), ("measure_every", 10), ("lr", .003), ("budget", 1.),
-                 ("seed", 0), ("max_new_tokens", 32), ("protect_weight", 1.0)):
+                 ("seed", 0), ("max_new_tokens", 32), ("protect_weight", 1.0),
+                 ("skip_generation", True)):
         req(p[k] == v, "protocol/" + k)
     req(p["arms"] == p["selected_arms"] == ["oracle_13d_protected"], "arm")
     req(p["dev_windows"] == [[3, 17510]], "window")
@@ -77,7 +78,7 @@ def verify(r, old):
         req(x["basis_unchanged"] is True, "basis changed")
         req(len(x["alpha"]) == 13 and all(finite(v) for v in x["alpha"]), "alpha")
         req(math.isclose(math.hypot(*x["alpha"]), x["deviation"], rel_tol=1e-5, abs_tol=1e-6), "alpha norm")
-    req("gen" in e["final"], "final generation")
+    req(e["final"].get("gen") is None, "GEN must be explicitly skipped")
     print("protected final TF: recovery/harm/net=%d/%d/%d" %
           (e["final"]["new_recovery"], e["final"]["d0_harmed"], e["final"]["net_vs_d0"]))
     print("PASS: protected oracle flags, fixed weight, D0 CE baseline, cohorts, frozen basis, alpha audit, TF/GEN metrics")

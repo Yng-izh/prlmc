@@ -226,6 +226,8 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=0.003)
     ap.add_argument("--budget", type=float, default=1.0)
     ap.add_argument("--max-new-tokens", type=int, default=32)
+    ap.add_argument("--skip-generation", action="store_true",
+                    help="skip expensive greedy generation baselines and final GEN scoring")
     ap.add_argument("--windows", default="dev",
                     choices=["dev"], help="formal run is a separate frozen driver")
     ap.add_argument("--window", default=None,
@@ -430,50 +432,68 @@ def main() -> None:
     def train_answer_arm(arm, displacement, optimizer, encoded, questions, mask,
                          protect_questions=None, protect_baseline=None,
                          protect_weight=0.0, mean_grad=False):
-        """QA step with optional fixed-weight no-degradation penalty."""
+        """QA step with fixed-weight protection and bounded microbatches."""
         optimizer.zero_grad(set_to_none=True)
         cand = candidate(arm)
-        rescue_total = 0.0
-        protect_total = 0.0
         protect_questions = protect_questions or []
         protect_baseline = protect_baseline or {}
+        rescue_total = 0.0
+        protect_total = 0.0
+        microbatch = 2 if mean_grad else 1
+        pad_id = manager.tokenizer.eos_token_id
+
+        def run_batch(pool, batch_questions, baselines=None):
+            ids, labels = [], []
+            for question in batch_questions:
+                input_ids, stem_len = encoded[question]
+                label = input_ids.clone()
+                label[:, :stem_len] = -100
+                ids.append(input_ids.squeeze(0))
+                labels.append(label.squeeze(0))
+            input_ids = torch.nn.utils.rnn.pad_sequence(
+                ids, batch_first=True, padding_value=pad_id).to("cuda:0")
+            label_ids = torch.nn.utils.rnn.pad_sequence(
+                labels, batch_first=True, padding_value=-100).to("cuda:0")
+            with differentiable_memory(model, pool), active_mask_override(model, mask):
+                logits = model(input_ids=input_ids, use_cache=False,
+                               return_dict=True).logits.float()
+            token_loss = F.cross_entropy(
+                logits[:, :-1].reshape(-1, logits.shape[-1]),
+                label_ids[:, 1:].reshape(-1), reduction="none").reshape(label_ids.shape[0], -1)
+            valid = label_ids[:, 1:] != -100
+            per_question = (token_loss * valid).sum(1) / valid.sum(1).clamp_min(1)
+            if baselines is None:
+                batch_loss = per_question.sum() / max(1, len(questions))
+            else:
+                ref = torch.tensor(baselines, device=per_question.device,
+                                   dtype=per_question.dtype)
+                batch_loss = torch.relu(per_question - ref).sum() / max(1, len(protect_questions))
+            return per_question, batch_loss
+
         with _pool_in_place(manager, "cuda:0", cand, window_used,
                             target_used) as injection:
             pool = injection.reinject()
-            for question in questions:
-                input_ids, stem_len = encoded[question]
-                labels = input_ids.clone()
-                labels[:, :stem_len] = -100
-                with differentiable_memory(model, pool), active_mask_override(model, mask):
-                    logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
-                shift_logits = logits[:, :-1, :].float()
-                shift_labels = labels[:, 1:]
-                loss = F.cross_entropy(
-                    shift_logits.reshape(-1, shift_logits.shape[-1]),
-                    shift_labels.reshape(-1), ignore_index=-100)
-                (loss / len(questions) if mean_grad else loss).backward(retain_graph=True)
-                rescue_total += float(loss)
-                del loss, logits
-            for question in protect_questions:
-                input_ids, stem_len = encoded[question]
-                labels = input_ids.clone()
-                labels[:, :stem_len] = -100
-                with differentiable_memory(model, pool), active_mask_override(model, mask):
-                    logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
-                shift_logits = logits[:, :-1, :].float()
-                shift_labels = labels[:, 1:]
-                loss = F.cross_entropy(
-                    shift_logits.reshape(-1, shift_logits.shape[-1]),
-                    shift_labels.reshape(-1), ignore_index=-100)
-                penalty = torch.relu(loss - protect_baseline[question])
-                (protect_weight * penalty / len(protect_questions)
-                 if mean_grad else protect_weight * penalty).backward(retain_graph=True)
-                protect_total += float(penalty)
-                del penalty, loss, logits
+            for lo in range(0, len(questions), microbatch):
+                batch = questions[lo:lo + microbatch]
+                per_question, loss = run_batch(pool, batch)
+                loss.backward(retain_graph=True)
+                rescue_total += float(per_question.sum())
+                del per_question, loss
+            for lo in range(0, len(protect_questions), microbatch):
+                batch = protect_questions[lo:lo + microbatch]
+                refs = [protect_baseline[q] for q in batch]
+                per_question, penalty = run_batch(pool, batch, refs)
+                (protect_weight * penalty).backward(retain_graph=True)
+                protect_total += float(torch.relu(
+                    per_question - torch.tensor(refs, device=per_question.device,
+                                                dtype=per_question.dtype)).sum())
+                del per_question, penalty
         optimizer.step()
         displacement.clamp(args.budget)
         del cand, pool
         torch.cuda.empty_cache()
+        if mean_grad:
+            print("[s1d2] microbatch objective complete", flush=True)
         return {
             "loss": rescue_total / max(1, len(questions)) +
                     protect_weight * protect_total / max(1, len(protect_questions)),
@@ -524,6 +544,7 @@ def main() -> None:
                      "measure_every": args.measure_every,
                      "lr": args.lr, "budget": args.budget,
                      "max_new_tokens": args.max_new_tokens,
+                     "skip_generation": args.skip_generation,
                      "checkpoint_sha256": digest(args.carrier_ckpt),
                      "selfsup_rows_sha256": sha256_file(args.selfsup_rows),
                      "gold_rows_sha256": sha256_file(args.rows)},
@@ -616,12 +637,17 @@ def main() -> None:
                 U_ss.contiguous().numpy().tobytes()).hexdigest()
             random_ul = random_basis(131072, 13, 0, torch)
 
-            gen_full, gen_full_pred = evaluate_generation(probes, None)
-            gen_d0, gen_d0_pred = evaluate_generation(probes, d0_arm)
-            d0_after_generation = evaluate(encoded, probes, d0_arm)
-            if d0_after_generation != d0_correct:
-                raise RuntimeError("D0 changed after generation evaluation")
-            print("[s1d2] D0 generation-sandwich verified", flush=True)
+            if args.skip_generation:
+                gen_full = gen_d0 = None
+                gen_full_pred = gen_d0_pred = {}
+                print("[s1d2] generation baselines skipped by protocol", flush=True)
+            else:
+                gen_full, gen_full_pred = evaluate_generation(probes, None)
+                gen_d0, gen_d0_pred = evaluate_generation(probes, d0_arm)
+                d0_after_generation = evaluate(encoded, probes, d0_arm)
+                if d0_after_generation != d0_correct:
+                    raise RuntimeError("D0 changed after generation evaluation")
+                print("[s1d2] D0 generation-sandwich verified", flush=True)
             d0_arm_alive = True
 
             window_report = {
@@ -633,8 +659,10 @@ def main() -> None:
                     "full": stage2_metric(full, sets, d0_correct),
                     "select": stage2_metric(select_correct, sets, d0_correct),
                     "d0": stage2_metric(d0_correct, sets, d0_correct),
-                    "gen_full": stage2_metric(gen_full, sets, gen_d0),
-                    "gen_d0": stage2_metric(gen_d0, sets, gen_d0),
+                    "gen_full": (stage2_metric(gen_full, sets, gen_d0)
+                                 if gen_full is not None else None),
+                    "gen_d0": (stage2_metric(gen_d0, sets, gen_d0)
+                               if gen_d0 is not None else None),
                     "gen_predictions_d0": gen_d0_pred,
                     "gen_predictions_full": gen_full_pred,
                 },
@@ -702,7 +730,13 @@ def main() -> None:
                     trainable = [p for p in arm.parameters() if p.requires_grad]
                     if len(trainable) != 1 or trainable[0] is not displacement.value:
                         raise RuntimeError("QA oracle must train only alpha")
+                report["windows"] = [w for w in report["windows"]
+                                     if w["window"] != [row, start]]
+                report["windows"].append(window_report)
+                flush()
                 for step in range(1, args.steps + 1):
+                    print("[s1d2] %s training step %d/%d" %
+                          (name, step, args.steps), flush=True)
                     if name == ORACLE_ARM:
                         loss_info = train_answer_arm(
                             arm, displacement, optimizer, encoded,
@@ -733,12 +767,8 @@ def main() -> None:
                                 raise RuntimeError("oracle basis changed during training")
                             tf_m["basis_unchanged"] = True
                             tf_m["alpha"] = displacement.value.detach().cpu().tolist()
-                        if step == args.steps:
-                            # Generation EM only at the final step: the KV-cache
-                            # fix makes it ~10 s/probe instead of ~60 s, but 60
-                            # probes x 6 measurement points x 3 arms is still
-                            # 2+ hours of pure eval per window. TF every 10
-                            # steps, generation once at the end.
+                        if step == args.steps and not args.skip_generation:
+                            # Generation EM only at the final step.
                             gen, gen_pred = evaluate_generation(probes, arm)
                             gen_m = stage2_metric(gen, sets, gen_d0)
                             gen_m["predictions"] = gen_pred
