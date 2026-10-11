@@ -37,12 +37,16 @@ def metric(m, sets, baseline, label):
     req(finite(m["accuracy"]) and math.isclose(
         m["accuracy"], sum(c.values()) / max(1, len(c)), abs_tol=1e-12), label + "/accuracy")
 
-def verify(r, old):
+def verify(r, old, allow_running=False):
     req(r["schema_version"] == "s1d_stage2_oracle_protected/1", "schema")
-    req(r["status"] == "complete", "incomplete")
-    req(r["launcher"]["torchrun_exit_code"] == 0 and
-        r["launcher"]["all_workers_succeeded"] is True and
-        r["launcher"]["world_size"] == 8, "worker group completion")
+    complete = r["status"] == "complete"
+    req(complete or (allow_running and r["status"] == "running"), "incomplete")
+    if complete:
+        req(r["launcher"]["torchrun_exit_code"] == 0 and
+            r["launcher"]["all_workers_succeeded"] is True and
+            r["launcher"]["world_size"] == 8, "worker group completion")
+    else:
+        req("launcher" not in r and "failure" not in r, "running report has terminal certificate")
     req(r["diagnostic_only"] is True and r["excluded_from_method_results"] is True, "flags")
     current = hashlib.sha256((ROOT / "tools/s1d_stage2_dev.py").read_bytes()).hexdigest()
     req(r["driver_sha256"] == current, "driver sha")
@@ -92,7 +96,10 @@ def verify(r, old):
     req(set(e["protection_baseline_ce"]) == set(protect), "baseline CE universe")
     req(all(finite(value) and value >= 0 for value in e["protection_baseline_ce"].values()),
         "baseline CE finite")
-    req([x["step"] for x in e["history"]] == STEPS and e["final"] == e["history"][-1], "history")
+    measured_steps = [x["step"] for x in e["history"]]
+    req(bool(measured_steps) and measured_steps == STEPS[:len(measured_steps)], "history prefix")
+    if complete:
+        req(measured_steps == STEPS and e["final"] == e["history"][-1], "history")
     for x in e["history"]:
         metric(x, w["sets"], w["baselines"]["d0"]["correct"], "step")
         req(finite(x["sup_loss"]) and finite(x["rescue_loss"]) and finite(x["protect_penalty"]), "loss")
@@ -103,20 +110,27 @@ def verify(r, old):
         req(x["basis_unchanged"] is True, "basis changed")
         req(len(x["alpha"]) == 13 and all(finite(v) for v in x["alpha"]), "alpha")
         req(math.isclose(math.hypot(*x["alpha"]), x["deviation"], rel_tol=1e-5, abs_tol=1e-6), "alpha norm")
-    req(e["final"].get("gen") is None, "GEN must be explicitly skipped")
+        req(x.get("gen") is None, "GEN must be explicitly skipped")
+    if not complete:
+        print("PARTIAL PASS: measured steps %s; status=running; worker completion uncertified" % measured_steps)
+        return False
     print("protected final TF: recovery/harm/net=%d/%d/%d" %
           (e["final"]["new_recovery"], e["final"]["d0_harmed"], e["final"]["net_vs_d0"]))
     print("PASS: protected oracle flags, fixed weight, D0 CE baseline, cohorts, frozen basis, alpha audit, TF/GEN metrics")
+    return True
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", type=Path, default=ROOT / "runs/s1d_stage2_oracle_protected.w17510.json")
     ap.add_argument("--previous", type=Path, default=ROOT / "runs/s1d_stage2_oracle.w17510.json")
+    ap.add_argument("--allow-running", action="store_true",
+                    help="audit recorded checkpoints only; completion remains uncertified")
     a = ap.parse_args()
     if not a.report.is_file():
         print("SKIP: protected report does not exist: %s" % a.report)
         return
-    verify(json.loads(a.report.read_text()), json.loads(a.previous.read_text()))
+    verify(json.loads(a.report.read_text()), json.loads(a.previous.read_text()),
+           allow_running=a.allow_running)
 
 if __name__ == "__main__":
     main()

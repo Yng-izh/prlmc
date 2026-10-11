@@ -353,6 +353,35 @@ def test_protected_report_verifier_rejects_corruption():
         raise AssertionError("verifier accepted corruption: " + case)
 
 
+def test_protected_partial_audit_stays_partial():
+    import copy
+    import io
+    import json
+    from contextlib import redirect_stdout
+    from verify_s1d_stage2_oracle_protected import verify
+    root = Path(__file__).resolve().parents[1]
+    snapshot = json.loads((root / "runs/s1d_stage2_oracle_protected.parallel8.step20_snapshot.json").read_text())
+    old = json.loads((root / "runs/s1d_stage2_oracle.w17510.json").read_text())
+    stream = io.StringIO()
+    with redirect_stdout(stream):
+        assert verify(snapshot, old, allow_running=True) is False
+    assert "PARTIAL PASS" in stream.getvalue() and "completion uncertified" in stream.getvalue()
+    for case in ("strict", "missing_step", "failed", "certificate"):
+        bad = copy.deepcopy(snapshot)
+        if case == "missing_step":
+            bad["windows"][0]["arms"]["oracle_13d_protected"]["history"][-1]["step"] = 30
+        elif case == "failed":
+            bad["status"] = "failed"
+        elif case == "certificate":
+            bad["launcher"] = {"all_workers_succeeded": False}
+        try:
+            with redirect_stdout(io.StringIO()):
+                verify(bad, old, allow_running=case != "strict")
+        except AssertionError:
+            continue
+        raise AssertionError("partial audit accepted invalid state: " + case)
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -367,4 +396,5 @@ if __name__ == "__main__":
     test_distributed_gradient_equivalence()
     test_parallel_launcher_report_certification()
     test_protected_report_verifier_rejects_corruption()
-    print("PASS 13/13")
+    test_protected_partial_audit_stays_partial()
+    print("PASS 14/14")
