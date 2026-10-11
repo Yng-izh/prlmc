@@ -63,6 +63,9 @@ step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 
 | 20 | 3.2994640917 | 0.0099541152 | 3.3094182069 | 0.1833276302 | 3 | 5 | -2 |
 | 30 | 2.9209570673 | 0.0360448995 | 2.9570019668 | 0.2601703107 | 6 | 6 | 0 |
 | 40 | 2.7910736189 | 0.0624655173 | 2.8535391363 | 0.3232849836 | 6 | 8 | -2 |
+| 50 | 2.7412107597 | 0.0729762252 | 2.8141869849 | 0.3613499105 | 5 | 8 | -3 |
+
+step50 快照 `runs/s1d_stage2_oracle_protected.parallel8.step50_snapshot.json` 经 --allow-running 审计通过，前缀[10,20,30,40,50]连续，status仍为running。剩余10步按固定lambda=1继续，不因当前net=-3改变实验协议。
 
 step40 快照 `runs/s1d_stage2_oracle_protected.parallel8.step40_snapshot.json` 经 --allow-running 审计通过，前缀[10,20,30,40]连续，status仍为running。固定lambda=1保护hinge当前仍未使net转正，剩余20步继续按预注册协议运行。
 
