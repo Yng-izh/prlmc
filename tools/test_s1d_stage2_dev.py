@@ -306,6 +306,53 @@ def test_parallel_launcher_report_certification():
             assert result["status"] == ("complete" if expected else "failed")
 
 
+def test_protected_report_verifier_rejects_corruption():
+    import copy
+    import io
+    import json
+    from contextlib import redirect_stdout
+    from verify_s1d_stage2_oracle_protected import verify, STEPS
+    root = Path(__file__).resolve().parents[1]
+    fixture = json.loads((root / "runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json").read_text())
+    old = json.loads((root / "runs/s1d_stage2_oracle.w17510.json").read_text())
+    # Synthetic in-memory histories test validation only; never save as run evidence.
+    fixture["status"] = "complete"
+    fixture["launcher"] = {"torchrun_exit_code": 0, "all_workers_succeeded": True, "world_size": 8}
+    arm = fixture["windows"][0]["arms"]["oracle_13d_protected"]
+    first = arm["history"][0]
+    arm["history"] = [dict(copy.deepcopy(first), step=step) for step in STEPS]
+    arm["final"] = arm["history"][-1]
+    with redirect_stdout(io.StringIO()):
+        verify(fixture, old)
+    cases = ["status", "worker", "accuracy", "basis", "baseline_ce", "loss", "artifact", "cache"]
+    for case in cases:
+        bad = copy.deepcopy(fixture)
+        entry = bad["windows"][0]["arms"]["oracle_13d_protected"]
+        if case == "status":
+            bad["status"] = "running"
+        elif case == "worker":
+            bad["launcher"]["torchrun_exit_code"] = 1
+        elif case == "accuracy":
+            entry["history"][0]["accuracy"] += .01
+        elif case == "basis":
+            entry["basis_sha256"] = "0" * 64
+        elif case == "baseline_ce":
+            key = next(iter(entry["protection_baseline_ce"]))
+            entry["protection_baseline_ce"][key] = float("nan")
+        elif case == "loss":
+            entry["history"][0]["sup_loss"] += .01
+        elif case == "artifact":
+            bad["protocol"]["checkpoint_sha256"] = "0" * 64
+        elif case == "cache":
+            bad["protocol"]["parallel_qa"]["reader_cache_manifest_sha256"] = "0" * 64
+        try:
+            with redirect_stdout(io.StringIO()):
+                verify(bad, old)
+        except AssertionError:
+            continue
+        raise AssertionError("verifier accepted corruption: " + case)
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -319,4 +366,5 @@ if __name__ == "__main__":
     test_protected_training_pool_gradients_and_restoration()
     test_distributed_gradient_equivalence()
     test_parallel_launcher_report_certification()
-    print("PASS 12/12")
+    test_protected_report_verifier_rejects_corruption()
+    print("PASS 13/13")

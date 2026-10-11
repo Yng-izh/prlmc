@@ -34,7 +34,8 @@ def metric(m, sets, baseline, label):
     }
     for k, v in expected.items():
         req(m[k] == v, label + "/" + k)
-    req(finite(m["accuracy"]), label + "/accuracy")
+    req(finite(m["accuracy"]) and math.isclose(
+        m["accuracy"], sum(c.values()) / max(1, len(c)), abs_tol=1e-12), label + "/accuracy")
 
 def verify(r, old):
     req(r["schema_version"] == "s1d_stage2_oracle_protected/1", "schema")
@@ -46,6 +47,9 @@ def verify(r, old):
     current = hashlib.sha256((ROOT / "tools/s1d_stage2_dev.py").read_bytes()).hexdigest()
     req(r["driver_sha256"] == current, "driver sha")
     p = r["protocol"]
+    for key in ("checkpoint_sha256", "selfsup_rows_sha256", "gold_rows_sha256"):
+        sha(p[key], key)
+        req(p[key] == old["protocol"][key], "original artifact/" + key)
     for k, v in (("steps", 60), ("measure_every", 10), ("lr", .003), ("budget", 1.),
                  ("seed", 0), ("max_new_tokens", 32), ("qa_max_tokens", 256),
                  ("protect_weight", 1.0),
@@ -54,7 +58,12 @@ def verify(r, old):
     parallel = p["parallel_qa"]
     req(parallel["world_size"] == 8, "parallel/world size")
     devices = parallel["physical_devices"]
-    req(len(devices) == len(set(devices)) == 8, "parallel/unique devices")
+    req(len(devices) == len(set(devices)) == 8 and
+        all(type(device) is int and device >= 0 for device in devices), "parallel/unique devices")
+    cache_manifest = ROOT / "runs/s1d_reader_fp16_manifest.json"
+    req(parallel["reader_cache_manifest_sha256"] ==
+        hashlib.sha256(cache_manifest.read_bytes()).hexdigest(), "reader cache certificate")
+    req(p["optimizer"] == "AdamW" and p["weight_decay"] == .01, "optimizer")
     req(parallel["gradient_reduction"] ==
         "SUM local alpha gradients with global cohort denominators", "parallel/gradient SUM")
     req(p["arms"] == p["selected_arms"] == ["oracle_13d_protected"], "arm")
@@ -74,16 +83,22 @@ def verify(r, old):
     e = w["arms"]["oracle_13d_protected"]
     req(e["trainable_dof"] == 13 and e["initial_identity_verified"] is True, "dof/identity")
     sha(e["basis_sha256"], "basis hash")
+    req(e["basis_sha256"] == ow["arms"]["oracle_13d"]["basis_sha256"], "original frozen basis")
     q = w["sets"]["rescue_d0_wrong"]
     protect = [x for x, ok in w["baselines"]["d0"]["correct"].items() if ok]
     req(e["supervision_questions"] == q and e["n_supervision_questions"] == len(q), "training set")
     req(e["protection_questions"] == protect and e["n_protection_questions"] == len(protect), "protection set")
     req(e["protection_weight"] == 1.0, "arm weight")
     req(set(e["protection_baseline_ce"]) == set(protect), "baseline CE universe")
+    req(all(finite(value) and value >= 0 for value in e["protection_baseline_ce"].values()),
+        "baseline CE finite")
     req([x["step"] for x in e["history"]] == STEPS and e["final"] == e["history"][-1], "history")
     for x in e["history"]:
         metric(x, w["sets"], w["baselines"]["d0"]["correct"], "step")
         req(finite(x["sup_loss"]) and finite(x["rescue_loss"]) and finite(x["protect_penalty"]), "loss")
+        req(x["rescue_loss"] >= 0 and x["protect_penalty"] >= 0 and
+            math.isclose(x["sup_loss"], x["rescue_loss"] + x["protect_penalty"],
+                         rel_tol=1e-10, abs_tol=1e-10), "fixed-weight loss decomposition")
         req(finite(x["deviation"]) and 0 <= x["deviation"] <= 1.000001, "norm")
         req(x["basis_unchanged"] is True, "basis changed")
         req(len(x["alpha"]) == 13 and all(finite(v) for v in x["alpha"]), "alpha")

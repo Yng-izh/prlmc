@@ -49,6 +49,8 @@ GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --
 
 启动器自动进入正式60步，torchrun PID=46728。日志分别为 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`、`runs/s1d_stage2_oracle_protected.parallel8.parallel_smoke.log`、`runs/s1d_stage2_oracle_protected.parallel8.log`。正式结果尚未完成，最终报告需通过独立 verifier 与全worker退出码认证。
 
+独立 verifier 进一步核对原始 checkpoint/selfsup_rows/gold_rows 哈希、原 oracle basis SHA256、共享 FP16 缓存 manifest、AdamW/weight decay、D0 参考 CE 的有限性、逐题 accuracy 与固定lambda=1的损失分解。新增8类篡改检测（状态、worker、accuracy、basis、参考CE、loss、输入artifact、缓存），完整测试 `PASS 13/13`。测试用合成 history 仅在内存构造以验证检测器，不保存为实验报告；训练驱动未改动，正式报告 driver SHA 保持不变。
+
 ## 中途测量（非最终结果）
 
 step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 保持 status=running。已独立重算逐题 recovery/harm/net，并核对原始基线/cohort、basis 未变、alpha norm 与预算、sup_loss=rescue_loss+protect_penalty。
