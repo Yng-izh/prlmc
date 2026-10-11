@@ -58,6 +58,9 @@ step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 
 | step | rescue CE | protect hinge | total loss | alpha norm | new recovery | D0 harmed | net |
 |---|---|---|---|---|---|---|---|
 | 10 | 3.6297352855 | 0.0022770714 | 3.6320123569 | 0.0986444950 | 0 | 1 | -1 |
+| 20 | 3.2994640917 | 0.0099541152 | 3.3094182069 | 0.1833276302 | 3 | 5 | -2 |
+
+step20 快照 `runs/s1d_stage2_oracle_protected.parallel8.step20_snapshot.json` 同样保持 status=running，两个 checkpoint 的逐题 TF 指标、原始输入/basis 哈希、缓存证明、alpha 预算和固定权重损失分解均通过独立核对。保护 hinge 是固定权重的 CE 软惩罚，不是 discrete TF 零 harm 的硬约束；按既定lambda=1继续60步，不因中途结果调整权重。
 
 缓存证明 `runs/s1d_reader_fp16_manifest.json` 已复制本地，SHA256 与多卡 smoke 报告完全一致，涵盖8个 shard 的1063个张量。正式60步完成与全worker认证之前，不据中途指标作最终裁决。
 
