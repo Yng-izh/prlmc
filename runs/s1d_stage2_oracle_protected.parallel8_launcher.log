@@ -1,0 +1,7 @@
+waiting for verified shared reader cache
+verified shared reader cache ready
+launching 8-GPU group: s1d_stage2_oracle_protected.w17510.parallel_smoke.json
+worker group exit=0 verified_complete=True
+PASS smoke: all workers succeeded; original cohorts; nonzero alpha; frozen basis
+launching 8-GPU group: s1d_stage2_oracle_protected.w17510.json
+worker group exit=0 verified_complete=True

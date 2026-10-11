@@ -1,6 +1,6 @@
 # S1d stage 2 protected oracle
 
-- **状态**：代码与协议已冻结；GPU 运行在原实验节点执行，结果以独立校验器确认后更新。
+- **状态**：8卡正式60步已完成；报告通过严格 verifier 与独立最终审计，8个worker和外层launcher均退出码0。
 - **用途**：开发阶段诊断对照，不参与论文方法结果，不作为 held-out 或泛化证据。
 - **窗口与基**：固定 `(3,17510)`；沿用 `runs/s1d_selfsup_rows_v2.pt` 的 per-window selfsup SVD-13 basis；不使用 QA 重建 basis。
 - **可训练参数**：仅 13 个 `alpha`；reader、carrier、basis 冻结；`D_new = D0 + reshape(U_selfsup @ alpha)`。
@@ -13,7 +13,7 @@
 
 ## 运行状态
 
-当前工作站没有历史 `/share/latent/mllm_env` 且没有 CUDA；驱动已同步到原 `v100-2` 节点的 `/share/latent/PRLM-C`，使用 GPU1 执行。报告生成后运行：
+当前工作站没有历史 `/share/latent/mllm_env` 且没有 CUDA；驱动已同步到原 `v100-2` 节点的 `/share/latent/PRLM-C`，使用8卡题目分片执行。报告生成后运行：
 
 ```bash
 python3 tools/test_s1d_stage2_dev.py
@@ -35,7 +35,7 @@ python3 tools/verify_s1d_stage2_oracle_protected.py
 
 按用户要求切换为 8 卡题目分片并行，物理设备 `0,1,2,3,4,6,8,9`，保留 GPU5/7 上已有服务。每个 rank 复制同一个冻结 reader 与初始记忆，启动时核对完整 memory 和 basis 的 SHA256。TF 基线、D0 参考 CE、训练题与评估题按 round-robin 分片；评估 gather 后检查题集无遗漏与重复。
 
-每个 rank 的 rescue CE 与保护 hinge 均使用全局 cohort 数目归一化，单步将 13 个 alpha 的局部梯度以 Gloo `SUM` 汇总，然后各 rank 做相同 AdamW 更新并严格核对 alpha 一致。只有 rank0 写最终报告。此配置是一个实验的分布式加速，而不是 8 次独立训练。CPU 四进程不均匀/空分片回归、真实训练函数与启动器状态认证全部通过 `PASS 12/12`。GPU 多卡单步验证已成功并放行正式 60 步。
+每个 rank 的 rescue CE 与保护 hinge 均使用全局 cohort 数目归一化，单步将 13 个 alpha 的局部梯度以 Gloo `SUM` 汇总，然后各 rank 做相同 AdamW 更新并严格核对 alpha 一致。只有rank0写最终报告。此配置是一个实验的分布式加速，而不是8次独立训练。CPU四进程不均匀/空分片回归、真实训练函数、启动器状态认证与篡改检测全部通过，最新测试 `PASS 14/14`。GPU单步 smoke 和正式60步均成功。
 
 ```bash
 GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node=8 tools/s1d_stage2_dev.py --window 3,17510 --arms oracle_13d_protected --cuda-devices 0,1,2,3,4,6,8,9 --skip-generation --qa-max-tokens 256 --out runs/s1d_stage2_oracle_protected.w17510.json
@@ -47,7 +47,7 @@ GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --
 
 后台流程 PID=45274；共享缓存已经生成并逐张量校验，约19GB。8卡 smoke 全部 worker 成功退出（torchrun exit=0，launcher all_workers_succeeded=true），报告 `runs/s1d_stage2_oracle_protected.w17510.parallel_smoke.json` 已复制本地。与单卡 smoke 的 full/select/D0 基线、cohort、逐题 TF 图、loss=3.7742887547141626、norm=0.010816652327775955 全部一致，alpha 最大差异2.3283064365386963e-10为FP32梯度求和顺序舍入，basis 未变，step1 recovery/harm/net=0/0/0。
 
-启动器自动进入正式60步，torchrun PID=46728。日志分别为 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`、`runs/s1d_stage2_oracle_protected.parallel8.parallel_smoke.log`、`runs/s1d_stage2_oracle_protected.parallel8.log`。正式结果尚未完成，最终报告需通过独立 verifier 与全worker退出码认证。
+启动器自动进入正式60步，torchrun PID=46728。日志已复制到 `runs/s1d_stage2_oracle_protected.parallel8.log` 与 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`，最终报告为 `runs/s1d_stage2_oracle_protected.w17510.json`。launcher证书：torchrun exit=0、world_size=8、all_workers_succeeded=true。
 
 独立 verifier 进一步核对原始 checkpoint/selfsup_rows/gold_rows 哈希、原 oracle basis SHA256、共享 FP16 缓存 manifest、AdamW/weight decay、D0 参考 CE 的有限性、逐题 accuracy 与固定lambda=1的损失分解。新增8类篡改检测（状态、worker、accuracy、basis、参考CE、loss、输入artifact、缓存），完整测试 `PASS 13/13`。测试用合成 history 仅在内存构造以验证检测器，不保存为实验报告；训练驱动未改动，正式报告 driver SHA 保持不变。
 
@@ -64,16 +64,11 @@ step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 
 | 30 | 2.9209570673 | 0.0360448995 | 2.9570019668 | 0.2601703107 | 6 | 6 | 0 |
 | 40 | 2.7910736189 | 0.0624655173 | 2.8535391363 | 0.3232849836 | 6 | 8 | -2 |
 | 50 | 2.7412107597 | 0.0729762252 | 2.8141869849 | 0.3613499105 | 5 | 8 | -3 |
+| 60 | 2.6986498270 | 0.0721515807 | 2.7708014077 | 0.3904515207 | 6 | 8 | -2 |
 
-step50 快照 `runs/s1d_stage2_oracle_protected.parallel8.step50_snapshot.json` 经 --allow-running 审计通过，前缀[10,20,30,40,50]连续，status仍为running。剩余10步按固定lambda=1继续，不因当前net=-3改变实验协议。
+step10至step50快照均已通过 `--allow-running` 中途审计；它们是最终报告完成前保存的历史快照。最终报告已补齐step60并通过严格认证。保护hinge是固定权重的CE软惩罚，不是discrete TF零harm的硬约束。
 
-step40 快照 `runs/s1d_stage2_oracle_protected.parallel8.step40_snapshot.json` 经 --allow-running 审计通过，前缀[10,20,30,40]连续，status仍为running。固定lambda=1保护hinge当前仍未使net转正，剩余20步继续按预注册协议运行。
-
-step30 快照 `runs/s1d_stage2_oracle_protected.parallel8.step30_snapshot.json` 经统一 verifier 的 --allow-running 审计通过，已测量前缀[10,20,30]完整，status仍为running；当前TF计数与原unprotected oracle的step30相同（6/6/0），最终仍需观察step60。
-
-step20 快照 `runs/s1d_stage2_oracle_protected.parallel8.step20_snapshot.json` 同样保持 status=running，两个 checkpoint 的逐题 TF 指标、原始输入/basis 哈希、缓存证明、alpha 预算和固定权重损失分解均通过独立核对。保护 hinge 是固定权重的 CE 软惩罚，不是 discrete TF 零 harm 的硬约束；按既定lambda=1继续60步，不因中途结果调整权重。
-
-缓存证明 `runs/s1d_reader_fp16_manifest.json` 已复制本地，SHA256 与多卡 smoke 报告完全一致，涵盖8个 shard 的1063个张量。正式60步完成与全worker认证之前，不据中途指标作最终裁决。
+缓存证明 `runs/s1d_reader_fp16_manifest.json` 已复制本地，SHA256与多卡smoke报告完全一致，涵盖8个shard的1063个张量。
 
 ## 解释边界
 

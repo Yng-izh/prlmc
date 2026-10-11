@@ -67,7 +67,7 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 | S1d-selfsup-basis | 无答案窗口自监督建基 stage 1：事实行尾部遮罩补全CE的Jacobian行SVD出每窗口13D基，测对gold rescue子空间覆盖（v1模板过滤→v2扩池：移除模板过滤+latest-owner去重+40有效行/窗口，双卡分片） | 监督只用压缩前可观测事实行，held-out QA答案不触碰；gate=mean gRho≥0.20∧≥1.5×LOWO r13；SVD序基（v1 QR序缺陷已修正）；有效秩审计+rank-覆盖曲线 | v2完成：mean gRho=**0.5116**、ratio vs LOWO=**1.6226**（v1擦线1.5003），8/8窗口高于LOWO，aux回填=0（dropped primary池深199+行/窗口）；**gate PASS**但用户稳健性双标（ratio≥1.65∧有效秩≥13）未全达：有效秩均值7.41（40行时σ1/σ13=4.6–9.0，top-13占行池能量90–95%），系dropped块事实行梯度天然聚集非采样不足；v1/v2重叠203行最坏rel diff 1.24e-2（fp16非确定性）；扩池收益分解≈+0.024扩池+0.005排序修正。**stage 2（D0+U_window·α无答案优化）资格成立，待用户裁决** | [S1d-selfsup-basis.md](experiments/S1d-selfsup-basis.md) |
 
 | S1d-stage2-oracle | 最差开发窗口固定 selfsup 13D 基上的真实 QA 答案 CE oracle 可达性诊断 | 仅优化13个 α；(3,17510)；60步；不参与论文方法结果 | 已完成：step30 TF 6/6/0，step60 5/8/**-3**；相对原 selfsup 5/5/0 未形成正净收益，有限 oracle 不支持仅归因于无答案信号；基内仍有部分可达方向 | [S1d-stage2-oracle.md](experiments/S1d-stage2-oracle.md) |
-| S1d-stage2-oracle-protected | 最差开发窗口固定 selfsup 13D 基上的 QA 恢复+保护对照 | 仅优化13个 α；恢复 CE + 固定 λ=1.0 的 D0 正确题 CE 恶化惩罚；(3,17510)；不参与论文方法结果 | 8卡单步全worker成功，原始基线/cohort/逐题TF/loss/norm与单卡一致，alpha舍入差≤2.33e-10；PASS 12/12；正式8卡60步TF-only已自动启动，最终结果待校验 | [S1d-stage2-oracle-protected.md](experiments/S1d-stage2-oracle-protected.md) |
+| S1d-stage2-oracle-protected | 最差开发窗口固定 selfsup 13D 基上的 QA 恢复+保护对照 | 仅优化13个 α；恢复 CE + 固定 λ=1.0 的 D0 正确题 CE 恶化惩罚；(3,17510)；不参与论文方法结果 | 8卡正式60步完成，torchrun exit=0、8 workers全成功；256-token、lambda=1、冻结13D、TF-only，六次测量与独立最终审计通过；最终 recovery/harm/net=6/8/-2，诊断不支持正net改善 | [S1d-stage2-oracle-protected.md](experiments/S1d-stage2-oracle-protected.md) |
 
 ## 证据边界（论文推进审计）
 
