@@ -39,6 +39,9 @@ def metric(m, sets, baseline, label):
 def verify(r, old):
     req(r["schema_version"] == "s1d_stage2_oracle_protected/1", "schema")
     req(r["status"] == "complete", "incomplete")
+    req(r["launcher"]["torchrun_exit_code"] == 0 and
+        r["launcher"]["all_workers_succeeded"] is True and
+        r["launcher"]["world_size"] == 8, "worker group completion")
     req(r["diagnostic_only"] is True and r["excluded_from_method_results"] is True, "flags")
     current = hashlib.sha256((ROOT / "tools/s1d_stage2_dev.py").read_bytes()).hexdigest()
     req(r["driver_sha256"] == current, "driver sha")
@@ -48,6 +51,12 @@ def verify(r, old):
                  ("protect_weight", 1.0),
                  ("skip_generation", True)):
         req(p[k] == v, "protocol/" + k)
+    parallel = p["parallel_qa"]
+    req(parallel["world_size"] == 8, "parallel/world size")
+    devices = parallel["physical_devices"]
+    req(len(devices) == len(set(devices)) == 8, "parallel/unique devices")
+    req(parallel["gradient_reduction"] ==
+        "SUM local alpha gradients with global cohort denominators", "parallel/gradient SUM")
     req(p["arms"] == p["selected_arms"] == ["oracle_13d_protected"], "arm")
     req(p["dev_windows"] == [[3, 17510]], "window")
     req(p["basis"] == BASIS, "basis declaration")

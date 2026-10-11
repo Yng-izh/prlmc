@@ -205,7 +205,9 @@ def test_protected_training_pool_gradients_and_restoration():
     for child in ast.walk(node):
         if isinstance(child, ast.Constant) and child.value == "cuda:0":
             child.value = "cpu"
+    from s1d_stage2_dev import QAParallel
     namespace = dict(torch=torch, F=F, model=model, manager=manager,
+                     parallel=QAParallel(),
                      candidate=lambda arm: (d0 + basis @ alpha).reshape(1, 2, 2),
                      _pool_in_place=_pool_in_place,
                      differentiable_memory=differentiable_memory,
@@ -215,7 +217,7 @@ def test_protected_training_pool_gradients_and_restoration():
     manager.tokenizer = types.SimpleNamespace(eos_token_id=0)
     exec(compile(ast.Module(body=[node], type_ignores=[]), source, "exec"), namespace)
     result = namespace["train_answer_arm"](
-        None, types.SimpleNamespace(clamp=lambda budget: None), optimizer,
+        None, types.SimpleNamespace(value=alpha, clamp=lambda budget: None), optimizer,
         encoded, ["r1", "r2"], mask, protect_questions=["p1", "p2"],
         protect_baseline=refs, protect_weight=1.0, mean_grad=True)
     assert torch.allclose(alpha.grad, reference, atol=1e-6), (alpha.grad, reference)
@@ -238,6 +240,72 @@ def test_protected_training_pool_gradients_and_restoration():
     assert model.memory_active_mask is original_mask
 
 
+def _distributed_gradient_worker(rank, world_size, init_file):
+    import torch
+    import torch.nn.functional as F
+    from s1d_stage2_dev import QAParallel
+    torch.distributed.init_process_group(
+        "gloo", init_method="file://" + init_file, rank=rank, world_size=world_size)
+    try:
+        parallel = QAParallel(rank, world_size)
+        alpha = torch.nn.Parameter(torch.tensor([0.2, -0.1]))
+        vectors = [torch.tensor([1., 2.]), torch.tensor([-2., 1.]),
+                   torch.tensor([3., -1.])]
+
+        def ce(index):
+            z = vectors[index] @ alpha
+            return F.cross_entropy(torch.stack([z, -z, z * 0]).unsqueeze(0),
+                                   torch.tensor([index]))
+
+        rescue = [0, 1, 2]
+        protect = [0, 1]
+        refs = {0: 0.0, 1: 100.0}
+        expected = sum(ce(i) for i in rescue) / len(rescue)
+        expected += sum(torch.relu(ce(i) - refs[i]) for i in protect) / len(protect)
+        reference = torch.autograd.grad(expected, alpha)[0]
+        totals = [0.0, 0.0]
+        for i in parallel.shard(rescue):
+            loss = ce(i)
+            (loss / len(rescue)).backward()
+            totals[0] += loss.item()
+        for i in parallel.shard(protect):
+            penalty = torch.relu(ce(i) - refs[i])
+            (penalty / len(protect)).backward()
+            totals[1] += penalty.item()
+        sums = parallel.reduce_step([alpha], totals)
+        assert torch.allclose(alpha.grad, reference, atol=1e-6)
+        assert abs(sums[0] / len(rescue) + sums[1] / len(protect) - expected.item()) < 1e-6
+        torch.optim.SGD([alpha], lr=0.03).step()
+        parallel.assert_same(alpha.detach().tolist(), "test alpha")
+        merged = parallel.merge({i: i * 2 for i in parallel.shard(rescue)}, rescue)
+        assert merged == {0: 0, 1: 2, 2: 4}
+    finally:
+        torch.distributed.destroy_process_group()
+
+
+def test_distributed_gradient_equivalence():
+    import tempfile
+    import torch.multiprocessing as mp
+    with tempfile.TemporaryDirectory() as directory:
+        mp.spawn(_distributed_gradient_worker, args=(4, directory + "/gloo"),
+                 nprocs=4, join=True)
+
+
+def test_parallel_launcher_report_certification():
+    import json
+    import tempfile
+    from run_s1d_parallel import finalize_report
+    with tempfile.TemporaryDirectory() as directory:
+        output = Path(directory) / "report.json"
+        for status, code, expected in (("complete", 0, True),
+                                       ("complete", 1, False), ("running", 0, False)):
+            output.write_text(json.dumps({"status": status}))
+            assert finalize_report(output, code, 8) is expected
+            result = json.loads(output.read_text())
+            assert result["launcher"]["all_workers_succeeded"] is expected
+            assert result["status"] == ("complete" if expected else "failed")
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -249,4 +317,6 @@ if __name__ == "__main__":
     test_protection_penalty_is_hinge_over_d0_ce()
     test_offloaded_checkpoint_gradient_accumulation()
     test_protected_training_pool_gradients_and_restoration()
-    print("PASS 10/10")
+    test_distributed_gradient_equivalence()
+    test_parallel_launcher_report_certification()
+    print("PASS 12/12")

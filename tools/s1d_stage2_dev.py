@@ -214,6 +214,50 @@ def select_lines_v2(lines, line_to_block, dropped, e6a):
     return primary, aux
 
 
+class QAParallel:
+    """Replicated frozen readers with sharded questions and summed alpha gradients."""
+
+    def __init__(self, rank=0, world_size=1):
+        self.rank = rank
+        self.world_size = world_size
+
+    def shard(self, values):
+        return values[self.rank::self.world_size]
+
+    def gather(self, value):
+        if self.world_size == 1:
+            return [value]
+        gathered = [None] * self.world_size
+        torch.distributed.all_gather_object(gathered, value)
+        return gathered
+
+    def merge(self, local, keys):
+        merged = {}
+        for part in self.gather(local):
+            if set(merged) & set(part):
+                raise RuntimeError("duplicate QA shard keys")
+            merged.update(part)
+        if set(merged) != set(keys):
+            raise RuntimeError("incomplete QA shard coverage")
+        return {key: merged[key] for key in keys}
+
+    def assert_same(self, value, label):
+        if any(other != value for other in self.gather(value)):
+            raise RuntimeError("distributed mismatch: " + label)
+
+    def reduce_step(self, parameters, totals):
+        if self.world_size == 1:
+            return totals
+        for parameter in parameters:
+            gradient = (parameter.grad.detach().cpu().clone() if parameter.grad is not None
+                        else torch.zeros_like(parameter, device="cpu"))
+            torch.distributed.all_reduce(gradient, op=torch.distributed.ReduceOp.SUM)
+            parameter.grad = gradient.to(parameter.device)
+        sums = torch.tensor(totals, dtype=torch.float64)
+        torch.distributed.all_reduce(sums, op=torch.distributed.ReduceOp.SUM)
+        return sums.tolist()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", default="runs/s1c_global_rows.pt")
@@ -221,6 +265,10 @@ def main() -> None:
     ap.add_argument("--carrier-ckpt", default="runs/e6d_interleave_ckpt.pt")
     ap.add_argument("--out", default="runs/s1d_stage2_dev.json")
     ap.add_argument("--cuda-device", type=int, default=9)
+    ap.add_argument("--cuda-devices", default=None,
+                    help="physical GPU indices in rank order; launch with torchrun")
+    ap.add_argument("--model-path", default=None,
+                    help="equivalent local reader checkpoint cache; default original MODEL")
     ap.add_argument("--steps", type=int, default=60)
     ap.add_argument("--measure-every", type=int, default=10)
     ap.add_argument("--lr", type=float, default=0.003)
@@ -247,8 +295,22 @@ def main() -> None:
         row_s, start_s = args.window.split(",")
         run_windows = [(int(row_s), int(start_s))]
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_device)
+    rank = int(os.environ.get("RANK", "0"))
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    devices = ([int(x) for x in args.cuda_devices.split(",")]
+               if args.cuda_devices else [args.cuda_device])
+    if len(set(devices)) != len(devices) or len(devices) != world_size:
+        raise SystemExit("GPU list must contain one unique device per torchrun rank")
+    if world_size > 1 and (args.arms != [PROTECTED_ORACLE_ARM] or not args.skip_generation):
+        raise SystemExit("distributed execution requires protected oracle and --skip-generation")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(devices[rank])
     os.environ["S0B_GPU_SET"] = "1"
+    if world_size > 1:
+        from datetime import timedelta
+        torch.distributed.init_process_group("gloo", timeout=timedelta(minutes=30))
+    parallel = QAParallel(rank, world_size)
+    print("[s1d2] rank=%d/%d physical_gpu=%d" %
+          (rank, world_size, devices[rank]), flush=True)
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     import torch.nn.functional as F
     import e6a_overfit as E
@@ -271,7 +333,8 @@ def main() -> None:
     config.update(device="cuda:0", dtype="float16",
                   stats_dir="./outputs/prlmc-s1d-stage2-dev")
     cfg = PRLMCConfig.from_dict(config)
-    model = MemoryLLM.from_pretrained(MODEL, torch_dtype=torch.float16,
+    reader_path = args.model_path or MODEL
+    model = MemoryLLM.from_pretrained(reader_path, torch_dtype=torch.float16,
                                       attn_implementation="sdpa").to("cuda:0")
     model.initialized.zero_()
     for x in model.parameters():
@@ -279,7 +342,7 @@ def main() -> None:
     model.train()
     model.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False})
-    manager = ProtectedResidualMemory(model, AutoTokenizer.from_pretrained(MODEL), cfg)
+    manager = ProtectedResidualMemory(model, AutoTokenizer.from_pretrained(reader_path), cfg)
     disable_reader_dropout(model)
     probe_args = argparse.Namespace(probes=60, max_probe_tokens=256)
     from methods.prlmc.consolidate import CarrierResidualCompactor
@@ -347,7 +410,7 @@ def main() -> None:
         context = differentiable_memory(model, pool) if pool is not None else nullcontext()
         guard = active_mask_override(model, mask_m) if mask_m is not None else nullcontext()
         with reader_evaluation(model), context, guard:
-            for q in probes:
+            for q in parallel.shard(probes):
                 input_ids, stem_len = encoded[q.question]
                 logits = model(input_ids=input_ids, use_cache=False, return_dict=True).logits
                 span = logits[:, stem_len - 1:-1, :]
@@ -356,7 +419,7 @@ def main() -> None:
                 del logits, span, labels
         del pool, mask_m
         torch.cuda.empty_cache()
-        return correct
+        return parallel.merge(correct, [q.question for q in probes])
 
     @torch.no_grad()
     def evaluate_generation(probes, arm=None):
@@ -404,7 +467,7 @@ def main() -> None:
         context = differentiable_memory(model, pool) if pool is not None else nullcontext()
         guard = active_mask_override(model, mask_m) if mask_m is not None else nullcontext()
         with reader_evaluation(model), context, guard:
-            for question in questions:
+            for question in parallel.shard(questions):
                 input_ids, stem_len = encoded[question]
                 labels = input_ids.clone()
                 labels[:, :stem_len] = -100
@@ -415,7 +478,7 @@ def main() -> None:
                 del logits, labels
         del pool, mask_m
         torch.cuda.empty_cache()
-        return losses
+        return parallel.merge(losses, questions)
 
     def supervision_lines(row, start, line_to_block, dropped):
         """Stage-1 v2 supervision pool: up to 40 valid dropped-block lines."""
@@ -493,25 +556,29 @@ def main() -> None:
             del local_pool, local_cand
             return values, loss_value
 
-        for lo in range(0, len(questions), microbatch):
-            batch = questions[lo:lo + microbatch]
+        local_questions = parallel.shard(questions)
+        local_protect = parallel.shard(protect_questions)
+        for lo in range(0, len(local_questions), microbatch):
+            batch = local_questions[lo:lo + microbatch]
             per_question, loss = run_one(batch)
             rescue_total += float(per_question.sum())
             del per_question, loss
-            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(questions):
-                print("[s1d2] rescue backward %d/%d peak_allocated=%.2f GiB" %
-                      (lo + 1, len(questions), torch.cuda.max_memory_allocated() / 2**30), flush=True)
-        for lo in range(0, len(protect_questions), microbatch):
-            batch = protect_questions[lo:lo + microbatch]
+            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(local_questions):
+                print("[s1d2] rank=%d rescue backward %d/%d peak_allocated=%.2f GiB" %
+                      (parallel.rank, lo + 1, len(local_questions), torch.cuda.max_memory_allocated() / 2**30), flush=True)
+        for lo in range(0, len(local_protect), microbatch):
+            batch = local_protect[lo:lo + microbatch]
             refs = [protect_baseline[q] for q in batch]
             per_question, penalty = run_one(batch, refs)
             protect_total += float(torch.relu(
                 per_question - torch.tensor(refs, device=per_question.device,
                                             dtype=per_question.dtype)).sum())
             del per_question, penalty
-            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(protect_questions):
-                print("[s1d2] protect backward %d/%d peak_allocated=%.2f GiB" %
-                      (lo + 1, len(protect_questions), torch.cuda.max_memory_allocated() / 2**30), flush=True)
+            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(local_protect):
+                print("[s1d2] rank=%d protect backward %d/%d peak_allocated=%.2f GiB" %
+                      (parallel.rank, lo + 1, len(local_protect), torch.cuda.max_memory_allocated() / 2**30), flush=True)
+        rescue_total, protect_total = parallel.reduce_step(
+            [displacement.value], [rescue_total, protect_total])
         optimizer.step()
         displacement.clamp(args.budget)
         torch.cuda.empty_cache()
@@ -597,6 +664,14 @@ def main() -> None:
     elif PROTECTED_ORACLE_ARM in args.arms:
         report["schema_version"] = "s1d_stage2_oracle_protected/1"
         report["protocol"]["qa_backward"] = "single-question accumulation; saved tensors CPU offload; candidate context through backward"
+        report["protocol"]["parallel_qa"] = {
+            "world_size": world_size, "physical_devices": devices,
+            "reader_path": reader_path,
+            "reader_cache_manifest_sha256": (sha256_file(Path(reader_path) / "fp16_cache_manifest.json")
+                                            if args.model_path else None),
+            "sharding": "round-robin QA questions; replicated frozen readers",
+            "gradient_reduction": "SUM local alpha gradients with global cohort denominators",
+            "evaluation": "disjoint question shards gathered to complete QA universe"}
         report["protocol"].update(
             experiment="S1d dev protected oracle: frozen selfsup 13D, QA rescue CE plus D0 protection",
             arms=[PROTECTED_ORACLE_ARM], dev_windows=[[3, 17510]],
@@ -612,6 +687,8 @@ def main() -> None:
             supervision="rescue answer-token CE plus fixed-weight D0-correct CE degradation penalty",
             protect_weight=1.0)
     def flush():
+        if rank != 0:
+            return
         tmp = out.with_suffix(out.suffix + ".tmp")
         tmp.write_text(json.dumps(report, indent=2, ensure_ascii=False))
         tmp.replace(out)
@@ -620,6 +697,11 @@ def main() -> None:
     try:
         for row, start in run_windows:
             covered, indices, dropped, original = fresh_window(row, start)
+            if world_size > 1:
+                pool_hash = hashlib.sha256()
+                for layer in model.memory.detach():
+                    pool_hash.update(layer.cpu().contiguous().numpy().tobytes())
+                parallel.assert_same((pool_hash.hexdigest(), manager.used), "window memory")
             mask = _compacted_mask(manager, manager.used - window_used + target_used,
                                    "cuda:0")
             line_to_block = {}
@@ -631,6 +713,13 @@ def main() -> None:
                 line_cache[row], indices, len(indices) + 1)})
             probes = list(by_q.values())
             encoded = encode(probes)
+            if world_size > 1:
+                qa_hash = hashlib.sha256(mask.detach().cpu().numpy().tobytes())
+                for question, (tokens, stem_len) in encoded.items():
+                    qa_hash.update(question.encode("utf-8"))
+                    qa_hash.update(str(stem_len).encode("ascii"))
+                    qa_hash.update(tokens.cpu().numpy().tobytes())
+                parallel.assert_same(qa_hash.hexdigest(), "QA encodings and active mask")
             full = evaluate(encoded, probes, None)
             select_arm = base()
             with torch.no_grad():
@@ -660,6 +749,7 @@ def main() -> None:
             U_ss = orth(ss_rows)[:, :13].contiguous()
             basis_sha256 = hashlib.sha256(
                 U_ss.contiguous().numpy().tobytes()).hexdigest()
+            parallel.assert_same(basis_sha256, "frozen basis")
             random_ul = random_basis(131072, 13, 0, torch)
 
             if args.skip_generation:
@@ -778,6 +868,8 @@ def main() -> None:
                         loss_info = {"loss": train_arm(
                             arm, displacement, optimizer, sup, mask)}
                     loss = loss_info["loss"]
+                    if world_size > 1:
+                        parallel.assert_same(displacement.value.detach().cpu().tolist(), "alpha update")
                     if step % args.measure_every == 0 or step == args.steps:
                         tf = evaluate(encoded, probes, arm)
                         tf_m = stage2_metric(tf, sets, d0_correct)
@@ -826,6 +918,8 @@ def main() -> None:
             gc.collect()
             torch.cuda.empty_cache()
             flush()
+        if world_size > 1:
+            torch.distributed.barrier()
         report.update(status="complete")
         flush()
         print("[s1d2] dev complete", flush=True)
