@@ -123,6 +123,29 @@ def test_protection_penalty_is_hinge_over_d0_ce():
     penalty.backward()
     assert torch.equal(current.grad, torch.tensor([0.5, 0.0]))
 
+def test_offloaded_checkpoint_gradient_accumulation():
+    import torch
+    from torch.utils.checkpoint import checkpoint
+    from methods.prlmc.probes import differentiable_memory
+    model = torch.nn.Module()
+    model.memory = torch.nn.Parameter(torch.zeros(3), requires_grad=False)
+    original = model.memory
+    basis = torch.tensor([[1., 2.], [3., -1.], [2., 4.]])
+    alpha = torch.tensor([0.2, -0.1], requires_grad=True)
+    inputs = [torch.tensor([1., 2., 3.]), torch.tensor([3., 1., 2.])]
+    expected = sum(((basis @ alpha) * x).square().mean() for x in inputs) / len(inputs)
+    reference = torch.autograd.grad(expected, alpha)[0]
+    for x in inputs:
+        with torch.autograd.graph.save_on_cpu(pin_memory=True):
+            pool = basis @ alpha
+            with differentiable_memory(model, pool):
+                loss = checkpoint(lambda v: (model.memory * v).square().mean(),
+                                  x, use_reentrant=False) / len(inputs)
+                loss.backward()
+        assert model.memory is original
+    assert torch.allclose(alpha.grad, reference), (alpha.grad, reference)
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -132,4 +155,5 @@ if __name__ == "__main__":
     test_reader_evaluation_restores_state()
     test_oracle_answer_ce_masks_prompt()
     test_protection_penalty_is_hinge_over_d0_ce()
-    print("PASS 8/8")
+    test_offloaded_checkpoint_gradient_accumulation()
+    print("PASS 9/9")

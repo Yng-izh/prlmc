@@ -226,6 +226,7 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=0.003)
     ap.add_argument("--budget", type=float, default=1.0)
     ap.add_argument("--max-new-tokens", type=int, default=32)
+    ap.add_argument("--qa-max-tokens", type=int, default=256)
     ap.add_argument("--skip-generation", action="store_true",
                     help="skip expensive greedy generation baselines and final GEN scoring")
     ap.add_argument("--windows", default="dev",
@@ -329,10 +330,14 @@ def main() -> None:
             tokens = manager.tokenizer(f"{stem} {q.answers[0]}", return_tensors="pt",
                                        add_special_tokens=False).input_ids
             stem_len = len(manager.tokenizer(stem, add_special_tokens=False).input_ids)
-            width = min(256, tokens.shape[1])
-            if stem_len <= 0 or stem_len >= width:
+            width = min(args.qa_max_tokens, tokens.shape[1])
+            if stem_len <= 0 or stem_len >= tokens.shape[1]:
                 raise RuntimeError("missing answer span: " + q.question)
-            encoded[q.question] = (tokens[:, :256].to("cuda:0"), stem_len)
+            start = max(0, tokens.shape[1] - width)
+            stem_len -= start
+            if stem_len <= 0 or stem_len >= width:
+                raise RuntimeError("QA token budget cuts answer span: " + q.question)
+            encoded[q.question] = (tokens[:, start:start + width].to("cuda:0"), stem_len)
         return encoded
 
     @torch.no_grad()
@@ -434,12 +439,11 @@ def main() -> None:
                          protect_weight=0.0, mean_grad=False):
         """QA step with fixed-weight protection and bounded microbatches."""
         optimizer.zero_grad(set_to_none=True)
-        cand = candidate(arm)
         protect_questions = protect_questions or []
         protect_baseline = protect_baseline or {}
         rescue_total = 0.0
         protect_total = 0.0
-        microbatch = 2 if mean_grad else 1
+        microbatch = 1
         pad_id = manager.tokenizer.eos_token_id
 
         def run_batch(pool, batch_questions, baselines=None):
@@ -470,27 +474,47 @@ def main() -> None:
                 batch_loss = torch.relu(per_question - ref).sum() / max(1, len(protect_questions))
             return per_question, batch_loss
 
-        with _pool_in_place(manager, "cuda:0", cand, window_used,
-                            target_used) as injection:
-            pool = injection.reinject()
-            for lo in range(0, len(questions), microbatch):
-                batch = questions[lo:lo + microbatch]
-                per_question, loss = run_batch(pool, batch)
-                loss.backward(retain_graph=True)
-                rescue_total += float(per_question.sum())
-                del per_question, loss
-            for lo in range(0, len(protect_questions), microbatch):
-                batch = protect_questions[lo:lo + microbatch]
-                refs = [protect_baseline[q] for q in batch]
-                per_question, penalty = run_batch(pool, batch, refs)
-                (protect_weight * penalty).backward(retain_graph=True)
-                protect_total += float(torch.relu(
-                    per_question - torch.tensor(refs, device=per_question.device,
-                                                dtype=per_question.dtype)).sum())
-                del per_question, penalty
+        def run_one(batch_questions, baselines=None):
+            # Rebuild the alpha-dependent graph per batch so backward releases
+            # the large reader graph immediately.
+            with torch.autograd.graph.save_on_cpu(pin_memory=True):
+                local_cand = candidate(arm)
+                with _pool_in_place(manager, "cuda:0", local_cand, window_used,
+                                    target_used) as injection:
+                    local_pool = injection.reinject()
+                    # Checkpoint recomputation must read the same candidate pool.
+                    with differentiable_memory(model, local_pool), active_mask_override(model, mask):
+                        per_question, batch_loss = run_batch(
+                            local_pool, batch_questions, baselines)
+                        scaled_loss = (protect_weight * batch_loss
+                                       if baselines is not None else batch_loss)
+                        scaled_loss.backward()
+                    values = per_question.detach()
+                    loss_value = batch_loss.detach()
+            del local_pool, local_cand
+            return values, loss_value
+
+        for lo in range(0, len(questions), microbatch):
+            batch = questions[lo:lo + microbatch]
+            per_question, loss = run_one(batch)
+            rescue_total += float(per_question.sum())
+            del per_question, loss
+            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(questions):
+                print("[s1d2] rescue backward %d/%d peak_allocated=%.2f GiB" %
+                      (lo + 1, len(questions), torch.cuda.max_memory_allocated() / 2**30), flush=True)
+        for lo in range(0, len(protect_questions), microbatch):
+            batch = protect_questions[lo:lo + microbatch]
+            refs = [protect_baseline[q] for q in batch]
+            per_question, penalty = run_one(batch, refs)
+            protect_total += float(torch.relu(
+                per_question - torch.tensor(refs, device=per_question.device,
+                                            dtype=per_question.dtype)).sum())
+            del per_question, penalty
+            if lo == 0 or (lo + 1) % 10 == 0 or lo + 1 == len(protect_questions):
+                print("[s1d2] protect backward %d/%d peak_allocated=%.2f GiB" %
+                      (lo + 1, len(protect_questions), torch.cuda.max_memory_allocated() / 2**30), flush=True)
         optimizer.step()
         displacement.clamp(args.budget)
-        del cand, pool
         torch.cuda.empty_cache()
         if mean_grad:
             print("[s1d2] microbatch objective complete", flush=True)
@@ -544,6 +568,7 @@ def main() -> None:
                      "measure_every": args.measure_every,
                      "lr": args.lr, "budget": args.budget,
                      "max_new_tokens": args.max_new_tokens,
+                     "qa_max_tokens": args.qa_max_tokens,
                      "skip_generation": args.skip_generation,
                      "checkpoint_sha256": digest(args.carrier_ckpt),
                      "selfsup_rows_sha256": sha256_file(args.selfsup_rows),
@@ -572,6 +597,7 @@ def main() -> None:
 
     elif PROTECTED_ORACLE_ARM in args.arms:
         report["schema_version"] = "s1d_stage2_oracle_protected/1"
+        report["protocol"]["qa_backward"] = "single-question accumulation; saved tensors CPU offload; candidate context through backward"
         report["protocol"].update(
             experiment="S1d dev protected oracle: frozen selfsup 13D, QA rescue CE plus D0 protection",
             arms=[PROTECTED_ORACLE_ARM], dev_windows=[[3, 17510]],

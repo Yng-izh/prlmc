@@ -44,7 +44,8 @@ def verify(r, old):
     req(r["driver_sha256"] == current, "driver sha")
     p = r["protocol"]
     for k, v in (("steps", 60), ("measure_every", 10), ("lr", .003), ("budget", 1.),
-                 ("seed", 0), ("max_new_tokens", 32), ("protect_weight", 1.0),
+                 ("seed", 0), ("max_new_tokens", 32), ("qa_max_tokens", 256),
+                 ("protect_weight", 1.0),
                  ("skip_generation", True)):
         req(p[k] == v, "protocol/" + k)
     req(p["arms"] == p["selected_arms"] == ["oracle_13d_protected"], "arm")
