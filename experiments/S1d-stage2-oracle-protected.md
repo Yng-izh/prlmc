@@ -35,7 +35,7 @@ python3 tools/verify_s1d_stage2_oracle_protected.py
 
 按用户要求切换为 8 卡题目分片并行，物理设备 `0,1,2,3,4,6,8,9`，保留 GPU5/7 上已有服务。每个 rank 复制同一个冻结 reader 与初始记忆，启动时核对完整 memory 和 basis 的 SHA256。TF 基线、D0 参考 CE、训练题与评估题按 round-robin 分片；评估 gather 后检查题集无遗漏与重复。
 
-每个 rank 的 rescue CE 与保护 hinge 均使用全局 cohort 数目归一化，单步将 13 个 alpha 的局部梯度以 Gloo `SUM` 汇总，然后各 rank 做相同 AdamW 更新并严格核对 alpha 一致。只有 rank0 写最终报告。此配置是一个实验的分布式加速，而不是 8 次独立训练。CPU 四进程不均匀/空分片回归与原测试全部通过 `PASS 11/11`。GPU 多卡单步验证进行中，通过后执行正式 60 步。
+每个 rank 的 rescue CE 与保护 hinge 均使用全局 cohort 数目归一化，单步将 13 个 alpha 的局部梯度以 Gloo `SUM` 汇总，然后各 rank 做相同 AdamW 更新并严格核对 alpha 一致。只有 rank0 写最终报告。此配置是一个实验的分布式加速，而不是 8 次独立训练。CPU 四进程不均匀/空分片回归、真实训练函数与启动器状态认证全部通过 `PASS 12/12`。GPU 多卡单步验证已成功并放行正式 60 步。
 
 ```bash
 GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --nproc-per-node=8 tools/s1d_stage2_dev.py --window 3,17510 --arms oracle_13d_protected --cuda-devices 0,1,2,3,4,6,8,9 --skip-generation --qa-max-tokens 256 --out runs/s1d_stage2_oracle_protected.w17510.json
@@ -48,6 +48,16 @@ GLOO_SOCKET_IFNAME=lo python -m torch.distributed.run --standalone --nnodes=1 --
 后台流程 PID=45274；共享缓存已经生成并逐张量校验，约19GB。8卡 smoke 全部 worker 成功退出（torchrun exit=0，launcher all_workers_succeeded=true），报告 `runs/s1d_stage2_oracle_protected.w17510.parallel_smoke.json` 已复制本地。与单卡 smoke 的 full/select/D0 基线、cohort、逐题 TF 图、loss=3.7742887547141626、norm=0.010816652327775955 全部一致，alpha 最大差异2.3283064365386963e-10为FP32梯度求和顺序舍入，basis 未变，step1 recovery/harm/net=0/0/0。
 
 启动器自动进入正式60步，torchrun PID=46728。日志分别为 `runs/s1d_stage2_oracle_protected.parallel8_launcher.log`、`runs/s1d_stage2_oracle_protected.parallel8.parallel_smoke.log`、`runs/s1d_stage2_oracle_protected.parallel8.log`。正式结果尚未完成，最终报告需通过独立 verifier 与全worker退出码认证。
+
+## 中途测量（非最终结果）
+
+step10 快照 `runs/s1d_stage2_oracle_protected.parallel8.step10_snapshot.json` 保持 status=running。已独立重算逐题 recovery/harm/net，并核对原始基线/cohort、basis 未变、alpha norm 与预算、sup_loss=rescue_loss+protect_penalty。
+
+| step | rescue CE | protect hinge | total loss | alpha norm | new recovery | D0 harmed | net |
+|---|---|---|---|---|---|---|---|
+| 10 | 3.6297352855 | 0.0022770714 | 3.6320123569 | 0.0986444950 | 0 | 1 | -1 |
+
+缓存证明 `runs/s1d_reader_fp16_manifest.json` 已复制本地，SHA256 与多卡 smoke 报告完全一致，涵盖8个 shard 的1063个张量。正式60步完成与全worker认证之前，不据中途指标作最终裁决。
 
 ## 解释边界
 
