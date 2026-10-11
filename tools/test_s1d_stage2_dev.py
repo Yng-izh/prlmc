@@ -146,6 +146,98 @@ def test_offloaded_checkpoint_gradient_accumulation():
     assert torch.allclose(alpha.grad, reference), (alpha.grad, reference)
 
 
+def test_protected_training_pool_gradients_and_restoration():
+    import ast
+    import types
+    import torch
+    import torch.nn.functional as F
+    from torch.utils.checkpoint import checkpoint
+    from methods.prlmc.probes import (
+        _pool_in_place, active_mask_override, differentiable_memory)
+
+    class Reader(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.memory = torch.nn.Parameter(
+                torch.arange(12.).reshape(1, 6, 2) / 20, requires_grad=False)
+            self.register_buffer("memory_active_mask", torch.ones(6, dtype=torch.bool))
+            self.projection = torch.arange(20.).reshape(4, 5) / 30
+
+        def logits(self, ids):
+            assert not self.memory_active_mask[:4].any()
+            assert self.memory_active_mask[-2:].all()
+            score = self.memory[:, -2:].reshape(4) @ self.projection
+            return score.expand(ids.shape[0], ids.shape[1], 5)
+
+        def forward(self, input_ids, **kwargs):
+            # Access the binding during recomputation, not only during forward.
+            value = checkpoint(self.logits, input_ids, use_reentrant=False)
+            return types.SimpleNamespace(logits=value)
+
+    model = Reader()
+    original_parameter = model.memory
+    original_memory = model.memory.detach().clone()
+    original_mask = model.memory_active_mask
+    mask = torch.tensor([False, False, False, False, True, True])
+    manager = types.SimpleNamespace(model=model, total=6, used=4)
+    alpha = torch.nn.Parameter(torch.tensor([0.2, -0.1]))
+    basis = torch.tensor([[1., 2.], [3., -1.], [2., 4.], [-1., 2.]])
+    basis_before = basis.clone()
+    d0 = torch.tensor([0.1, 0.3, -0.2, 0.4])
+    encoded = {q: (torch.tensor([[0, answer]]), 1)
+               for q, answer in (("r1", 1), ("r2", 3), ("p1", 2), ("p2", 4))}
+    refs = {"p1": 0.0, "p2": 100.0}
+    optimizer = torch.optim.SGD([alpha], lr=0.0)
+    assert optimizer.param_groups[0]["params"] == [alpha]
+
+    score = (d0 + basis @ alpha) @ model.projection
+    ce = {q: F.cross_entropy(score.unsqueeze(0), ids[:, 1])
+          for q, (ids, _) in encoded.items()}
+    expected = (ce["r1"] + ce["r2"]) / 2
+    expected += (torch.relu(ce["p1"] - refs["p1"]) +
+                 torch.relu(ce["p2"] - refs["p2"])) / 2
+    reference = torch.autograd.grad(expected, alpha)[0]
+
+    # Compile the actual nested driver function, with a tiny reader replacing 8B.
+    source = (Path(__file__).parent / "s1d_stage2_dev.py").read_text()
+    node = next(n for n in ast.walk(ast.parse(source))
+                if isinstance(n, ast.FunctionDef) and n.name == "train_answer_arm")
+    for child in ast.walk(node):
+        if isinstance(child, ast.Constant) and child.value == "cuda:0":
+            child.value = "cpu"
+    namespace = dict(torch=torch, F=F, model=model, manager=manager,
+                     candidate=lambda arm: (d0 + basis @ alpha).reshape(1, 2, 2),
+                     _pool_in_place=_pool_in_place,
+                     differentiable_memory=differentiable_memory,
+                     active_mask_override=active_mask_override,
+                     window_used=4, target_used=2,
+                     args=types.SimpleNamespace(budget=1.0))
+    manager.tokenizer = types.SimpleNamespace(eos_token_id=0)
+    exec(compile(ast.Module(body=[node], type_ignores=[]), source, "exec"), namespace)
+    result = namespace["train_answer_arm"](
+        None, types.SimpleNamespace(clamp=lambda budget: None), optimizer,
+        encoded, ["r1", "r2"], mask, protect_questions=["p1", "p2"],
+        protect_baseline=refs, protect_weight=1.0, mean_grad=True)
+    assert torch.allclose(alpha.grad, reference, atol=1e-6), (alpha.grad, reference)
+    assert abs(result["loss"] - expected.item()) < 1e-6
+    assert torch.equal(basis, basis_before)
+    assert model.memory is original_parameter
+    assert torch.equal(model.memory, original_memory)
+    assert model.memory_active_mask is original_mask
+
+    try:
+        with _pool_in_place(manager, "cpu", torch.ones(1, 2, 2, requires_grad=True), 4, 2) as injection:
+            pool = injection.reinject()
+            with differentiable_memory(model, pool), active_mask_override(model, mask):
+                model(input_ids=encoded["r1"][0]).logits.square().sum().backward()
+                raise ValueError("restore after backward failure")
+    except ValueError:
+        pass
+    assert model.memory is original_parameter
+    assert torch.equal(model.memory, original_memory)
+    assert model.memory_active_mask is original_mask
+
+
 if __name__ == "__main__":
     test_stage2_metric_new_recovery_excludes_d0_correct()
     test_stage2_metric_d0_harmed_counts_any_d0_correct_loss()
@@ -156,4 +248,5 @@ if __name__ == "__main__":
     test_oracle_answer_ce_masks_prompt()
     test_protection_penalty_is_hinge_over_d0_ce()
     test_offloaded_checkpoint_gradient_accumulation()
-    print("PASS 9/9")
+    test_protected_training_pool_gradients_and_restoration()
+    print("PASS 10/10")

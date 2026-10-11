@@ -29,6 +29,8 @@ python3 tools/verify_s1d_stage2_oracle_protected.py
 
 本次验证恢复 `qa_max_tokens=256`，cohort 为 rescue=43、rescue_d0_wrong=38、全部 D0-correct protection=79（初始日志的 protect=60 仅指 retained 保护子集）。128-token 的失败尝试不作为可比较结果。单步 smoke 已完成全部 117 道训练题的 backward，报告 status=complete，loss=3.7742887547，alpha norm=0.0108166523，TF recovery/harm/net=0/0/0；full/select/D0 基线与原 oracle 逐项一致，basis 未变。正式实验执行 60 步，GEN 使用 `--skip-generation` 跳过，最终仅判读 TF 指标；单步结果不是最终实验结论。
 
+上述 smoke 证明显存卸载可完成完整训练步。后续独立代码复查发现 QA 内外层重复使用非可重入的 memory 上下文；正式运行在 step 2 早期停止并归档，去除内层重复绑定后从 step 1 重跑。新增直接调用真实 `train_answer_arm` 的小模型回归，验证多题固定权重均值梯度、hinge 开关、候选池梯度路由、checkpoint 重算读 memory、basis 保持与异常恢复，测试 `PASS 10/10`。早期中断报告不作为最终实验结果。
+
 ## 解释边界
 
 保护项若降低 harm，说明此前损伤确实可由目标函数中的 no-harm 约束部分缓解；只有在 recovery 仍保持且 net 改善时，才能支持“目标错配是主要瓶颈”的解释。若保护项仅牺牲 recovery 而没有正 net，说明固定 13D 基内的恢复/保持权衡仍然是主要限制。无论结果如何，这仍是单窗口、固定基、有限步诊断，不构成方法主结果或数学上界。

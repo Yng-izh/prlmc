@@ -458,9 +458,8 @@ def main() -> None:
                 ids, batch_first=True, padding_value=pad_id).to("cuda:0")
             label_ids = torch.nn.utils.rnn.pad_sequence(
                 labels, batch_first=True, padding_value=-100).to("cuda:0")
-            with differentiable_memory(model, pool), active_mask_override(model, mask):
-                logits = model(input_ids=input_ids, use_cache=False,
-                               return_dict=True).logits.float()
+            logits = model(input_ids=input_ids, use_cache=False,
+                           return_dict=True).logits.float()
             token_loss = F.cross_entropy(
                 logits[:, :-1].reshape(-1, logits.shape[-1]),
                 label_ids[:, 1:].reshape(-1), reduction="none").reshape(label_ids.shape[0], -1)
