@@ -1,0 +1,8 @@
+worker started v100-2 [0, 1, 2, 3, 4, 6, 8, 9] 65495
+launched s1d_exp1_fact_v3.smoke.D.w16370 v100-2 GPU9 65498
+finished s1d_exp1_fact_v3.smoke.D.w16370 rc=0
+launched s1d_exp1_fact_v3.A.w16370 v100-2 GPU9 66465
+launched s1d_exp1_fact_v3.A.w17510 v100-2 GPU0 68203
+finished s1d_exp1_fact_v3.A.w16370 rc=0
+finished s1d_exp1_fact_v3.A.w17510 rc=0
+all eight formal runs verified

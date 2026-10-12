@@ -15,6 +15,8 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 
 ## 目录（experiments/）
 
+最新完成：2026-10-12 [S1d实验1 A/B/C/D交叉对照](experiments/S1d-experiment1-fact-v3.md)，8/8正式60步完成并通过报告一致性验证。强/弱窗口最终net：A +7/0、B +7/−3、C +9/+1、D +5/−1；C有建基改善信号，弱窗口未达+5推进门槛，不进入实验2。完整结果与日志在 [reports/s1d_exp1_fact_v3](reports/s1d_exp1_fact_v3)。
+
 | 编号 | 运行 | 目的 | 状态 | 正文 |
 |---|---|---|---|---|
 | E0 | Baseline Tier 1 | 冻结参照分 | 已完成，5 数据集 | [E0.md](experiments/E0.md) |
