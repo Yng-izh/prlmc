@@ -1,0 +1,27 @@
+PASS test_selection
+PASS test_combined_update
+PASS test_verifier_rejects_drift
+PASS test_stage2_metric_new_recovery_excludes_d0_correct
+PASS test_stage2_metric_d0_harmed_counts_any_d0_correct_loss
+PASS test_stage2_metric_identity_arm_is_all_zero
+PASS test_normalize_exact_match
+PASS test_window_sets_partitions
+[s1d2] generation memory mutation restored
+PASS test_reader_evaluation_restores_state
+PASS test_oracle_answer_ce_masks_prompt
+PASS test_protection_penalty_is_hinge_over_d0_ce
+PASS test_offloaded_checkpoint_gradient_accumulation
+[s1d2] rank=0 rescue backward 1/2 peak_allocated=0.00 GiB
+[s1d2] rank=0 rescue backward 2/2 peak_allocated=0.00 GiB
+[s1d2] rank=0 protect backward 1/2 peak_allocated=0.00 GiB
+[s1d2] rank=0 protect backward 2/2 peak_allocated=0.00 GiB
+[s1d2] microbatch objective complete
+PASS test_protected_training_pool_gradients_and_restoration
+PASS test_distributed_gradient_equivalence
+PASS test_parallel_launcher_report_certification
+PASS test_fact_latest_owner_and_block_filter
+PASS test_old_loss_checkpoint_gradient_binding
+PASS test_fact_encoding_real_tokenizer
+PASS test_new_basis_does_not_fill_from_old_rows
+PASS test_cached_fact_cohorts_protect_only_kept_facts
+PASS 17/17

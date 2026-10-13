@@ -1,0 +1,81 @@
+[s1d2] rank=0/1 physical_gpu=6
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.32it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  4.29it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  4.16it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:00<00:01,  3.98it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.94it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.92it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.95it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  4.14it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  4.07it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[s1d2] (3,17510) rescue=43 rescue_d0_wrong=38 protect=60
+[s1d2] (3,17510) supervision lines=40 skipped_short=19
+[s1d2] fact targets=20 thresholded=112 protect=0 basis=cached damaged rows
+[s1d2] generation baselines skipped by protocol
+[s1d2] C identity-at-init verified
+[s1d2] C training step 1/60
+[s1d2] C training step 2/60
+[s1d2] C training step 3/60
+[s1d2] C training step 4/60
+[s1d2] C training step 5/60
+[s1d2] C training step 6/60
+[s1d2] C training step 7/60
+[s1d2] C training step 8/60
+[s1d2] C training step 9/60
+[s1d2] C training step 10/60
+[s1d2] (3,17510) C step=10 loss=1.8114 dev=0.150 TF newR=1 harm=1 net=0
+[s1d2] C training step 11/60
+[s1d2] C training step 12/60
+[s1d2] C training step 13/60
+[s1d2] C training step 14/60
+[s1d2] C training step 15/60
+[s1d2] C training step 16/60
+[s1d2] C training step 17/60
+[s1d2] C training step 18/60
+[s1d2] C training step 19/60
+[s1d2] C training step 20/60
+[s1d2] (3,17510) C step=20 loss=1.7526 dev=0.275 TF newR=5 harm=3 net=2
+[s1d2] C training step 21/60
+[s1d2] C training step 22/60
+[s1d2] C training step 23/60
+[s1d2] C training step 24/60
+[s1d2] C training step 25/60
+[s1d2] C training step 26/60
+[s1d2] C training step 27/60
+[s1d2] C training step 28/60
+[s1d2] C training step 29/60
+[s1d2] C training step 30/60
+[s1d2] (3,17510) C step=30 loss=1.7311 dev=0.358 TF newR=5 harm=4 net=1
+[s1d2] C training step 31/60
+[s1d2] C training step 32/60
+[s1d2] C training step 33/60
+[s1d2] C training step 34/60
+[s1d2] C training step 35/60
+[s1d2] C training step 36/60
+[s1d2] C training step 37/60
+[s1d2] C training step 38/60
+[s1d2] C training step 39/60
+[s1d2] C training step 40/60
+[s1d2] (3,17510) C step=40 loss=1.7147 dev=0.425 TF newR=5 harm=3 net=2
+[s1d2] C training step 41/60
+[s1d2] C training step 42/60
+[s1d2] C training step 43/60
+[s1d2] C training step 44/60
+[s1d2] C training step 45/60
+[s1d2] C training step 46/60
+[s1d2] C training step 47/60
+[s1d2] C training step 48/60
+[s1d2] C training step 49/60
+[s1d2] C training step 50/60
+[s1d2] (3,17510) C step=50 loss=1.7011 dev=0.486 TF newR=5 harm=3 net=2
+[s1d2] C training step 51/60
+[s1d2] C training step 52/60
+[s1d2] C training step 53/60
+[s1d2] C training step 54/60
+[s1d2] C training step 55/60
+[s1d2] C training step 56/60
+[s1d2] C training step 57/60
+[s1d2] C training step 58/60
+[s1d2] C training step 59/60
+[s1d2] C training step 60/60
+[s1d2] (3,17510) C step=60 loss=1.6904 dev=0.546 TF newR=5 harm=3 net=2
+[s1d2] dev complete

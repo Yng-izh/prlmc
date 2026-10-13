@@ -1,0 +1,49 @@
+{
+  "status": "prepared_unscored",
+  "plan_sha256": "1444f62a1197a8663736f9f4d767aa3923f0432ab98507dde99de3d3bd64b9e5",
+  "internal_plan_sha256": "7f60a267cb980352cd5d63f6030786ccdcbc1d9470d50f1c8eebee0cd707ea92",
+  "context_type": "constructed_entity_disjoint_controlled_stress_not_natural_contexts",
+  "development_episode_ids": [
+    0,
+    2,
+    4,
+    8,
+    14,
+    15,
+    17,
+    18
+  ],
+  "test_episode_count": 16,
+  "structural_integrity_verified": true,
+  "test_predictions_generated": false,
+  "test_ledger_created": false,
+  "entity_isolation_verified": true,
+  "next_steps": [
+    "adapt C write-time basis/tail training on development episodes only",
+    "freeze method, protocol, source hashes and model fingerprint",
+    "single-open S1d ledger before all16 test episodes; no subsets/reselection"
+  ],
+  "freeze_required": [
+    "candidate C or C+RiskProtect selected before test",
+    "rank13, norm1, lr.003, weight_decay.01, steps60, seed0",
+    "fixed B2 FEWSHOT newline stop, max_new_tokens32, official EM",
+    "identical Full/Selection/D0/C contexts, questions and compression budget",
+    "record fact-rank<13 as explicit failure, no unplanned fallback",
+    "writer/basis/tail/protection access write-time statements only",
+    "evaluation questions and answers withheld until checkpoint is frozen"
+  ],
+  "inference": {
+    "unit": "episode",
+    "primary": "paired EM delta C-D0 and C-Selection",
+    "bootstrap_replicates": 10000,
+    "seed": 20261012,
+    "confidence": 0.95,
+    "report_failure_count": true,
+    "never_use_question_independence": true
+  },
+  "limitations": [
+    "shared corpus/templates; controlled cross-entity generalization only",
+    "four unique natural contexts in Conflict_Resolution",
+    "this preparation performs structural validation including answer consistency, no model scoring"
+  ]
+}

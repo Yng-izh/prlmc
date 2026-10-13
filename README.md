@@ -44,9 +44,13 @@ otherwise claim the call.
 
 - Baseline Tier 1 (MemoryAgentBench, unmodified) has been evaluated: 5 datasets.
 - The observation run has been done: internal signals measured, thresholds calibrated.
-- **No accuracy numbers exist yet for PRLM-C itself.** The observation run used
-  `compact_mode: none`, so consolidation was disabled throughout; it measured the
-  write path only.
+- S1d development experiments are complete: original C generation EM is
+  46.04% / 44.93% on the strong/weak windows; Full is 64.53% / 63.04%.
+  New protection/dimension variants did not pass the weak-window net≥5 gate.
+  These are development fact-derived questions scored with official EM rules,
+  not unseen-context or native official benchmark results. See
+  [the complete round report](experiments/S1d-round-20261013-results.md) and
+  [raw reports and logs](reports/s1d_round_20261013/).
 
 ## Known issues
 

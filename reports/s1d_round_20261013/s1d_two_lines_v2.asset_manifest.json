@@ -1,0 +1,38 @@
+{
+  "valid": true,
+  "assets": {
+    "/share/latent/PRLM-C/runs/e6d_interleave_ckpt.pt": {
+      "sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+      "bytes": 2100142
+    },
+    "/share/latent/PRLM-C/runs/s1d_selfsup_rows_v2.pt": {
+      "sha256": "a453b421bd697eb9f394152a0fbe01662d3b08bff7205ddebd1d77c9efad7791",
+      "bytes": 167868642
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w16370.alpha.pt": {
+      "sha256": "ad868ce637aab120f947f04759f73f8869a9bdf26fd878232ea152b751ac949a",
+      "bytes": 6817704
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w16370.json": {
+      "sha256": "e8024668e3fe35bb41cc85e3ee6fc9aada7d2cfe78b6af32fa631a8cdd160cc7",
+      "bytes": 280106
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w16370.fact_rows.pt": {
+      "sha256": "c69c4bd4b793639bbd797a4b85096a04c28834cc4021fbe7787c4a06f3f8c105",
+      "bytes": 41961606
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.alpha.pt": {
+      "sha256": "9b426ce4b917f9e8b1126d8bfe800785523496e6f444f510768448a30939e636",
+      "bytes": 6817704
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json": {
+      "sha256": "3d0336680c7e96604960121f8a86385c4f8b2ae3e155f3c8188d4b3d8a43e3c0",
+      "bytes": 284236
+    },
+    "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt": {
+      "sha256": "9d2d4f5d27f009c406c3c933de1fbf471a5704273481c29fa011de91fb8f7f0e",
+      "bytes": 41961798
+    }
+  },
+  "original_C_binary_dimensions_and_orthogonality_valid": true
+}

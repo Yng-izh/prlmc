@@ -1,0 +1,13 @@
+{
+  "valid": true,
+  "steps": 1,
+  "window": [
+    3,
+    17510
+  ],
+  "gate_passed": false,
+  "R": 0,
+  "H": 0,
+  "net": 0,
+  "saved_basis_identical_to_C": true
+}

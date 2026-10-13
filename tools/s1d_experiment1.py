@@ -287,9 +287,18 @@ def main() -> None:
                     help="shared fact gradient/selection cache for B/C/D")
     ap.add_argument("--fact-max", type=int, default=40,
                     help="maximum fact targets and retained fact protection targets")
+    ap.add_argument("--risk-protection", action="store_true",
+                    help="fixed C-risk-v1: top20 kept D0 CE<=2, descending CE; lambda=1")
     args = ap.parse_args()
 
     exp1_mode = args.exp1_arm
+    if args.risk_protection:
+        from s1d_risk_protection import select_risk_facts, risk_protocol
+        if (exp1_mode != "C" or not args.fact_cache or not args.skip_generation
+                or args.lr != 0.003 or args.budget != 1.0 or args.qa_max_tokens != 256
+                or args.fact_delta_threshold != 0.10 or args.fact_full_ce_max != 2.0
+                or args.steps not in (1, 60) or args.measure_every != (1 if args.steps == 1 else 10)):
+            raise SystemExit("C-risk-v1 requires frozen C settings, cached basis, TF-only, 1-step smoke or 60-step formal")
     if exp1_mode is None:
         raise SystemExit("--exp1-arm A/B/C/D required; use original driver for other experiments")
     if args.window not in ("3,16370", "3,17510"):
@@ -698,7 +707,31 @@ def main() -> None:
             "protect_penalty": protect_total / max(1, len(protect_questions)),
         }
 
-    def train_arm(arm, displacement, optimizer, sup, mask):
+    def backward_fact_protection(arm, encoded_facts, keys, refs, mask):
+        """Accumulate mean hinge into the existing alpha gradient before step."""
+        total = 0.0
+        for key in keys:
+            with torch.autograd.graph.save_on_cpu(pin_memory=True):
+                cand = candidate(arm)
+                with _pool_in_place(manager, "cuda:0", cand, window_used,
+                                    target_used) as injection:
+                    pool = injection.reinject()
+                    ids, boundary = encoded_facts[key]
+                    ids = ids.to("cuda:0")
+                    labels = ids.clone()
+                    labels[:, :boundary] = -100
+                    with differentiable_memory(model, pool), active_mask_override(model, mask):
+                        logits = model(input_ids=ids, use_cache=False, return_dict=True).logits
+                        ce = F.cross_entropy(logits[:, :-1].float().reshape(-1, logits.shape[-1]),
+                                             labels[:, 1:].reshape(-1))
+                        penalty = torch.relu(ce - refs[key])
+                        (penalty / len(keys)).backward()
+                        total += float(penalty.detach())
+                del cand, pool, logits, ce, penalty, labels, ids
+        return total / max(1, len(keys))
+
+    def train_arm(arm, displacement, optimizer, sup, mask,
+                  protection=None):
         """Old summed tail CE, with candidate binding alive during recomputation."""
         optimizer.zero_grad(set_to_none=True)
         total = 0.0
@@ -719,11 +752,18 @@ def main() -> None:
                         loss.backward()
                         total += float(loss.detach())
                 del cand, pool, loss, logits
+        protect_penalty = 0.0
+        if protection is not None:
+            protect_penalty = backward_fact_protection(arm, *protection, mask)
         if not torch.isfinite(displacement.value.grad).all():
             raise RuntimeError("nonfinite tail gradient")
         optimizer.step()
         displacement.clamp(args.budget)
         torch.cuda.empty_cache()
+        if protection is not None:
+            return {"loss": total + protect_penalty,
+                    "tail_loss_mean": total / max(1, len(sup)),
+                    "tail_loss_sum": total, "protect_penalty": protect_penalty}
         return total / max(1, len(sup))
 
     if any(name in args.arms for name in QA_ORACLE_ARMS) and (
@@ -779,6 +819,14 @@ def main() -> None:
             mathematical_upper_bound=False)
         report["diagnostic_only"] = False
         report["excluded_from_method_results"] = False
+        if args.risk_protection:
+            report["schema_version"] = "s1d_c_risk/1"
+            report["protocol"].update(
+                experiment="Fixed C basis and tail objective with write-time risk protection",
+                risk_protection=risk_protocol(),
+                basis="frozen C damaged-fact gradient SVD-13 from identical cached rows",
+                protection="top20 kept facts by descending eligible D0 CE; lambda=1 mean hinge",
+                training_fact_cap="unchanged C tail pool <=40 plus <=20 kept protection facts")
 
     if ORACLE_ARM in args.arms:
         report["schema_version"] = "s1d_stage2_oracle/1"
@@ -919,6 +967,11 @@ def main() -> None:
                     args.fact_max, args.fact_full_ce_max, args.fact_delta_threshold)
                 if not fact_keys:
                     raise RuntimeError("no valid dropped latest facts for new loss")
+                if args.risk_protection:
+                    fact_protect_keys = select_risk_facts(
+                        fact_records_keep, fact_encoded, fact_d0_ce)
+                    if not fact_protect_keys:
+                        raise RuntimeError("no eligible retained risk facts; no fallback")
                 fact_protect_baseline = {key: fact_d0_ce[key] for key in fact_protect_keys}
                 cached_fact_rows = None
                 if cached is not None:
@@ -1067,6 +1120,17 @@ def main() -> None:
                         fact_delta_threshold=args.fact_delta_threshold)
                 if exp1_mode:
                     frozen_basis = displacement.basis.detach().clone()
+                    if args.risk_protection:
+                        arm_entry["risk_protection"] = risk_protocol()
+                        arm_entry["risk_candidate_records"] = [
+                            r for r in fact_records_keep if r["key"] in fact_encoded]
+                        arm_entry["risk_all_fact_records"] = [
+                            r for r in fact_records_all if r["key"] in fact_encoded]
+                        arm_entry["tail_supervision_token_sha256"] = hashlib.sha256(
+                            b"".join(tokens.contiguous().numpy().tobytes() for _, tokens in sup)).hexdigest()
+                        arm_entry["tail_supervision_line_indices"] = [i for i, _ in sup]
+                        arm_entry["risk_selection_sha256"] = sha256_file(
+                            str(Path(__file__).with_name("s1d_risk_protection.py")))
                     if any(p.requires_grad for p in model.parameters()):
                         raise RuntimeError("reader is not frozen")
                     trainable = [p for p in arm.parameters() if p.requires_grad]
@@ -1103,7 +1167,10 @@ def main() -> None:
                 for step in range(1, args.steps + 1):
                     print("[s1d2] %s training step %d/%d" %
                           (name, step, args.steps), flush=True)
-                    if exp1_mode in ("B", "D"):
+                    if args.risk_protection:
+                        loss_info = train_arm(arm, displacement, optimizer, sup, mask,
+                            protection=(fact_encoded, fact_protect_keys, fact_protect_baseline))
+                    elif exp1_mode in ("B", "D"):
                         loss_info = train_answer_arm(
                             arm, displacement, optimizer, fact_encoded,
                             fact_keys, mask,
@@ -1137,6 +1204,9 @@ def main() -> None:
                         tf_m["training_elapsed_seconds"] = time.monotonic() - train_started
                         tf_m["peak_gpu_bytes"] = torch.cuda.max_memory_allocated()
                         tf_m["sup_loss"] = loss
+                        if args.risk_protection:
+                            for key in ("tail_loss_mean", "tail_loss_sum", "protect_penalty"):
+                                tf_m[key] = loss_info[key]
                         if "rescue_loss" in loss_info:
                             tf_m["rescue_loss"] = loss_info["rescue_loss"]
                             tf_m["protect_penalty"] = loss_info.get("protect_penalty", 0.0)

@@ -15,7 +15,11 @@ E0–E7、SIC 及读出诊断归入问题发现与设计依据，不作为新方
 
 ## 目录（experiments/）
 
+最新汇总：2026-10-13 [本轮保护、自由度与完整生成结果](experiments/S1d-round-20261013-results.md)。M1/M2最终net +1/+9与原C相同；C20/C24/C28/C32均+2，P13 +3、P32 +1，弱窗口均未通过+5门槛。旧C生成相对D0净+24/+24题，相对Selection净+9/+3题；官方评分源码重算通过，16受控测试episode保持封存。[原始报告和日志](reports/s1d_round_20261013/)。
+
 最新完成：2026-10-12 [S1d实验1 A/B/C/D交叉对照](experiments/S1d-experiment1-fact-v3.md)，8/8正式60步完成并通过报告一致性验证。强/弱窗口最终net：A +7/0、B +7/−3、C +9/+1、D +5/−1；C有建基改善信号，弱窗口未达+5推进门槛，不进入实验2。完整结果与日志在 [reports/s1d_exp1_fact_v3](reports/s1d_exp1_fact_v3)。
+
+已完成跟进：[两条主线四卡并行](experiments/S1d-two-lines-v1.md)。M1/M2固定C basis和尾4-token训练，仅增加写入保留事实D0 CE降序top20的λ=1 hinge；弱net≥5且H≤4，强按最新目标net≥7并单独报告损伤。A1/A2加载原C最终checkpoint进行Full/Selection/D0/C的固定B2生成。原方法20项CPU回归及新增4项接线检查通过；controlled 8开发/16封存测试只做结构准备，不评分、不扫描权重/prompt。
 
 | 编号 | 运行 | 目的 | 状态 | 正文 |
 |---|---|---|---|---|
