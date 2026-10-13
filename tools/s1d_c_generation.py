@@ -63,7 +63,7 @@ def load_verified_c(args, reference, window_report, arm_entry, displacement):
 
 def evaluate_four_arms(*, args, manager, model, probes, arms, candidate_pool,
                        window_report, reference, covered, lines, checkpoint_sha,
-                       carrier_sha, driver_sha, loaded_tf):
+                       carrier_sha, driver_sha, loaded_tf, generation_context=None):
     import torch
     from methods.prlmc.probes import differentiable_memory, active_mask_override
     from s1d_experiment1 import reader_evaluation, memory_digest
@@ -89,6 +89,9 @@ def evaluate_four_arms(*, args, manager, model, probes, arms, candidate_pool,
         context_lines_sha256=hashlib.sha256('\n'.join(lines).encode()).hexdigest(),
         covered=covered, reference_tf=dict(baselines=window_report['baselines'], C=loaded_tf),
         arm_results={}, pairs=[dict(question=q.question, answers=list(q.answers)) for q in selected])
+    if generation_context is not None:
+        result.update(generation_context['metadata'])
+        result['protocol'].update(generation_context['protocol'])
     # Native generation can update model.memory. Bind a disposable full copy
     # during each arm; restore it after EVERY question if its version changes.
     for name, arm in arms.items():
@@ -144,11 +147,12 @@ def evaluate_four_arms(*, args, manager, model, probes, arms, candidate_pool,
         torch.cuda.empty_cache()
     maps = {k:v['correct'] for k,v in result['arm_results'].items()}
     result['summary'] = paired_summary(maps)
-    tf_recovered = reference['windows'][0]['arms']['C']['final']['new_recovery_questions']
-    result['tf_to_generation'] = dict(
-        tf_recovered_questions=tf_recovered,
-        C_generation_correct=[q for q in tf_recovered if maps['C'].get(q,False)],
-        newly_correct_vs_D0=[q for q in tf_recovered if maps['C'].get(q,False) and not maps['D0'].get(q,False)])
+    if reference is not None:
+        tf_recovered = reference['windows'][0]['arms']['C']['final']['new_recovery_questions']
+        result['tf_to_generation'] = dict(
+            tf_recovered_questions=tf_recovered,
+            C_generation_correct=[q for q in tf_recovered if maps['C'].get(q,False)],
+            newly_correct_vs_D0=[q for q in tf_recovered if maps['C'].get(q,False) and not maps['D0'].get(q,False)])
     result.update(status='complete',elapsed_seconds=time.monotonic()-started,
                   source_memory_unchanged=True, reader_frozen=True)
     return result

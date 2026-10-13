@@ -1,0 +1,1921 @@
+{
+  "schema_version": "s1d_shared_compactor_eval/1",
+  "status": "complete",
+  "identity": {
+    "stage": "development",
+    "episode": 15,
+    "plan_sha256": "1444f62a1197a8663736f9f4d767aa3923f0432ab98507dde99de3d3bd64b9e5",
+    "context_sha256": "e6d272c6720c29b382d79b1b81c68afa77355ff6e9811bf1bfe1ff8da6318707",
+    "checkpoint_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+    "model_manifest_sha256": "f383504c0db2f245055e9e2cc4f68043af470ea9bcbd3dd7faf0a57c119d6859",
+    "source_manifest": {
+      "tools/s1d_shared_compactor_eval.py": "e77bee9c3e0afc47923e0f63c8480e67f429d202b213551866aaa80c272b54eb",
+      "tools/s1d_c_generation.py": "444fe47272420330baa48a8b88fcc9854af8459526c46e23630cd2d4ba000c17",
+      "tools/readout_probe.py": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+      "tools/s1d_experiment1.py": "3516abb1ddc23e045acf93146ea41a14efa8073650da75fb0a6ba072f8ed16b5",
+      "tools/run_s1d_shared_compactor_eval.py": "902968c6876d0790e626b5b7b79a1de02f3e9d4c432263aeb92b1e65bf7c5087",
+      "methods/prlmc/consolidate.py": "08e7faa5fd8d84322bf6aa2565ad87e0c559fd65dff5b4b6be335dc8df6eb5a8",
+      "methods/prlmc/layout.py": "a6d3be05b1601d84b51b6305930bc8895fbaca85c18481b6324d3789dbba794d",
+      "methods/prlmc/probes.py": "1cde262679fc1f9ea3e2e7ece6a8dd41b6b122fecdf231c741942e4d3cad6cf9",
+      "methods/memoryllm_modeling/modeling_memoryllm.py": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68",
+      "configs/agent_conf/prlmc_e6.yaml": "f343a12843f2f14b555ea8ea90ee1fcb2f11300340077bd643327f08a4e4fe57"
+    },
+    "protocol": {
+      "name": "S1d-shared-compactor-zero-training-v1",
+      "method": "frozen E6d interleave CarrierResidualCompactor",
+      "arms": [
+        "Full",
+        "Selection",
+        "SharedE6d"
+      ],
+      "training": false,
+      "optimizer": null,
+      "backward": false,
+      "basis_construction": false,
+      "alpha_adaptation": false,
+      "window_blocks": 19,
+      "target_blocks": 9,
+      "anchor_lines": 30,
+      "written_lines": 380,
+      "block_lines": 20,
+      "evaluation_questions": 64,
+      "prompt": "fixed B2 FEWSHOT",
+      "stop_strings": [
+        "\n"
+      ],
+      "max_new_tokens": 32,
+      "scorer": "readout_probe.official_score",
+      "primary": "episode paired SharedE6d-Selection generation EM",
+      "test_policy": "development only; sealed test is never opened"
+    },
+    "gamma_max": 0.05,
+    "test_opened": false
+  },
+  "evaluation_opened": true,
+  "training_performed": false,
+  "optimizer_created": false,
+  "backward_performed": false,
+  "basis_constructed": false,
+  "alpha_adapted": false,
+  "episode": 15,
+  "writes": [
+    {
+      "anchor_tokens": 256,
+      "anchor_slots": 512,
+      "anchor_repeats": 2,
+      "projection": "none",
+      "anchor_basis_computed": false,
+      "anchor_basis_rank": 0,
+      "input_tokens": 386
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 255,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 1.0,
+      "gate": 1.0,
+      "encode_seconds": 0.16323304176330566,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 256,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.020833333333333332,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 1.0,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 255
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 267,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.9575893461704255,
+      "gate": 1.0,
+      "encode_seconds": 0.14888310432434082,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 512,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.041666666666666664,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.9575893461704255,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 267
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 280,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.9174172383546829,
+      "gate": 1.0,
+      "encode_seconds": 0.14499664306640625,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 768,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.0625,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.9174172383546829,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 280
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 258,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.8808479817509651,
+      "gate": 1.0,
+      "encode_seconds": 0.142564058303833,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 1024,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.08333333333333333,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.8808479817509651,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 258
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 262,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.8405290733397007,
+      "gate": 1.0,
+      "encode_seconds": 0.16722536087036133,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 1280,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.10416666666666667,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.8405290733397007,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 262
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 272,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.7989195785480738,
+      "gate": 1.0,
+      "encode_seconds": 0.15469121932983398,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 1536,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.125,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.7989195785480738,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 272
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 261,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.7702519477806687,
+      "gate": 1.0,
+      "encode_seconds": 0.145613431930542,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 1792,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.14583333333333334,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.7702519477806687,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 261
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 265,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.7394001735510408,
+      "gate": 1.0,
+      "encode_seconds": 0.14796972274780273,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 2048,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.16666666666666666,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.7394001735510408,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 265
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 266,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.7207992660935503,
+      "gate": 1.0,
+      "encode_seconds": 0.14949798583984375,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 2304,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.1875,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.7207992660935503,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 266
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 267,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.7008450616540713,
+      "gate": 1.0,
+      "encode_seconds": 0.1485133171081543,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 2560,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.20833333333333334,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.7008450616540713,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 267
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 251,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.6761087974139038,
+      "gate": 1.0,
+      "encode_seconds": 0.1354522705078125,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 2816,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.22916666666666666,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.6761087974139038,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 251
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 281,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.6436252713407263,
+      "gate": 1.0,
+      "encode_seconds": 0.1423511505126953,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 3072,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.25,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.6436252713407263,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 281
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 285,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.626769231576191,
+      "gate": 1.0,
+      "encode_seconds": 0.14470839500427246,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 3328,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.2708333333333333,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.626769231576191,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 285
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 244,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5953822196887135,
+      "gate": 1.0,
+      "encode_seconds": 0.12662982940673828,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 3584,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.2916666666666667,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5953822196887135,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 244
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 287,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5658827925949871,
+      "gate": 1.0,
+      "encode_seconds": 0.14328336715698242,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 3840,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.3125,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5658827925949871,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 287
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 274,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5403065477516871,
+      "gate": 1.0,
+      "encode_seconds": 0.1424257755279541,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 4096,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.3333333333333333,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5403065477516871,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 274
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 286,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5351094628608186,
+      "gate": 1.0,
+      "encode_seconds": 0.1481189727783203,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 4352,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.3541666666666667,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5351094628608186,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 286
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 268,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5213940583380424,
+      "gate": 1.0,
+      "encode_seconds": 0.14532852172851562,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 4608,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.375,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5213940583380424,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 268
+    },
+    {
+      "dropped": false,
+      "raw_tokens": 281,
+      "tokens": 256,
+      "truncated": false,
+      "novelty": 0.5177606680434075,
+      "gate": 1.0,
+      "encode_seconds": 0.14311528205871582,
+      "allocated": true,
+      "addressed_block": null,
+      "made_room_for_write": false,
+      "over_budget_request": false,
+      "trigger_reason": null,
+      "used_slots": 4864,
+      "n_consolidated": 0,
+      "evicted_blocks": 0,
+      "compacted": false,
+      "budget_slots": 12288,
+      "occupancy": 0.3958333333333333,
+      "effective_rank": 0.0,
+      "energy_rank": 0,
+      "rank_max": 0,
+      "rank_utilisation": 0.0,
+      "novelty_ema": 0.5177606680434075,
+      "allocated_new_slots": 256,
+      "over_budget": false,
+      "input_tokens": 281
+    }
+  ],
+  "source_memory_sha256": "c95b198ca0acb2b400028f4fb31a3d1cdbeb59236bcdb1e05892f44d0886ce38",
+  "written_slots": 4864,
+  "compressed_slots": 2816,
+  "predictions": {
+    "Full": {
+      "What position does Chris Davis play?": {
+        "prediction": " second baseman\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Ferdinand of Romania affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of George Sisler?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Pauleta associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who created Princess Zelda?": {
+        "prediction": " The Beatles\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Andrea Pirlo play?": {
+        "prediction": " midfielder\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Iona College affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Kevin Nealon?": {
+        "prediction": " India\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Chacarita Juniors associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Schrödinger's cat?": {
+        "prediction": " David Cross\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Matt Harvey play?": {
+        "prediction": " pitcher\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Pierre Duhem affiliated with?": {
+        "prediction": " Arianism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Ellen DeGeneres?": {
+        "prediction": " Saudi Arabia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Imran Khan associated with?": {
+        "prediction": " Australian rules football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "Who created Dragnet franchise?": {
+        "prediction": " Chris Wondolowski\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "What position does Jason Garrett play?": {
+        "prediction": " quarterback\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Paul II affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lute Olson?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Pittsburgh Pirates associated with?": {
+        "prediction": " sumo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Jay Gatsby?": {
+        "prediction": " The Beatles\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What position does Abet Guidaben play?": {
+        "prediction": " power forward\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Innocent X affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chris Claremont?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is NBA All-Star Game associated with?": {
+        "prediction": " basketball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who created Noddy?": {
+        "prediction": " Chris Carter\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Oliver Kahn play?": {
+        "prediction": " goalkeeper\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Harriet Tubman affiliated with?": {
+        "prediction": " Church of the Nazarene\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 7
+      },
+      "What is the country of citizenship of Carlo Collodi?": {
+        "prediction": " Republic of Venice\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What sport is FC Martigues associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What position does Ralph Sampson play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Gavin Newsom affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chen Kaige?": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is FIBA EuroBasket 2017 associated with?": {
+        "prediction": " petanque\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What position does Brandon Knight play?": {
+        "prediction": " point guard\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Assyrian people affiliated with?": {
+        "prediction": " Shinto\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Gwen Guthrie?": {
+        "prediction": " Ireland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Buckie Thistle F.C. associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Jarosław Kaczyński affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Thomas M. Disch?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is FC Oleksandriya associated with?": {
+        "prediction": " racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Pietro da Cortona?": {
+        "prediction": " Italy\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Cincinnati Gardens associated with?": {
+        "prediction": " auto racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Lluís Companys?": {
+        "prediction": " Spain\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Oscar Robertson Trophy associated with?": {
+        "prediction": " aikido\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lois Lane?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is FC Unirea Alba Iulia associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Albert Collins?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is KD Slovan associated with?": {
+        "prediction": " ice hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Leslie Mann?": {
+        "prediction": " Greece\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Bob Cousy associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Chen Guangcheng?": {
+        "prediction": " Myanmar\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Argentino de Rosario associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Rekha?": {
+        "prediction": " Afghanistan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Orduspor associated with?": {
+        "prediction": " Muay Thai\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Wu Peifu?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Clint Hurdle associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Peter Morgan?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Andrew Caddick associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Chelsea Clinton?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Rick Carlisle associated with?": {
+        "prediction": " petanque\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Tipper Gore?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Luka Modrić associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Mário Soares?": {
+        "prediction": " Portugal\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Vishal Bhardwaj?": {
+        "prediction": " India\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      }
+    },
+    "Selection": {
+      "What position does Chris Davis play?": {
+        "prediction": " second baseman\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Ferdinand of Romania affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of George Sisler?": {
+        "prediction": " United Arab Emirates\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What sport is Pauleta associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who created Princess Zelda?": {
+        "prediction": " The Beatles\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Andrea Pirlo play?": {
+        "prediction": " midfielder\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Iona College affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Kevin Nealon?": {
+        "prediction": " India\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Chacarita Juniors associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Schrödinger's cat?": {
+        "prediction": " David Cross\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Matt Harvey play?": {
+        "prediction": " starting pitcher\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Pierre Duhem affiliated with?": {
+        "prediction": " Arianism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Ellen DeGeneres?": {
+        "prediction": " Saudi Arabia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Imran Khan associated with?": {
+        "prediction": " Australian rules football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "Who created Dragnet franchise?": {
+        "prediction": " Jack Webb\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What position does Jason Garrett play?": {
+        "prediction": " quarterback\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Paul II affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lute Olson?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Pittsburgh Pirates associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who created Jay Gatsby?": {
+        "prediction": " Dan Povenmire\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What position does Abet Guidaben play?": {
+        "prediction": " power forward\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Innocent X affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chris Claremont?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is NBA All-Star Game associated with?": {
+        "prediction": " basketball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who created Noddy?": {
+        "prediction": " Chris Carter\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Oliver Kahn play?": {
+        "prediction": " safety\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Harriet Tubman affiliated with?": {
+        "prediction": " Christianity\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Carlo Collodi?": {
+        "prediction": " Kingdom of Aragon\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is FC Martigues associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What position does Ralph Sampson play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Gavin Newsom affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chen Kaige?": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is FIBA EuroBasket 2017 associated with?": {
+        "prediction": " basketball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What position does Brandon Knight play?": {
+        "prediction": " wide receiver\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Assyrian people affiliated with?": {
+        "prediction": " Christianity\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Gwen Guthrie?": {
+        "prediction": " Nigeria\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Buckie Thistle F.C. associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Jarosław Kaczyński affiliated with?": {
+        "prediction": " Lutheranism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Thomas M. Disch?": {
+        "prediction": " Saint Lucia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is FC Oleksandriya associated with?": {
+        "prediction": " racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Pietro da Cortona?": {
+        "prediction": " Italy\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Cincinnati Gardens associated with?": {
+        "prediction": " auto racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Lluís Companys?": {
+        "prediction": " Spain\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Oscar Robertson Trophy associated with?": {
+        "prediction": " aikido\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lois Lane?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is FC Unirea Alba Iulia associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Albert Collins?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is KD Slovan associated with?": {
+        "prediction": " sumo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Leslie Mann?": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Bob Cousy associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Chen Guangcheng?": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Argentino de Rosario associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Rekha?": {
+        "prediction": " Afghanistan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Orduspor associated with?": {
+        "prediction": " Muay Thai\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Wu Peifu?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Clint Hurdle associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Peter Morgan?": {
+        "prediction": " Kingdom of Aragon\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is Andrew Caddick associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Chelsea Clinton?": {
+        "prediction": " Bulgaria\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Rick Carlisle associated with?": {
+        "prediction": " motorsport\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Tipper Gore?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Luka Modrić associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Mário Soares?": {
+        "prediction": " Portugal\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Vishal Bhardwaj?": {
+        "prediction": " India\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      }
+    },
+    "SharedE6d": {
+      "What position does Chris Davis play?": {
+        "prediction": " second baseman\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Ferdinand of Romania affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of George Sisler?": {
+        "prediction": " United Arab Emirates\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What sport is Pauleta associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who created Princess Zelda?": {
+        "prediction": " The Beatles\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Andrea Pirlo play?": {
+        "prediction": " midfielder\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Iona College affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Kevin Nealon?": {
+        "prediction": " India\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Chacarita Juniors associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Schrödinger's cat?": {
+        "prediction": " David Cross\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Matt Harvey play?": {
+        "prediction": " starting pitcher\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Pierre Duhem affiliated with?": {
+        "prediction": " Arianism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Ellen DeGeneres?": {
+        "prediction": " Saudi Arabia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Imran Khan associated with?": {
+        "prediction": " Australian rules football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "Who created Dragnet franchise?": {
+        "prediction": " Chris Wondolowski\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "What position does Jason Garrett play?": {
+        "prediction": " quarterback\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Paul II affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lute Olson?": {
+        "prediction": " Umayyad Caliphate\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 8
+      },
+      "What sport is Pittsburgh Pirates associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who created Jay Gatsby?": {
+        "prediction": " Dan Povenmire\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What position does Abet Guidaben play?": {
+        "prediction": " power forward\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Innocent X affiliated with?": {
+        "prediction": " Church of Scotland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chris Claremont?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is NBA All-Star Game associated with?": {
+        "prediction": " basketball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who created Noddy?": {
+        "prediction": " Chris Carter\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Oliver Kahn play?": {
+        "prediction": " safety\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Harriet Tubman affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Carlo Collodi?": {
+        "prediction": " Republic of Venice\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What sport is FC Martigues associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What position does Ralph Sampson play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Gavin Newsom affiliated with?": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Chen Kaige?": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is FIBA EuroBasket 2017 associated with?": {
+        "prediction": " petanque\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What position does Brandon Knight play?": {
+        "prediction": " wide receiver\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Assyrian people affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Gwen Guthrie?": {
+        "prediction": " Nigeria\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Buckie Thistle F.C. associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Jarosław Kaczyński affiliated with?": {
+        "prediction": " Lutheranism\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Thomas M. Disch?": {
+        "prediction": " Saint Lucia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is FC Oleksandriya associated with?": {
+        "prediction": " racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Pietro da Cortona?": {
+        "prediction": " Republic of Venice\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Cincinnati Gardens associated with?": {
+        "prediction": " auto racing\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Lluís Companys?": {
+        "prediction": " Spain\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Oscar Robertson Trophy associated with?": {
+        "prediction": " aikido\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Lois Lane?": {
+        "prediction": " Qatar\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is FC Unirea Alba Iulia associated with?": {
+        "prediction": " rugby union\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Albert Collins?": {
+        "prediction": " Saudi Arabia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is KD Slovan associated with?": {
+        "prediction": " sumo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Leslie Mann?": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Bob Cousy associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Chen Guangcheng?": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Argentino de Rosario associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Rekha?": {
+        "prediction": " Afghanistan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Orduspor associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Wu Peifu?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Clint Hurdle associated with?": {
+        "prediction": " sumo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Peter Morgan?": {
+        "prediction": " Kingdom of Aragon\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is Andrew Caddick associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Chelsea Clinton?": {
+        "prediction": " Bulgaria\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Rick Carlisle associated with?": {
+        "prediction": " motorsport\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Tipper Gore?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Luka Modrić associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Mário Soares?": {
+        "prediction": " Finland\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Vishal Bhardwaj?": {
+        "prediction": " India\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      }
+    }
+  },
+  "compactor_state_sha256_before": "bd2629756f57024bbb899d0f25a54bfb9a726afd6c7b77cdcf8fafa8158426bf",
+  "arm_metadata": {
+    "Full": {
+      "active_slots": 5376
+    },
+    "Selection": {
+      "active_slots": 2816
+    },
+    "SharedE6d": {
+      "active_slots": 2816
+    }
+  },
+  "progress": {
+    "arm": "SharedE6d",
+    "completed_questions": 64,
+    "total_questions": 64
+  },
+  "summary": {
+    "n": 64,
+    "arms": {
+      "Full": {
+        "correct": 26,
+        "em": 0.40625
+      },
+      "Selection": {
+        "correct": 27,
+        "em": 0.421875
+      },
+      "SharedE6d": {
+        "correct": 32,
+        "em": 0.5
+      }
+    },
+    "full_selection_lost": [
+      "What religion is Harriet Tubman affiliated with?",
+      "What is the country of citizenship of Carlo Collodi?",
+      "What sport is FIBA EuroBasket 2017 associated with?",
+      "What religion is Assyrian people affiliated with?",
+      "What sport is Buckie Thistle F.C. associated with?",
+      "What is the country of citizenship of Leslie Mann?",
+      "What is the country of citizenship of Chen Guangcheng?",
+      "What sport is Rick Carlisle associated with?"
+    ],
+    "shared_gained_vs_selection": [
+      "What is the country of citizenship of Lute Olson?",
+      "What sport is Pittsburgh Pirates associated with?",
+      "What is the country of citizenship of Carlo Collodi?",
+      "What sport is FIBA EuroBasket 2017 associated with?",
+      "What is the country of citizenship of Lois Lane?",
+      "What is the country of citizenship of Mário Soares?"
+    ],
+    "shared_harmed_vs_selection": [
+      "What sport is Orduspor associated with?"
+    ],
+    "shared_vs_selection": {
+      "gained": [
+        "What is the country of citizenship of Lute Olson?",
+        "What sport is Pittsburgh Pirates associated with?",
+        "What is the country of citizenship of Carlo Collodi?",
+        "What sport is FIBA EuroBasket 2017 associated with?",
+        "What is the country of citizenship of Lois Lane?",
+        "What is the country of citizenship of Mário Soares?"
+      ],
+      "harmed": [
+        "What sport is Orduspor associated with?"
+      ],
+      "net": 5,
+      "delta_em": 0.078125
+    },
+    "shared_recovers_lost": [
+      "What is the country of citizenship of Carlo Collodi?",
+      "What sport is FIBA EuroBasket 2017 associated with?"
+    ]
+  },
+  "generation_questions": [
+    "What position does Chris Davis play?",
+    "What religion is Ferdinand of Romania affiliated with?",
+    "What is the country of citizenship of George Sisler?",
+    "What sport is Pauleta associated with?",
+    "Who created Princess Zelda?",
+    "What position does Andrea Pirlo play?",
+    "What religion is Iona College affiliated with?",
+    "What is the country of citizenship of Kevin Nealon?",
+    "What sport is Chacarita Juniors associated with?",
+    "Who created Schrödinger's cat?",
+    "What position does Matt Harvey play?",
+    "What religion is Pierre Duhem affiliated with?",
+    "What is the country of citizenship of Ellen DeGeneres?",
+    "What sport is Imran Khan associated with?",
+    "Who created Dragnet franchise?",
+    "What position does Jason Garrett play?",
+    "What religion is Paul II affiliated with?",
+    "What is the country of citizenship of Lute Olson?",
+    "What sport is Pittsburgh Pirates associated with?",
+    "Who created Jay Gatsby?",
+    "What position does Abet Guidaben play?",
+    "What religion is Innocent X affiliated with?",
+    "What is the country of citizenship of Chris Claremont?",
+    "What sport is NBA All-Star Game associated with?",
+    "Who created Noddy?",
+    "What position does Oliver Kahn play?",
+    "What religion is Harriet Tubman affiliated with?",
+    "What is the country of citizenship of Carlo Collodi?",
+    "What sport is FC Martigues associated with?",
+    "What position does Ralph Sampson play?",
+    "What religion is Gavin Newsom affiliated with?",
+    "What is the country of citizenship of Chen Kaige?",
+    "What sport is FIBA EuroBasket 2017 associated with?",
+    "What position does Brandon Knight play?",
+    "What religion is Assyrian people affiliated with?",
+    "What is the country of citizenship of Gwen Guthrie?",
+    "What sport is Buckie Thistle F.C. associated with?",
+    "What religion is Jarosław Kaczyński affiliated with?",
+    "What is the country of citizenship of Thomas M. Disch?",
+    "What sport is FC Oleksandriya associated with?",
+    "What is the country of citizenship of Pietro da Cortona?",
+    "What sport is Cincinnati Gardens associated with?",
+    "What is the country of citizenship of Lluís Companys?",
+    "What sport is Oscar Robertson Trophy associated with?",
+    "What is the country of citizenship of Lois Lane?",
+    "What sport is FC Unirea Alba Iulia associated with?",
+    "What is the country of citizenship of Albert Collins?",
+    "What sport is KD Slovan associated with?",
+    "What is the country of citizenship of Leslie Mann?",
+    "What sport is Bob Cousy associated with?",
+    "What is the country of citizenship of Chen Guangcheng?",
+    "What sport is Argentino de Rosario associated with?",
+    "What is the country of citizenship of Rekha?",
+    "What sport is Orduspor associated with?",
+    "What is the country of citizenship of Wu Peifu?",
+    "What sport is Clint Hurdle associated with?",
+    "What is the country of citizenship of Peter Morgan?",
+    "What sport is Andrew Caddick associated with?",
+    "What is the country of citizenship of Chelsea Clinton?",
+    "What sport is Rick Carlisle associated with?",
+    "What is the country of citizenship of Tipper Gore?",
+    "What sport is Luka Modrić associated with?",
+    "What is the country of citizenship of Mário Soares?",
+    "What is the country of citizenship of Vishal Bhardwaj?"
+  ],
+  "source_memory_unchanged": true,
+  "compactor_unchanged": true,
+  "compactor_state_sha256_after": "bd2629756f57024bbb899d0f25a54bfb9a726afd6c7b77cdcf8fafa8158426bf",
+  "costs": {
+    "elapsed_seconds": 496.99551714397967,
+    "peak_allocated_bytes": 28713145856,
+    "peak_reserved_bytes": 30213668864
+  },
+  "runtime": {
+    "torch": "2.5.1+cu124",
+    "cuda": "12.4",
+    "gpu": "Tesla V100-PCIE-32GB",
+    "physical_device": 5
+  }
+}

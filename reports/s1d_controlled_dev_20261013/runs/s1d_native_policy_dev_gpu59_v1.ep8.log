@@ -1,0 +1,72 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:02,  3.31it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.31it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.26it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.19it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.19it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.16it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  3.12it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.24it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.21it/s]
+[native] arm NativeBudget episode 8
+We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+[native] write 1/20
+[native] write 2/20
+[native] write 3/20
+[native] write 4/20
+[native] write 5/20
+[native] write 6/20
+[native] write 7/20
+[native] write 8/20
+[native] write 9/20
+[native] write 10/20
+[native] write 11/20
+[native] write 12/20
+[native] write 13/20
+[native] write 14/20
+[native] write 15/20
+[native] write 16/20
+[native] write 17/20
+[native] write 18/20
+[native] write 19/20
+[native] write 20/20
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+[shared-eval] generation 1/64
+[shared-eval] generation 9/64
+[shared-eval] generation 17/64
+[shared-eval] generation 25/64
+[shared-eval] generation 33/64
+[shared-eval] generation 41/64
+[shared-eval] generation 49/64
+[shared-eval] generation 57/64
+[shared-eval] generation 64/64
+[native] arm NativeDefault episode 8
+[native] write 1/20
+[native] write 2/20
+[native] write 3/20
+[native] write 4/20
+[native] write 5/20
+[native] write 6/20
+[native] write 7/20
+[native] write 8/20
+[native] write 9/20
+[native] write 10/20
+[native] write 11/20
+[native] write 12/20
+[native] write 13/20
+[native] write 14/20
+[native] write 15/20
+[native] write 16/20
+[native] write 17/20
+[native] write 18/20
+[native] write 19/20
+[native] write 20/20
+[shared-eval] generation 1/64
+[shared-eval] generation 9/64
+[shared-eval] generation 17/64
+[shared-eval] generation 25/64
+[shared-eval] generation 33/64
+[shared-eval] generation 41/64
+[shared-eval] generation 49/64
+[shared-eval] generation 57/64
+[shared-eval] generation 64/64
+FINAL {"NativeBudget": {"correct": 13, "n": 64, "em": 0.203125}, "NativeDefault": {"correct": 14, "n": 64, "em": 0.21875}}

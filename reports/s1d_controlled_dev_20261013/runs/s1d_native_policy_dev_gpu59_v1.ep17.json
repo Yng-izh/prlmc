@@ -1,0 +1,1345 @@
+{
+  "schema_version": "s1d_native_policy_eval/1",
+  "status": "complete",
+  "identity": {
+    "episode": 17,
+    "context_sha256": "65edb2285c949ad3d8a6b93b626df96e9fc6759dde89094b4fde7eaa712c1e45",
+    "plan_sha256": "1444f62a1197a8663736f9f4d767aa3923f0432ab98507dde99de3d3bd64b9e5",
+    "model_manifest_sha256": "f383504c0db2f245055e9e2cc4f68043af470ea9bcbd3dd7faf0a57c119d6859",
+    "reference_sha256": "a9ca73b28e5cfa6bce59afb75e8373dd42b97d1c64bfdd580f0a05729ddc2cf2",
+    "source_manifest": {
+      "tools/s1d_native_policy_eval.py": "943d05e8dde61135092ce49895c5555d013efe50a3fb6785fd1f57b544c07b8c",
+      "tools/run_s1d_native_policy_eval.py": "dce56ed376731d98fc47c37de7e90e0a2271d2d700be7ea8ffc6f3819cb46a2a",
+      "tools/s1d_shared_compactor_eval.py": "e77bee9c3e0afc47923e0f63c8480e67f429d202b213551866aaa80c272b54eb",
+      "tools/s1d_experiment1.py": "3516abb1ddc23e045acf93146ea41a14efa8073650da75fb0a6ba072f8ed16b5",
+      "tools/readout_probe.py": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+      "tools/native_qa_compare.py": "f882f45e5ed7a4364d38fe4e9aacfa60a331da70365d9269479526caedaa3839",
+      "methods/prlmc/probes.py": "1cde262679fc1f9ea3e2e7ece6a8dd41b6b122fecdf231c741942e4d3cad6cf9",
+      "methods/memoryllm_modeling/modeling_memoryllm.py": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68"
+    },
+    "protocol": {
+      "name": "s1d-native-write-drop-v1",
+      "arms": {
+        "NativeBudget": 11,
+        "NativeDefault": 50
+      },
+      "native_block_tokens": 256,
+      "native_drop_per_layer": true,
+      "training": false,
+      "seed": 0,
+      "write_chunks": [
+        30,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20
+      ],
+      "write_input": "identical raw numbered fact chunks to shared E6d evaluation",
+      "write_max_tokens": 512,
+      "injection": "MemoryLLM.inject_memory(update_memory=True)",
+      "first_write": "cold start; native repeat fills pool",
+      "drop": "native random per-layer slot removal, preserved order, then append",
+      "anchor_protection": false,
+      "compactor": false,
+      "active_mask": false,
+      "prompt": "fixed B2 FEWSHOT",
+      "stop_strings": [
+        "\n"
+      ],
+      "max_new_tokens": 32,
+      "scorer": "readout_probe.official_score",
+      "evaluation_questions": 64,
+      "scope": "native write/drop with controlled inputs and fixed B2 readout; not a full official benchmark run",
+      "test_policy": "development only; sealed test remains unopened"
+    },
+    "prompt_sha256": "9cd147a122c6f335e08c093baf59818fc4d08824137cf0072e96c0c11ca30733"
+  },
+  "native_policy_audit": {
+    "original_sha256": "48b509c7f1476239273d98b7480ed27b51e94fe1de877da224dd796af63f4d39",
+    "current_sha256": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68",
+    "unchanged_native_methods": [
+      "inject_memory",
+      "drop_memory",
+      "update_memory_with_delta_memory",
+      "cat_memory_and_hiddens"
+    ],
+    "method_sha256": {
+      "inject_memory": "9901007fda15fad6dec229dab20188bc779fd306cb9f0eaae8906bfe64ce197f",
+      "drop_memory": "f3066450508e43d3d950388aea695f7d6abe61f11054de6621fdb39d0fa37f4e",
+      "update_memory_with_delta_memory": "3a53d725e4767d883b638a114d7acbd1aeddef1f4bac4a033b287705a050852d",
+      "cat_memory_and_hiddens": "8d5c97f08d6ce362422d17853b529ff348ed1f596f15884888567f623cae613f"
+    }
+  },
+  "smoke": false,
+  "stage": "development",
+  "test_opened": false,
+  "training_performed": false,
+  "evaluation_opened": true,
+  "writes": {
+    "NativeBudget": [
+      {
+        "chunk": 0,
+        "lines": 30,
+        "input_tokens": 387,
+        "native_delta_slots": 256,
+        "first_write": true,
+        "randomly_removed_slots_per_layer": 0,
+        "seconds": 1.0306861246936023
+      },
+      {
+        "chunk": 1,
+        "lines": 20,
+        "input_tokens": 304,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.20218983897939324
+      },
+      {
+        "chunk": 2,
+        "lines": 20,
+        "input_tokens": 266,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1667374186217785
+      },
+      {
+        "chunk": 3,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1582262869924307
+      },
+      {
+        "chunk": 4,
+        "lines": 20,
+        "input_tokens": 303,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1608305680565536
+      },
+      {
+        "chunk": 5,
+        "lines": 20,
+        "input_tokens": 278,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.16357505740597844
+      },
+      {
+        "chunk": 6,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15893383417278528
+      },
+      {
+        "chunk": 7,
+        "lines": 20,
+        "input_tokens": 286,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1576765882782638
+      },
+      {
+        "chunk": 8,
+        "lines": 20,
+        "input_tokens": 276,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15792453987523913
+      },
+      {
+        "chunk": 9,
+        "lines": 20,
+        "input_tokens": 300,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1586456918157637
+      },
+      {
+        "chunk": 10,
+        "lines": 20,
+        "input_tokens": 290,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15933652874082327
+      },
+      {
+        "chunk": 11,
+        "lines": 20,
+        "input_tokens": 296,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15750337904319167
+      },
+      {
+        "chunk": 12,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15596446208655834
+      },
+      {
+        "chunk": 13,
+        "lines": 20,
+        "input_tokens": 284,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1566357370465994
+      },
+      {
+        "chunk": 14,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15739895217120647
+      },
+      {
+        "chunk": 15,
+        "lines": 20,
+        "input_tokens": 296,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15961582539603114
+      },
+      {
+        "chunk": 16,
+        "lines": 20,
+        "input_tokens": 277,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15814697230234742
+      },
+      {
+        "chunk": 17,
+        "lines": 20,
+        "input_tokens": 279,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.16251978324726224
+      },
+      {
+        "chunk": 18,
+        "lines": 20,
+        "input_tokens": 271,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17421898990869522
+      },
+      {
+        "chunk": 19,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15758714312687516
+      }
+    ],
+    "NativeDefault": [
+      {
+        "chunk": 0,
+        "lines": 30,
+        "input_tokens": 387,
+        "native_delta_slots": 256,
+        "first_write": true,
+        "randomly_removed_slots_per_layer": 0,
+        "seconds": 0.21131057105958462
+      },
+      {
+        "chunk": 1,
+        "lines": 20,
+        "input_tokens": 304,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19415917014703155
+      },
+      {
+        "chunk": 2,
+        "lines": 20,
+        "input_tokens": 266,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19219378987327218
+      },
+      {
+        "chunk": 3,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19169665966182947
+      },
+      {
+        "chunk": 4,
+        "lines": 20,
+        "input_tokens": 303,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19027844397351146
+      },
+      {
+        "chunk": 5,
+        "lines": 20,
+        "input_tokens": 278,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19744479516521096
+      },
+      {
+        "chunk": 6,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19020624924451113
+      },
+      {
+        "chunk": 7,
+        "lines": 20,
+        "input_tokens": 286,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19436393585056067
+      },
+      {
+        "chunk": 8,
+        "lines": 20,
+        "input_tokens": 276,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19126275414600968
+      },
+      {
+        "chunk": 9,
+        "lines": 20,
+        "input_tokens": 300,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19626699713990092
+      },
+      {
+        "chunk": 10,
+        "lines": 20,
+        "input_tokens": 290,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19222920015454292
+      },
+      {
+        "chunk": 11,
+        "lines": 20,
+        "input_tokens": 296,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19018928287550807
+      },
+      {
+        "chunk": 12,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19429427292197943
+      },
+      {
+        "chunk": 13,
+        "lines": 20,
+        "input_tokens": 284,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19237060099840164
+      },
+      {
+        "chunk": 14,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19101660139858723
+      },
+      {
+        "chunk": 15,
+        "lines": 20,
+        "input_tokens": 296,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19398435205221176
+      },
+      {
+        "chunk": 16,
+        "lines": 20,
+        "input_tokens": 277,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.18979503773152828
+      },
+      {
+        "chunk": 17,
+        "lines": 20,
+        "input_tokens": 279,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1915229340083897
+      },
+      {
+        "chunk": 18,
+        "lines": 20,
+        "input_tokens": 271,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.18801608914509416
+      },
+      {
+        "chunk": 19,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.18938438035547733
+      }
+    ]
+  },
+  "predictions": {
+    "NativeBudget": {
+      "What sport is 2013 World Judo Championships associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Joe Nickell?": {
+        "prediction": " Barbados\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who founded Time Life?": {
+        "prediction": " Herbert Beerbohm Tree\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "In what country was The Sword created?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who performed California Love?": {
+        "prediction": " Rihanna\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is Ali Larijani employed by?": {
+        "prediction": " Federal Bureau of Investigation\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What religion is Marie Leszczyńska affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What language does Robert Stigwood speak?": {
+        "prediction": " French\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "In what city was Victor Emmanuel II of Savoy born?": {
+        "prediction": " Turin\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Metaphysics?": {
+        "prediction": " Aristotle\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What position does Jahlil Okafor play?": {
+        "prediction": " power forward\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Al-Ahli Saudi FC associated with?": {
+        "prediction": " chess\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Booker T. Washington?": {
+        "prediction": " United States\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who founded Solidarity?": {
+        "prediction": " Lech Walesa\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "In what country was rocksteady created?": {
+        "prediction": " Slovenia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is Edwin O. Reischauer employed by?": {
+        "prediction": " Federal Bureau of Investigation\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What religion is Henri Breuil affiliated with?": {
+        "prediction": " Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What language does Tite Kubo speak?": {
+        "prediction": " Japanese\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "In what city was Mahidol Adulyadej born?": {
+        "prediction": " Bangkok\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Foundation series?": {
+        "prediction": " Isaac Asimov\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What position does Vernon Davis play?": {
+        "prediction": " power forward\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is 2010 African Women's Championship associated with?": {
+        "prediction": " savate\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of William Asher?": {
+        "prediction": " United States\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who founded Turner Entertainment?": {
+        "prediction": " Herbert Beerbohm Tree\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What religion is Callixtus III affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What language does Alan Moore speak?": {
+        "prediction": " English\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Keith Hernandez associated with?": {
+        "prediction": " tennis\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Olamide?": {
+        "prediction": " Nigeria\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who founded Kaiser Family Foundation?": {
+        "prediction": " Herbert Beerbohm Tree\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "What religion is Pierre-Marc Johnson affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is FC Lokomotiv Moscow associated with?": {
+        "prediction": " chess\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Milić Vukašinović?": {
+        "prediction": " Slovenia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who founded Pravda?": {
+        "prediction": " Sony Interactive Entertainment\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What religion is Ulrich of Augsburg affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Paul Ince associated with?": {
+        "prediction": " petanque\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Peter Guber?": {
+        "prediction": " United States\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Santa Clara University affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Deportivo de La Coruña associated with?": {
+        "prediction": " tennis\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Sara Montiel?": {
+        "prediction": " Spain\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Francisco Jiménez de Cisneros affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Anorthosis Famagusta FC associated with?": {
+        "prediction": " savate\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Vaginal Davis?": {
+        "prediction": " Slovenia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Jan van Eyck affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Juan Marichal associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Tunku Abdul Rahman?": {
+        "prediction": " Malaysia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Yosef Yitzchok Schneersohn affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Maine Red Claws associated with?": {
+        "prediction": " shinty\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Sunaina?": {
+        "prediction": " Qatar\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Owain Glyndŵr affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is 2012 NBA Draft associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Georgia Gibbs?": {
+        "prediction": " Serbia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Charles III Philip affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is 2008 AFC Challenge Cup associated with?": {
+        "prediction": " football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Rafael del Riego?": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Swazi people affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Deportivo Pereira associated with?": {
+        "prediction": " tennis\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Jonathan Raban?": {
+        "prediction": " Great Britain\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Abbasid Caliphate affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Atlético Junior associated with?": {
+        "prediction": " savate\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Sugawara no Michizane?": {
+        "prediction": " Austria-Hungary\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is CECAFA Cup associated with?": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of André Campra?": {
+        "prediction": " Benin\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Fernando Valenzuela associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Sangju Sangmu FC associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      }
+    },
+    "NativeDefault": {
+      "What sport is 2013 World Judo Championships associated with?": {
+        "prediction": " judo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Joe Nickell?": {
+        "prediction": " Paraguay\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who founded Time Life?": {
+        "prediction": " Herbert Hoover\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was The Sword created?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who performed California Love?": {
+        "prediction": " Rihanna\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is Ali Larijani employed by?": {
+        "prediction": " MI5\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Marie Leszczyńska affiliated with?": {
+        "prediction": " Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What language does Robert Stigwood speak?": {
+        "prediction": " Malayalam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what city was Victor Emmanuel II of Savoy born?": {
+        "prediction": " Walkden\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Metaphysics?": {
+        "prediction": " George Eliot\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What position does Jahlil Okafor play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Al-Ahli Saudi FC associated with?": {
+        "prediction": " chess\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Booker T. Washington?": {
+        "prediction": " Kingdom of Poland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "Who founded Solidarity?": {
+        "prediction": " J. M. Brunswick\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "In what country was rocksteady created?": {
+        "prediction": " Australia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is Edwin O. Reischauer employed by?": {
+        "prediction": " University of California, Los Angeles\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 7
+      },
+      "What religion is Henri Breuil affiliated with?": {
+        "prediction": " Roman Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What language does Tite Kubo speak?": {
+        "prediction": " Japanese\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "In what city was Mahidol Adulyadej born?": {
+        "prediction": " Bangkok\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Foundation series?": {
+        "prediction": " Isaac Asimov\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What position does Vernon Davis play?": {
+        "prediction": " shortstop\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is 2010 African Women's Championship associated with?": {
+        "prediction": " savate\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of William Asher?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who founded Turner Entertainment?": {
+        "prediction": " Herbert Beerbohm Tree\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What religion is Callixtus III affiliated with?": {
+        "prediction": " Roman Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What language does Alan Moore speak?": {
+        "prediction": " Malayalam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Keith Hernandez associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Olamide?": {
+        "prediction": " Southern Netherlands\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "Who founded Kaiser Family Foundation?": {
+        "prediction": " Greg Mortenson\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What religion is Pierre-Marc Johnson affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is FC Lokomotiv Moscow associated with?": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Milić Vukašinović?": {
+        "prediction": " Serbia\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who founded Pravda?": {
+        "prediction": " John Garang\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What religion is Ulrich of Augsburg affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Paul Ince associated with?": {
+        "prediction": " savate\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Peter Guber?": {
+        "prediction": " United States\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Santa Clara University affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Deportivo de La Coruña associated with?": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Sara Montiel?": {
+        "prediction": " Spain\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Francisco Jiménez de Cisneros affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Anorthosis Famagusta FC associated with?": {
+        "prediction": " savate\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Vaginal Davis?": {
+        "prediction": " Turkey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Jan van Eyck affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Juan Marichal associated with?": {
+        "prediction": " tennis\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Tunku Abdul Rahman?": {
+        "prediction": " Nepal\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Yosef Yitzchok Schneersohn affiliated with?": {
+        "prediction": " Judaism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Maine Red Claws associated with?": {
+        "prediction": " Australian rules football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Sunaina?": {
+        "prediction": " Qatar\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Owain Glyndŵr affiliated with?": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is 2012 NBA Draft associated with?": {
+        "prediction": " professional wrestling\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Georgia Gibbs?": {
+        "prediction": " Republic of the Congo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What religion is Charles III Philip affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is 2008 AFC Challenge Cup associated with?": {
+        "prediction": " Muay Thai\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Rafael del Riego?": {
+        "prediction": " Iceland\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is Swazi people affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Deportivo Pereira associated with?": {
+        "prediction": " American football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Jonathan Raban?": {
+        "prediction": " Great Britain\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What religion is Abbasid Caliphate affiliated with?": {
+        "prediction": " Islam\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Atlético Junior associated with?": {
+        "prediction": " Muay Thai\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Sugawara no Michizane?": {
+        "prediction": " Austria-Hungary\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is CECAFA Cup associated with?": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of André Campra?": {
+        "prediction": " Benin\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Fernando Valenzuela associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Sangju Sangmu FC associated with?": {
+        "prediction": " wushu\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      }
+    }
+  },
+  "arm_metadata": {
+    "NativeBudget": {
+      "active_slots": 2816,
+      "physical_slots": 2816,
+      "source_memory_sha256": "e95250c0aa4ce8fd47d8d401e187f66d3be8a452b0da4c88995a7b08bb5c0722",
+      "no_anchor": true,
+      "native_drop_per_layer": true,
+      "source_memory_unchanged": true
+    },
+    "NativeDefault": {
+      "active_slots": 12800,
+      "physical_slots": 12800,
+      "source_memory_sha256": "2602e94299901670ae2fe6ddd74a065152428244ac91a9d63fc0d9cad873f6f4",
+      "no_anchor": true,
+      "native_drop_per_layer": true,
+      "source_memory_unchanged": true
+    }
+  },
+  "progress": {
+    "arm": "NativeDefault",
+    "phase": "generation",
+    "questions": 64,
+    "total": 64
+  },
+  "summary": {
+    "NativeBudget": {
+      "correct": 19,
+      "n": 64,
+      "em": 0.296875
+    },
+    "NativeDefault": {
+      "correct": 18,
+      "n": 64,
+      "em": 0.28125
+    }
+  },
+  "generation_questions": [
+    "What sport is 2013 World Judo Championships associated with?",
+    "What is the country of citizenship of Joe Nickell?",
+    "Who founded Time Life?",
+    "In what country was The Sword created?",
+    "Who performed California Love?",
+    "Who is Ali Larijani employed by?",
+    "What religion is Marie Leszczyńska affiliated with?",
+    "What language does Robert Stigwood speak?",
+    "In what city was Victor Emmanuel II of Savoy born?",
+    "Who is the author of Metaphysics?",
+    "What position does Jahlil Okafor play?",
+    "What sport is Al-Ahli Saudi FC associated with?",
+    "What is the country of citizenship of Booker T. Washington?",
+    "Who founded Solidarity?",
+    "In what country was rocksteady created?",
+    "Who is Edwin O. Reischauer employed by?",
+    "What religion is Henri Breuil affiliated with?",
+    "What language does Tite Kubo speak?",
+    "In what city was Mahidol Adulyadej born?",
+    "Who is the author of Foundation series?",
+    "What position does Vernon Davis play?",
+    "What sport is 2010 African Women's Championship associated with?",
+    "What is the country of citizenship of William Asher?",
+    "Who founded Turner Entertainment?",
+    "What religion is Callixtus III affiliated with?",
+    "What language does Alan Moore speak?",
+    "What sport is Keith Hernandez associated with?",
+    "What is the country of citizenship of Olamide?",
+    "Who founded Kaiser Family Foundation?",
+    "What religion is Pierre-Marc Johnson affiliated with?",
+    "What sport is FC Lokomotiv Moscow associated with?",
+    "What is the country of citizenship of Milić Vukašinović?",
+    "Who founded Pravda?",
+    "What religion is Ulrich of Augsburg affiliated with?",
+    "What sport is Paul Ince associated with?",
+    "What is the country of citizenship of Peter Guber?",
+    "What religion is Santa Clara University affiliated with?",
+    "What sport is Deportivo de La Coruña associated with?",
+    "What is the country of citizenship of Sara Montiel?",
+    "What religion is Francisco Jiménez de Cisneros affiliated with?",
+    "What sport is Anorthosis Famagusta FC associated with?",
+    "What is the country of citizenship of Vaginal Davis?",
+    "What religion is Jan van Eyck affiliated with?",
+    "What sport is Juan Marichal associated with?",
+    "What is the country of citizenship of Tunku Abdul Rahman?",
+    "What religion is Yosef Yitzchok Schneersohn affiliated with?",
+    "What sport is Maine Red Claws associated with?",
+    "What is the country of citizenship of Sunaina?",
+    "What religion is Owain Glyndŵr affiliated with?",
+    "What sport is 2012 NBA Draft associated with?",
+    "What is the country of citizenship of Georgia Gibbs?",
+    "What religion is Charles III Philip affiliated with?",
+    "What sport is 2008 AFC Challenge Cup associated with?",
+    "What is the country of citizenship of Rafael del Riego?",
+    "What religion is Swazi people affiliated with?",
+    "What sport is Deportivo Pereira associated with?",
+    "What is the country of citizenship of Jonathan Raban?",
+    "What religion is Abbasid Caliphate affiliated with?",
+    "What sport is Atlético Junior associated with?",
+    "What is the country of citizenship of Sugawara no Michizane?",
+    "What sport is CECAFA Cup associated with?",
+    "What is the country of citizenship of André Campra?",
+    "What sport is Fernando Valenzuela associated with?",
+    "What sport is Sangju Sangmu FC associated with?"
+  ],
+  "costs": {
+    "elapsed_seconds": 321.5578326601535,
+    "peak_allocated_bytes": 28471457792,
+    "peak_reserved_bytes": 29190258688
+  },
+  "runtime": {
+    "gpu": "Tesla V100-PCIE-32GB",
+    "physical_gpu": 5,
+    "torch": "2.5.1+cu124"
+  }
+}

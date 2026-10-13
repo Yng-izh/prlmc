@@ -116,6 +116,18 @@ def test_generation_restores_each_question():
         assert model.memory is original and not torch.count_nonzero(original)
         assert model.memory_active_mask is mask
         for lo in range(0,8,2):assert torch.equal(model.seen[lo],model.seen[lo+1])
+        controlled=fn(args=args,manager=manager,model=model,probes=probes,
+            arms=dict(Full=None,Selection=1,D0=2,C=3),
+            candidate_pool=lambda a:(torch.ones(1,40,2)*a,torch.tensor([False]*30+[True]*10)),
+            window_report=dict(window=[0,30],baselines={}),reference=None,
+            covered=[],lines=['written fact'],checkpoint_sha='c',carrier_sha='d',driver_sha='s',loaded_tf=None,
+            generation_context=dict(metadata=dict(episode=0,stage='development'),
+                protocol=dict(qa_origin='controlled evaluation',checkpoint_selection='fixed step60')))
+        assert controlled['status']=='complete' and controlled['episode']==0
+        assert controlled['protocol']['qa_origin']=='controlled evaluation'
+        assert 'tf_to_generation' not in controlled
+        assert model.memory is original and model.memory_active_mask is mask
+        assert not torch.count_nonzero(original)
 
 
 if __name__ == '__main__':

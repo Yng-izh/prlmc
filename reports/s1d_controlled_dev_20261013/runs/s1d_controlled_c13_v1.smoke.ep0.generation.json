@@ -1,0 +1,318 @@
+{
+  "schema_version": "s1d_c_generation/1",
+  "status": "complete",
+  "window": [
+    0,
+    30
+  ],
+  "smoke": true,
+  "protocol": {
+    "prompt": "fixed B2 FEWSHOT",
+    "prompt_sha256": "9cd147a122c6f335e08c093baf59818fc4d08824137cf0072e96c0c11ca30733",
+    "stop_strings": [
+      "\n"
+    ],
+    "max_new_tokens": 32,
+    "do_sample": false,
+    "attention_scale": 1.0,
+    "scorer": "readout_probe.official_score: official two-tier EM",
+    "qa_origin": "64 held-out controlled evaluation probes",
+    "checkpoint_selection": "fixed step1 smoke",
+    "training": false,
+    "seed": 0,
+    "compressed_budget_slots": 2816,
+    "scope": "controlled cross-entity generalization; shared corpus/templates"
+  },
+  "checkpoint_sha256": "b04649502fae692e8e0f8092fcd863e92a5964271f863987e35c5dfabed6718a",
+  "carrier_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+  "driver_sha256": "d95ea217c18b96d06d57327b8b151976ba17768fe3564cafe70b28c2ed85ca06",
+  "scorer_sha256": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+  "generation_module_sha256": "444fe47272420330baa48a8b88fcc9854af8459526c46e23630cd2d4ba000c17",
+  "source_memory_sha256": "2a921a991452945e4e229402242b5fccfbc1eae6352eb6cfa1bb196dcd8826be",
+  "context_lines_sha256": "5d6475af5cbca532bf8d24cfb8911f75ce1b8be344e6c61fa9008e5c7b27dd76",
+  "covered": [
+    [
+      30,
+      50,
+      0,
+      null
+    ],
+    [
+      50,
+      70,
+      1,
+      null
+    ],
+    [
+      70,
+      90,
+      2,
+      null
+    ],
+    [
+      90,
+      110,
+      3,
+      null
+    ],
+    [
+      110,
+      130,
+      4,
+      null
+    ],
+    [
+      130,
+      150,
+      5,
+      null
+    ],
+    [
+      150,
+      170,
+      6,
+      null
+    ],
+    [
+      170,
+      190,
+      7,
+      null
+    ],
+    [
+      190,
+      210,
+      8,
+      null
+    ],
+    [
+      210,
+      230,
+      9,
+      null
+    ],
+    [
+      230,
+      250,
+      10,
+      null
+    ],
+    [
+      250,
+      270,
+      11,
+      null
+    ],
+    [
+      270,
+      290,
+      12,
+      null
+    ],
+    [
+      290,
+      310,
+      13,
+      null
+    ],
+    [
+      310,
+      330,
+      14,
+      null
+    ],
+    [
+      330,
+      350,
+      15,
+      null
+    ],
+    [
+      350,
+      370,
+      16,
+      null
+    ],
+    [
+      370,
+      390,
+      17,
+      null
+    ],
+    [
+      390,
+      410,
+      18,
+      null
+    ]
+  ],
+  "reference_tf": {
+    "baselines": {},
+    "C": null
+  },
+  "arm_results": {
+    "Full": {
+      "predictions": {
+        "In what country was Jessie's Girl created?": " United States of America\n\n",
+        "Who is the author of Hippolytus?": " Johann Wolfgang von Goethe\n\n"
+      },
+      "correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "substring_correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "active_slots": 5376,
+      "pool_sha256": "2a921a991452945e4e229402242b5fccfbc1eae6352eb6cfa1bb196dcd8826be"
+    },
+    "Selection": {
+      "predictions": {
+        "In what country was Jessie's Girl created?": " United States of America\n\n",
+        "Who is the author of Hippolytus?": " Galileo Galilei\n\n"
+      },
+      "correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "substring_correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "2a921a991452945e4e229402242b5fccfbc1eae6352eb6cfa1bb196dcd8826be"
+    },
+    "D0": {
+      "predictions": {
+        "In what country was Jessie's Girl created?": " Philippines\n\n",
+        "Who is the author of Hippolytus?": " Galileo Galilei\n\n"
+      },
+      "correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "substring_correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "60aaea1b113bb304546764ec8a97626b9ca3c4ee4322295b6c21f0946e7b2de9"
+    },
+    "C": {
+      "predictions": {
+        "In what country was Jessie's Girl created?": " Philippines\n\n",
+        "Who is the author of Hippolytus?": " Galileo Galilei\n\n"
+      },
+      "correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "substring_correct": {
+        "In what country was Jessie's Girl created?": false,
+        "Who is the author of Hippolytus?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "5283e9b323f78aa1a1989cb8baf095e9332b6a2c2ad93a57333edcd61220400a"
+    }
+  },
+  "pairs": [
+    {
+      "question": "In what country was Jessie's Girl created?",
+      "answers": [
+        "Thailand"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Philippines\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Philippines\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "Who is the author of Hippolytus?",
+      "answers": [
+        "Roger Zelazny"
+      ],
+      "Full": {
+        "prediction": " Johann Wolfgang von Goethe\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Galileo Galilei\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Galileo Galilei\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Galileo Galilei\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    }
+  ],
+  "episode": 0,
+  "stage": "development",
+  "summary": {
+    "n": 2,
+    "arms": {
+      "Full": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "Selection": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "D0": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "C": {
+        "correct": 0,
+        "em": 0.0
+      }
+    },
+    "compression_lost": [],
+    "rescue_d0_wrong": [],
+    "rescued": [],
+    "harmed": [],
+    "R": 0,
+    "H": 0,
+    "net_target": 0,
+    "C_vs_Selection": {
+      "gained": [],
+      "harmed": [],
+      "net": 0,
+      "delta_em": 0.0
+    },
+    "C_vs_D0": {
+      "gained": [],
+      "harmed": [],
+      "net": 0,
+      "delta_em": 0.0
+    }
+  },
+  "elapsed_seconds": 164.1238846005872,
+  "source_memory_unchanged": true,
+  "reader_frozen": true
+}
