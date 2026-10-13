@@ -58,11 +58,12 @@ def balanced(items, count, rng):
     return chosen
 
 
-def generate(contexts, specs, episodes=24, dev=8, seed=SEED, source_hashes=None):
+def generate(contexts, specs, episodes=24, dev=8, seed=SEED, source_hashes=None,
+             excluded_subjects=()):
     if episodes < 1 or not 0 <= dev <= episodes or len(contexts) < 4:
         raise ValueError("invalid counts or missing source rows 0..3")
     rng = random.Random(seed)
-    excluded = set()
+    excluded = set(excluded_subjects)
     for context in contexts[:4]:
         numbered = [line for line in context.splitlines() if re.match(r"^\d+\.\s", line)]
         excluded.update(f["subject"] for f in extract("\n".join(numbered[:440]), specs))
