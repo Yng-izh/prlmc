@@ -121,3 +121,15 @@ CPU验证覆盖真实candidate池复制与mask、共享优化器更新、reader�
 2026-10-13验证记录：本地和v100-2的上述三个unittest测试文件均37项通过；`test_s1d_controlled_contract.py`直接执行的单次开封与bootstrap两项检查通过。脚本已同步到`/share/latent/PRLM-C/tools/`；远端存在历史顶层工具副本，新增入口显式优先加载维护中的`tools/`模块。归档官方EventQA评分源已同步到原有报告路径。真实模型GPU smoke、训练数据容量/分词审计与自然任务资产锁定尚未执行。
 
 现有数据支持同模板跨实体受控迁移；未完成自然完整context对照和连续压缩前，不扩大到跨自然任务或长时间记忆保持结论。NativeDefault/NativeBudget仍是管线级参考，不能将其差值归因于E6d模块。
+
+## 7. 2026-10-13 实际启动记录
+
+**本节为历史启动记录，当前已取消。** 用户随后明确停止自建数据实验；调度器72776与两项smoke79020/79021已停止，fleet/queue标记cancelled_by_user。下述自动后续不再执行。新的主协议见 `Public-retention-frozen-SharedE6d.md`。
+
+用户要求在空闲GPU启动后，旧E6d五组开发评测已在v100-2物理卡`0,2,3,4`运行，前缀`runs/s1d_shared_baselines_old_v2`。首波episode0/2/4/8，次波14/15/17/18；实时状态与worker PID在`.fleet.json`，launcher与逐episode日志使用相同前缀。
+
+独立训练数据`runs/s1d_shared_training_plan_v2.json`已完成容量、哈希、实体隔离与tokenizer审计。排除5661个实体后剩2175个候选，8个训练episode需要1264个实体，容量充足。这项准备没有评分封存测试。
+
+初次与再次训练launcher因显存预检拒绝启动，未创建训练worker。物理卡5/7/9当时均被其他任务占用，不应称为当前空闲卡。随后启动`wait_s1d_shared_training.py`等待调度器，PID72776，状态`runs/s1d_shared_training_v2.queue.json`、日志`.queue.log`。该队列每30秒检查空卡（free>=30000MiB、used<=256MiB），避开仍在跑基线fleet的卡。找到卡后为seed0/1分别执行1步GPU smoke→正式800步训练→冻结五组8个开发episode评测；两卡空闲时并行两个种子。无可用卡时等待，不杀掉其他进程。smoke/训练失败明确记录，不自动改预算。
+
+启动核验时四个基线worker存活，Full、Selection、SharedE6d已完成首波的逐题生成，正在继续Recent9/Random9；两个共享训练种子仍等待可用卡。封存测试与自然EventQA未启动。

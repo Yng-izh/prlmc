@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/share/latent/PRLM-C/tools/freeze_natural_merge.py", line 65, in <module>
+    if __name__=="__main__":main()
+  File "/share/latent/PRLM-C/tools/freeze_natural_merge.py", line 63, in main
+    freeze(p.parse_args())
+  File "/share/latent/PRLM-C/tools/freeze_natural_merge.py", line 34, in freeze
+    raise ValueError("E1 development mechanism gate failed; no readable positive noncarrier fusion evidence")
+ValueError: E1 development mechanism gate failed; no readable positive noncarrier fusion evidence

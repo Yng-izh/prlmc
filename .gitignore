@@ -5,3 +5,6 @@ __pycache__/
 ._*
 outputs/
 logs/
+
+# Download pinned public data separately; keep manifests in Git.
+data/public_retention_original_c609067/squad/

@@ -1,0 +1,36 @@
+{
+  "schema": "natural_merge_implementation_validation/1",
+  "status": "passed",
+  "date": "2026-10-13",
+  "sources": {
+    "methods/prlmc/merge.py": "110ff99cc9d030c52909acd9ac9d06f7c39eb77d726b17c8324c32877e49c46b",
+    "experiments/Natural-cross-block-merge-design.md": "19664efa7a0f4bcd18a15d693835a03a4a1dec688fc681678f23aa4a223528ba",
+    "tools/freeze_natural_merge.py": "8efbab93f696b68885c120d93a0ef4e794cadd0bf693724d7681e96bec001aee",
+    "tools/natural_merge_eval.py": "2a99f2c85cd3bf10aeea1ed3e180246e78c5d3bbf867048d9684689ae0ac450c",
+    "tools/natural_merge_runtime.py": "0acbb9e451f44d6a9a4d252da7015260bd0876c0c495de0d84d60de6b1a7ee8d",
+    "tools/natural_merge_train.py": "7fab2cfec0fe6ef8357a8b4be8a549d0e476c6b21e8cf6b572bf14ac2b64fecd",
+    "tools/prepare_natural_merge.py": "c4c5293629ccd5bd3888efa7ebeb26eab26ecc5ed6d1c61f94d879eb3cda6302",
+    "tools/run_natural_merge_parallel.py": "33a533b2313d1be855af59267f391a810d9cd1a54a7de51b9e04708082f30798",
+    "tools/test_natural_merge.py": "d1d190833308c766f7e717c29941a667d060c68c11862d874e8d8dadc2c78555",
+    "tools/verify_natural_merge.py": "ad9b4c897b75d6eafb7d2382c7e5159ad6aeebe9dd6d763302fa019160ad9ada"
+  },
+  "local_tests": {
+    "natural_merge": 19,
+    "public_retention_regression": 15
+  },
+  "server_cpu_tests": {
+    "natural_merge": 19,
+    "gpu_visible": false
+  },
+  "new_gpu_experiments_started": false,
+  "actual_original_data_preparation_performed": true,
+  "actual_model_gpu_smoke_performed": false,
+  "live_squad_author512": "preserved; separate existing four-card run",
+  "limitation": "CPU fixtures verify code contracts, not model accuracy, VRAM peak, or real raw-data eligibility",
+  "data_certificate_sha256": "876af90f82f6a60033a66fc8f803df3df1eff12daa83cf9368b04e74df892abe",
+  "data_suite_sha256": "33d6b4ea60d91e58c481f65eff6bce69cf98e6160f5fdab3a00cab99c9bdf910",
+  "data_staging_sources": {
+    "tools/stage_natural_merge_data.py": "15043d9bf929bb645e7baed61693de34e48e2307cb86825e8875ec216c2d0401",
+    "tools/verify_natural_merge_data.py": "6dcc6941ea32a9000fc8fd12a137071797e0a685c3d506cfa779a7429d616589"
+  }
+}

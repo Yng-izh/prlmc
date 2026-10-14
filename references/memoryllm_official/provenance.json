@@ -1,0 +1,22 @@
+{
+  "repository": "https://github.com/wangyu-ustc/MemoryLLM",
+  "revision": "5acaf52d2e60087f6bc38a06063d7558ab9a2c2c",
+  "files": {
+    "README.md": {
+      "source_path": "README.md",
+      "sha256": "47129031aba74edc2c65bef3e299285850763c00b420cafd29eb0da989ad18e4"
+    },
+    "test_qa_memory.py": {
+      "source_path": "test_qa_memory.py",
+      "sha256": "976f64bae994044bae2a6f2d10df9d11d1a68fbabc1fe01d37d13729bf678451"
+    },
+    "nq.py": {
+      "source_path": "dataset/nq.py",
+      "sha256": "3bdc626197f1a97ea5b5a07603bce9823ee2849515a188a3e8729108b4fb0df6"
+    },
+    "squad.py": {
+      "source_path": "dataset/squad.py",
+      "sha256": "04b7cc2441d568c467850f56c33dbb2ec2ef467b5567a69658ee9eab5690cbb1"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "host": "v100-1",
+  "created_at": "2026-10-13T14:47:32+0000",
+  "gpus": {
+    "old_e1": 1,
+    "train": 2
+  },
+  "previous_workers_stopped": [],
+  "previous_state": "8 previous GPU workers already exited; no termination needed",
+  "e1": [
+    "/share/latent/mllm_env/bin/python",
+    "-u",
+    "tools/natural_merge_eval.py",
+    "--plan",
+    "data/natural_merge_v1/E1-development.json",
+    "--checkpoint",
+    "runs/e6d_interleave_ckpt.pt",
+    "--legacy-diagnostic",
+    "--cuda-device",
+    "1",
+    "--out",
+    "runs/natural_merge_initial_v1.old_e1.json"
+  ],
+  "smoke": [
+    "/share/latent/mllm_env/bin/python",
+    "-u",
+    "tools/natural_merge_train.py",
+    "--plan",
+    "data/natural_merge_v1/train.json",
+    "--cuda-device",
+    "2",
+    "--smoke-updates",
+    "1",
+    "--out",
+    "runs/natural_merge_initial_v1.smoke.json",
+    "--checkpoint-out",
+    "runs/natural_merge_initial_v1.smoke.pt"
+  ],
+  "train": [
+    "/share/latent/mllm_env/bin/python",
+    "-u",
+    "tools/natural_merge_train.py",
+    "--plan",
+    "data/natural_merge_v1/train.json",
+    "--cuda-device",
+    "2",
+    "--out",
+    "runs/natural_merge_initial_v1.train.json",
+    "--checkpoint-out",
+    "runs/natural_merge_initial_v1.pt"
+  ],
+  "e1_pid": 3184673,
+  "training_supervisor_pid": 3184674
+}
