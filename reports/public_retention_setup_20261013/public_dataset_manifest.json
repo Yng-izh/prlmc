@@ -1,0 +1,17 @@
+{
+  "repo": "YuWangX/KnowledgeRetentionProcessed",
+  "revision": "03a8db0d2d9ffd2caecae8f5f7af09294ece6e96",
+  "source_paths": {
+    "squad/val_data.json": "squad/val_data.json",
+    "squad/unrelated_contexts_from_train.json": "squad/unrelated_contexts_from_train.json",
+    "nqa/val_data.json": "nqa/val_data.json",
+    "nqa/unrelated_contexts_from_train.json": "nqa/unrelated_contexts_from_train.json"
+  },
+  "files": {
+    "squad/val_data.json": "006fc80cbe1c1abeefc48f238fab44f1397d2cf0b9ae345753908288c495bced",
+    "squad/unrelated_contexts_from_train.json": "c5a5b75a3b3d684b929bbebe676f6683daafd0502ba3da3a7c8cb1dc3f026c51",
+    "nqa/val_data.json": "43f81963a052cd486d3bfc01f6e04a8a1ea0601fb2c07ea2ea95e32f1e6d57d5",
+    "nqa/unrelated_contexts_from_train.json": "c5a5b75a3b3d684b929bbebe676f6683daafd0502ba3da3a7c8cb1dc3f026c51"
+  },
+  "license": "apache-2.0"
+}
