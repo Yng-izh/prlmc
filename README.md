@@ -19,7 +19,9 @@
 - [本轮启动记录](reports/natural_merge_v2_20261014/status.md)
 - [报告索引与证据边界](reports/README.md)
 
-本仓库保存了三组 smoke 通过与训练启动记录，最终结果以 `comparison.json` 和完整逐题报告为准。启动记录不代表方法已通过验收。上一轮自然融合开发 E1 的 Full / Selection / Shared / 屏蔽融合为 35 / 26 / 27 / 27（93 题），非载体融合净收益为零，未通过推进门槛；见[原始裁决](reports/natural_merge_initial_20261013/results.md)。目前尚未证明正式自然任务上的稳定收益或跨任务泛化。
+三组均已完成 64 次更新、训练内生成诊断和开发 E1。93 道开发问题上，Full / Selection / A / B / C 分别答对 35 / 26 / 27 / 27 / 27；三组相对 Selection 新增同一道题，无损伤，但均未恢复 Full-correct / Selection-wrong 的 9 道压缩损失题。非载体完整融合−屏蔽融合净收益均为零，三组都未通过推进门槛，未启动正式 E1/E2/E3。见[本轮结果与限制](reports/natural_merge_v2_20261014/results.md)和[原始对比](reports/natural_merge_v2_20261014/completed_run/comparison.json)。目前尚未证明正式自然任务上的稳定收益或跨任务泛化。
+
+上一轮自然融合开发 E1 同样未通过门槛，见[原始裁决](reports/natural_merge_initial_20261013/results.md)。历史失败结果与本轮原始证据均保留。
 
 ## 仓库结构
 

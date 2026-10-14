@@ -4,13 +4,13 @@
 
 | 目录 | 内容与证据范围 |
 | --- | --- |
-| [natural_merge_v2_20261014](natural_merge_v2_20261014/status.md) | A/B/C 固定自然训练计划、启动、OOM 失败与修复后 smoke 记录；最终生成结果另行归档 |
+| [natural_merge_v2_20261014](natural_merge_v2_20261014/results.md) | A/B/C 完整训练、训练内诊断、开发 E1、原始逐题报告、checkpoint、日志和失败记录；三组未通过开发推进门槛 |
 | [natural_merge_initial_20261013](natural_merge_initial_20261013/results.md) | 上一轮自然共享训练与开发 E1 原始预测、checkpoint、门槛失败裁决 |
 | [natural_merge_implementation_20261013](natural_merge_implementation_20261013/data_suite.json) | 自然 E1/E2/E3 suite 哈希、准备与原始数据校验证书 |
 | [public_retention_setup_20261013](public_retention_setup_20261013/preparation.json) | 公开原始数据与作者协议的准备记录 |
 | [public_retention_squad_interim_20261013](public_retention_squad_interim_20261013/analysis_snapshot.json) | 已观察 SQuAD author512 的中间分析快照，不是新正式测试 |
 
-当前任务目录在服务器 `runs/natural_merge_v2_abc_20261014_023355_r2/`。这里的启动快照不会自动随服务器进度更新；评估是否跑完应检查实际 launcher 和最终逐题报告。
+本轮服务器目录为 `runs/natural_merge_v2_abc_20261014_023355_r2/`，最终 launcher 与逐题报告现归档在 `natural_merge_v2_20261014/completed_run/`。早期启动快照原样保留，不覆盖为最终状态。
 
 ## 历史诊断
 
