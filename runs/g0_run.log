@@ -1,19 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:32<03:49, 32.81s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [01:05<03:15, 32.52s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [01:37<02:41, 32.35s/it]Loading checkpoint shards:  50%|█████     | 4/8 [02:13<02:15, 33.91s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [02:49<01:43, 34.58s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [03:25<01:10, 35.02s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [03:59<00:34, 34.87s/it]Loading checkpoint shards: 100%|██████████| 8/8 [04:18<00:00, 29.88s/it]Loading checkpoint shards: 100%|██████████| 8/8 [04:18<00:00, 32.37s/it]
-We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g0] row 0 start 30: 89 multi-occurrence groups, cumulative 89 pairs
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g0] row 1 start 30: 18 multi-occurrence groups, cumulative 107 pairs
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g0] row 2 start 30: 10 multi-occurrence groups, cumulative 117 pairs
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g0] row 3 start 30: 3 multi-occurrence groups, cumulative 120 pairs
-[g0] same-subject layer-avg cosine: mean 0.9751 min 0.9626 max 1.0000 (n=120)
-[g0] diff-subject layer-avg cosine: mean 0.9734 min 0.9560 max 1.0000 (n=117)
-[g0] verdict: PASS (but same-vs-diff indistinguishable: even stronger blindness) -> SDC motivation holds
-[g0] report /share/latent/PRLM-C/runs/g0_report.json

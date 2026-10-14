@@ -19,6 +19,10 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "tools/natural_merge_eval.py", "tools/natural_merge_train.py", "tools/verify_natural_merge.py",
     "tools/public_retention_eval.py", "tools/prepare_public_retention.py",
     "tools/freeze_natural_merge.py", "tools/run_natural_merge_parallel.py",
+    "methods/prlmc/slot_merge.py", "tools/prepare_natural_merge_v2.py",
+    "tools/natural_merge_v2_train.py",
+    "tools/run_natural_merge_v2.py", "tools/summarize_natural_merge_v2.py",
+    "tools/natural_merge_v2_training_fit.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
 
@@ -192,7 +196,7 @@ def native_write(model, record, index):
         native_random_evicted_slots=model.num_tokens, seconds=time.monotonic()-started)
 
 
-def load_runtime(model_path, checkpoint=None, train=False):
+def load_runtime(model_path, checkpoint=None, train=False, architecture=None):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -200,6 +204,7 @@ def load_runtime(model_path, checkpoint=None, train=False):
     from methods.prlmc.config import PRLMCConfig
     from methods.prlmc.layout import ProtectedResidualMemory
     from methods.prlmc.merge import SharedMemoryMerge
+    from methods.prlmc.slot_merge import SlotMemoryMerge
     torch.set_num_threads(4)
     torch.manual_seed(0); torch.cuda.manual_seed_all(0)
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
@@ -217,10 +222,17 @@ def load_runtime(model_path, checkpoint=None, train=False):
         carrier_gamma_max=.05, carrier_rank=32, write_mode="append", gate_mode="ones",
         functional_control="none", carrier_ckpt=None)
     manager = ProtectedResidualMemory(model, tokenizer, PRLMCConfig.from_dict(cfg))
-    merge = SharedMemoryMerge(manager.num_layers, manager.hidden, manager.block, rank=32, gamma_max=.05).to("cuda:0")
-    saved = None
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=True) if checkpoint else None
+    saved_architecture = saved.get("architecture", "block_v1") if saved else None
+    if saved and architecture is not None and architecture != saved_architecture:
+        raise ValueError("requested/checkpoint architecture mismatch")
+    architecture = saved_architecture or architecture or "block_v1"
+    classes = {"block_v1": SharedMemoryMerge, "discarded_slot_attention_v1": SlotMemoryMerge}
+    if architecture not in classes:
+        raise ValueError("unknown shared merge architecture")
+    merge = classes[architecture](manager.num_layers, manager.hidden, manager.block,
+                                  rank=32, gamma_max=.05).to("cuda:0")
     if checkpoint:
-        saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
         merge.load_state_dict(saved["state_dict"], strict=True)
         if saved.get("effective_gamma_max", .05) != .05 or saved.get("evaluation_eligible") is False:
             raise ValueError("ineligible/gamma-mismatched checkpoint")

@@ -1,19 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:12<01:29, 12.83s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:25<01:16, 12.71s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:39<01:06, 13.34s/it]Loading checkpoint shards:  50%|█████     | 4/8 [00:54<00:55, 13.80s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:08<00:42, 14.07s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [01:23<00:28, 14.21s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [01:37<00:14, 14.14s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:45<00:00, 12.19s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:45<00:00, 13.14s/it]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[soft] scoring baseline full
-[soft] scoring baseline select
-[soft] scoring baseline d0
-[soft] sets {"original_lost": 13, "retained": 75, "rescue": 36, "protect": 31, "repair": 44, "rescue_d0_correct": 4, "rescue_d0_wrong": 32}
-[soft] ul step=1 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000000
-[soft] ul step=2 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000000
-[soft] soft_p step=1 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000000
-[soft] soft_p step=2 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000008
-[soft] soft_k step=1 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000191
-[soft] soft_k step=2 original=0 R=4 T=1 P_harm=0 K_harm=43 net=-39 penalty=0.000595
-[soft] verdict=SMOKE-ONLY

@@ -1,49 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:13<01:33, 13.37s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:28<01:25, 14.25s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:42<01:11, 14.24s/it]Loading checkpoint shards:  50%|█████     | 4/8 [00:57<00:57, 14.49s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:11<00:43, 14.50s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [01:26<00:29, 14.71s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [01:41<00:14, 14.63s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:49<00:00, 12.47s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:49<00:00, 13.66s/it]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[soft] scoring baseline full
-[soft] scoring baseline select
-[soft] scoring baseline d0
-[soft] sets {"original_lost": 13, "retained": 75, "rescue": 36, "protect": 31, "repair": 44, "rescue_d0_correct": 4, "rescue_d0_wrong": 32}
-[soft] ul step=5 original=0 R=5 T=5 P_harm=0 K_harm=39 net=-34 penalty=0.000000
-[soft] ul step=10 original=3 R=6 T=16 P_harm=0 K_harm=28 net=-22 penalty=0.000000
-[soft] ul step=15 original=6 R=9 T=28 P_harm=0 K_harm=16 net=-7 penalty=0.000000
-[soft] ul step=20 original=6 R=11 T=31 P_harm=0 K_harm=13 net=-2 penalty=0.000000
-[soft] ul step=25 original=7 R=13 T=36 P_harm=0 K_harm=8 net=5 penalty=0.000000
-[soft] ul step=30 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.000000
-[soft] ul step=35 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.000000
-[soft] ul step=40 original=7 R=15 T=37 P_harm=0 K_harm=7 net=8 penalty=0.000000
-[soft] ul step=45 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.000000
-[soft] ul step=50 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.000000
-[soft] ul step=55 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.000000
-[soft] ul step=60 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.000000
-[soft] soft_p step=5 original=0 R=5 T=5 P_harm=0 K_harm=39 net=-34 penalty=0.000001
-[soft] soft_p step=10 original=3 R=6 T=16 P_harm=0 K_harm=28 net=-22 penalty=0.000000
-[soft] soft_p step=15 original=6 R=9 T=28 P_harm=0 K_harm=16 net=-7 penalty=0.000000
-[soft] soft_p step=20 original=6 R=11 T=31 P_harm=0 K_harm=13 net=-2 penalty=0.000019
-[soft] soft_p step=25 original=7 R=13 T=36 P_harm=0 K_harm=8 net=5 penalty=0.000105
-[soft] soft_p step=30 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.000229
-[soft] soft_p step=35 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.000413
-[soft] soft_p step=40 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.000587
-[soft] soft_p step=45 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.000811
-[soft] soft_p step=50 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.001036
-[soft] soft_p step=55 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.001254
-[soft] soft_p step=60 original=7 R=14 T=38 P_harm=0 K_harm=6 net=8 penalty=0.001407
-[soft] soft_k step=5 original=0 R=4 T=5 P_harm=0 K_harm=39 net=-35 penalty=0.008616
-[soft] soft_k step=10 original=3 R=6 T=16 P_harm=0 K_harm=28 net=-22 penalty=0.040424
-[soft] soft_k step=15 original=6 R=9 T=28 P_harm=0 K_harm=16 net=-7 penalty=0.067084
-[soft] soft_k step=20 original=6 R=11 T=31 P_harm=0 K_harm=13 net=-2 penalty=0.040162
-[soft] soft_k step=25 original=7 R=13 T=36 P_harm=0 K_harm=8 net=5 penalty=0.014225
-[soft] soft_k step=30 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.013399
-[soft] soft_k step=35 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7 penalty=0.011900
-[soft] soft_k step=40 original=7 R=14 T=38 P_harm=0 K_harm=6 net=8 penalty=0.010950
-[soft] soft_k step=45 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.009987
-[soft] soft_k step=50 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.008626
-[soft] soft_k step=55 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.008144
-[soft] soft_k step=60 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9 penalty=0.007022
-[soft] verdict=NO-IMPROVEMENT

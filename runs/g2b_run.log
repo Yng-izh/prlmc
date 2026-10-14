@@ -1,19 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:08<00:58,  8.40s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:37<02:03, 20.54s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [01:08<02:07, 25.49s/it]Loading checkpoint shards:  50%|█████     | 4/8 [01:39<01:49, 27.47s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [02:10<01:26, 28.81s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [02:40<00:58, 29.19s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [03:11<00:29, 29.96s/it]Loading checkpoint shards: 100%|██████████| 8/8 [03:19<00:00, 22.87s/it]Loading checkpoint shards: 100%|██████████| 8/8 [03:19<00:00, 24.96s/it]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g2b] row 0: discovery select 3 sic 2; heldout select 3 sic 0
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g2b] row 1: discovery select 2 sic 2; heldout select 3 sic 3
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g2b] row 2: discovery select 1 sic 1; heldout select 0 sic 0
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[g2b] row 3: discovery select 1 sic 1; heldout select 1 sic 1
-[g2b] pooled discovery: {'select_lost': 7, 'sic_lost': 6, 'sic_over_select': 0.8571428571428571, 'reduction': 0.1428571428571429}
-[g2b] pooled heldout: {'select_lost': 7, 'sic_lost': 4, 'sic_over_select': 0.5714285714285714, 'reduction': 0.4285714285714286}
-[g2b] verdict: PASS
-[g2b] report /share/latent/PRLM-C/runs/g2b_report.json

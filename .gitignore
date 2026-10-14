@@ -6,5 +6,9 @@ __pycache__/
 outputs/
 logs/
 
+# Save curated evidence under reports/; runtime output stays local.
+/runs/
+*.download
+
 # Download pinned public data separately; keep manifests in Git.
 data/public_retention_original_c609067/squad/

@@ -1,75 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:12<01:30, 12.94s/it]Loading checkpoint shards:  25%|██▌       | 2/8 [00:25<01:17, 12.98s/it]Loading checkpoint shards:  38%|███▊      | 3/8 [00:40<01:07, 13.49s/it]Loading checkpoint shards:  50%|█████     | 4/8 [00:54<00:54, 13.75s/it]Loading checkpoint shards:  62%|██████▎   | 5/8 [01:08<00:41, 13.99s/it]Loading checkpoint shards:  75%|███████▌  | 6/8 [01:23<00:28, 14.18s/it]Loading checkpoint shards:  88%|████████▊ | 7/8 [01:37<00:14, 14.18s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:45<00:00, 12.16s/it]Loading checkpoint shards: 100%|██████████| 8/8 [01:45<00:00, 13.15s/it]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[wash] scoring baseline full
-[wash] scoring baseline select
-[wash] scoring baseline d0
-[wash] sets {"original_lost": 13, "retained": 75, "rescue": 36, "protect": 31, "repair": 44, "rescue_d0_correct": 4, "rescue_d0_wrong": 32}
-[wash] rebuilding corrected 13D basis (cloned source)
-[wash] Jacobian 1/13
-[wash] Jacobian 2/13
-[wash] Jacobian 3/13
-[wash] Jacobian 4/13
-[wash] Jacobian 5/13
-[wash] Jacobian 6/13
-[wash] Jacobian 7/13
-[wash] Jacobian 8/13
-[wash] Jacobian 9/13
-[wash] Jacobian 10/13
-[wash] Jacobian 11/13
-[wash] Jacobian 12/13
-[wash] Jacobian 13/13
-[wash] corrected_ul step=5 original=0 R=4 T=5 P_harm=0 K_harm=39 net=-35
-[wash] corrected_ul step=10 original=3 R=6 T=16 P_harm=0 K_harm=28 net=-22
-[wash] corrected_ul step=15 original=6 R=9 T=28 P_harm=0 K_harm=16 net=-7
-[wash] corrected_ul step=20 original=6 R=11 T=31 P_harm=0 K_harm=13 net=-2
-[wash] corrected_ul step=25 original=7 R=13 T=36 P_harm=0 K_harm=8 net=5
-[wash] corrected_ul step=30 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7
-[wash] corrected_ul step=35 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7
-[wash] corrected_ul step=40 original=7 R=14 T=38 P_harm=0 K_harm=6 net=8
-[wash] corrected_ul step=45 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] corrected_ul step=50 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] corrected_ul step=55 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] corrected_ul step=60 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] old_ul step=5 original=0 R=4 T=5 P_harm=0 K_harm=39 net=-35
-[wash] old_ul step=10 original=3 R=6 T=16 P_harm=0 K_harm=28 net=-22
-[wash] old_ul step=15 original=6 R=9 T=28 P_harm=0 K_harm=16 net=-7
-[wash] old_ul step=20 original=6 R=11 T=31 P_harm=0 K_harm=13 net=-2
-[wash] old_ul step=25 original=7 R=13 T=36 P_harm=0 K_harm=8 net=5
-[wash] old_ul step=30 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7
-[wash] old_ul step=35 original=7 R=14 T=37 P_harm=0 K_harm=7 net=7
-[wash] old_ul step=40 original=7 R=14 T=38 P_harm=0 K_harm=6 net=8
-[wash] old_ul step=45 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] old_ul step=50 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] old_ul step=55 original=7 R=15 T=38 P_harm=0 K_harm=6 net=9
-[wash] old_ul step=60 original=7 R=14 T=38 P_harm=0 K_harm=6 net=8
-[wash] random_13d step=5 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=10 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=15 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=20 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=25 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=30 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=35 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=40 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=45 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=50 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=55 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] random_13d step=60 original=0 R=4 T=0 P_harm=0 K_harm=44 net=-40
-[wash] unconstrained step=5 original=9 R=9 T=31 P_harm=0 K_harm=13 net=-4
-[wash] unconstrained step=10 original=10 R=9 T=30 P_harm=0 K_harm=14 net=-5
-[wash] unconstrained step=15 original=10 R=9 T=30 P_harm=0 K_harm=14 net=-5
-[wash] unconstrained step=20 original=10 R=10 T=30 P_harm=0 K_harm=14 net=-4
-[wash] unconstrained step=25 original=10 R=10 T=29 P_harm=1 K_harm=16 net=-6
-[wash] unconstrained step=30 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=35 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=40 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=45 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=50 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=55 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] unconstrained step=60 original=10 R=10 T=28 P_harm=1 K_harm=17 net=-7
-[wash] verdict=PASS

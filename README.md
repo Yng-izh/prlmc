@@ -1,68 +1,71 @@
-# PRLM-C — Protected Residual Latent Memory with Capacity-aware Consolidation
+# PRLM-C：共享潜在记忆融合
 
-Implementation of the design note *残差记忆设计_方案整理* as a method for
-MemoryAgentBench on top of the frozen MemoryLLM-8B backbone.
+在冻结的 MemoryLLM reader 上，学习有界、内容相关的共享残差压缩模块，将多个记忆块中的信息融合进保留的载体。目标是在公开原始任务上，以相同有效记忆槽位预算改善知识保留与读取；评测时模块完全冻结，不进行逐场景训练。
 
-## Layout
+当前主线是 **自然记忆融合 v2 的 A/B/C 对照**。数据使用原始 SQuAD context、question 和 answer，训练与开发、正式评测按文章隔离。人造 episode 和逐窗口 C13 已退出主方法，仅保留历史诊断证据。
 
+## 最新实验
+
+| 组别 | 结构 | 训练目标 |
+| --- | --- | --- |
+| A | 块级 `SharedMemoryMerge` | 原始答案 CE |
+| B | 与 A 相同 | 压缩损失加权 CE + Full 答案位置 KL |
+| C | 槽位交叉注意力 `SlotMemoryMerge` | 与 B 相同 |
+
+三组固定同一 reader、312 个原始训练 context、1402 道原始 QA、rank=32、残差上限 0.05、19→9 块压缩和 64 次更新。只使用最后 checkpoint，生成协议及推进门槛预先固定。B−A 检验监督变化，C−B 检验整体融合结构变化。
+
+- [完整 A/B/C 协议与运行命令](experiments/Natural-merge-v2-ABC.md)
+- [E1/E2/E3 数据划分、评测与冻结门槛](experiments/Natural-cross-block-merge-design.md)
+- [本轮启动记录](reports/natural_merge_v2_20261014/status.md)
+- [报告索引与证据边界](reports/README.md)
+
+本仓库保存了三组 smoke 通过与训练启动记录，最终结果以 `comparison.json` 和完整逐题报告为准。启动记录不代表方法已通过验收。上一轮自然融合开发 E1 的 Full / Selection / Shared / 屏蔽融合为 35 / 26 / 27 / 27（93 题），非载体融合净收益为零，未通过推进门槛；见[原始裁决](reports/natural_merge_initial_20261013/results.md)。目前尚未证明正式自然任务上的稳定收益或跨任务泛化。
+
+## 仓库结构
+
+```text
+methods/prlmc/          共享融合模块、载体选择、记忆布局和兼容组件
+methods/memoryllm_modeling/  用于这些实验的 MemoryLLM reader 实现
+tools/                  数据准备、训练、冻结评测、验证和必要兼容依赖
+experiments/            当前自然融合 v1/v2 协议
+data/                   固定公开数据版本及哈希清单；原始数据另行下载
+reports/                本轮记录和历史原始报告、逐题预测与校验证书
+references/             MemoryLLM 作者评测脚本及来源记录
+archive/                旧实验文档、历史导航及本次清理清单
 ```
-methods/prlmc/        the method (11 modules, ~3.3k lines)
-  layout.py           ProtectedResidualMemory: Anchor slots, residual pool, compaction
-  capacity.py         occupancy / effective rank / energy rank, CompactTrigger
-  consolidate.py      compaction arms (svd_tokens, weighted, learned, fixed-basis residual)
-  functional_subspace.py  bounded Jacobian sketch and displacement controls
-  repeated.py          real-state ancestry ledger for repeated compaction
-  subspace.py         AnchorProjection, novelty probe
-  budget.py           byte / token / latency accounting (note section 3.5)
-  baselines.py        section 5.1 control arms B5-B8 and OURS
-  probes.py           behaviour probes for probe-guided compaction
-configs/agent_conf/   agent configs (prlmc_8b, prlmc_obs, prlmc_smoke)
-configs/data_conf_obs/ dev splits used for threshold calibration
-configs/prlmc_8b.yaml duplicate of configs/agent_conf/prlmc_8b.yaml
-tools/residual_subspace_diag.py  offline S0/S0b tensor diagnostics
-tools/residual_subspace_train.py  transactional actual-displacement helpers
-tools/repeated_compaction_eval.py  manifest validator for frozen horizons
-tools/unit_residual_subspace.py  CPU-only regression checks
-configs/prlmc_residual_subspace.yaml  opt-in fixed-basis profile
-apply_patch.py        installs the prlmc branch into a MemoryAgentBench copy
-run_obs.sh            observation run (compact_mode: none)
-run_smoke.sh          smoke test on factconsolidation_sh_32k
-monitor_obs.sh        polling monitor for the observation run
+
+[工具入口](tools/README.md)区分当前实验与兼容依赖。历史报告和 source snapshot 保留原始内容及哈希；其中的运行时路径描述当时环境，不代表当前入口。
+
+## 运行
+
+使用已有 MemoryLLM 环境（PyTorch、Transformers、safetensors、PyYAML、NumPy），准备本地 reader checkpoint 与 tokenizer。MemoryLLM reader 权重、原始公开数据和大规模临时运行文件不随仓库发布；已归档的小型共享模块 checkpoint 另见报告。
+
+已有 `data/natural_merge_v1/` 和 `data/natural_merge_v2/train.json` 时，在具备足够显存的服务器运行：
+
+```bash
+python tools/run_natural_merge_v2.py \
+  --train-plan data/natural_merge_v2/train.json \
+  --dev-plan data/natural_merge_v1/E1-development.json \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --devices 1,2,3 --variants A,B,C \
+  --out-dir runs/natural_merge_v2_abc
 ```
 
-## Deploying
+卡号和模型路径按实际环境设置。输出目录必须不存在，运行器会检查每卡至少 28000 MiB 空闲；已启动任务不要重复执行。每组依次运行 smoke、全新训练、训练内生成诊断、开发 E1，然后生成对比报告。训练内生成不作为泛化证据；运行器不会自动开启正式 E1/E2/E3。
 
-Copy the tree over a MemoryAgentBench checkout, then run `apply_patch.py` from
-that root. It edits two host files idempotently (`agent.py`, `utils/templates.py`)
-and writes `.bak` copies.
+首次准备数据及逐组运行请按[完整协议](experiments/Natural-merge-v2-ABC.md)执行。原始 SQuAD 下载入口为 `tools/stage_natural_merge_data.py`；v1 计划准备还要求已观察问题集、匹配的公开干扰段落和固定 NaturalQA 计划，不能省略这些输入来绕过隔离审计。
 
-The agent name must contain `prlmc` and must not contain `rag`:
-`AgentWrapper._is_agent_type` does substring matching and the rag branch would
-otherwise claim the call.
+## CPU 验证
 
-## Status
+```bash
+python -m unittest discover -s tools -p 'test_natural_merge*.py'
+python -m unittest discover -s tools -p 'test_public_retention.py'
+```
 
-- Baseline Tier 1 (MemoryAgentBench, unmodified) has been evaluated: 5 datasets.
-- The observation run has been done: internal signals measured, thresholds calibrated.
-- S1d development experiments are complete: original C generation EM is
-  46.04% / 44.93% on the strong/weak windows; Full is 64.53% / 63.04%.
-  New protection/dimension variants did not pass the weak-window net≥5 gate.
-  These are development fact-derived questions scored with official EM rules,
-  not unseen-context or native official benchmark results. See
-  [the complete round report](experiments/S1d-round-20261013-results.md) and
-  [raw reports and logs](reports/s1d_round_20261013/).
+这些测试检查数据隔离、冻结 reader、梯度桥、源屏蔽、连续合并、评分和汇总等执行契约。GPU 训练效果需要实际逐题生成评测，不能由 CPU 测试替代。
 
-## Known issues
+## 预算与历史结果
 
-- The threshold trigger `tau_k AND tau_n` did not fire in the smoke test: the two
-  signals are anti-correlated (novelty falls as occupancy rises), so the windows
-  are disjoint. Consolidation was driven by the `headroom` fallback path in
-  `_place` instead. See the smoke test findings.
-- `_headroom_handled` is set on every write, so the `over_budget` branch is dead.
-  It does not affect correctness (`_place` already guarantees the budget) but the
-  flag does not mean what its comment says.
-- `compact_probe: true` is inert: `register_probes` has no call site in the
-  benchmark path, so section 3.4's probe-guided compaction is not exercised.
-- `BudgetReport.byte_saving_ratio` returns 0.0 by construction: the pool is a
-  fixed-shape parameter read in full, so compaction reduces addressable tokens,
-  not allocated bytes.
+Selection 与共享融合使用相同有效槽位预算。物理 reader 记忆池仍保持模型大小，因此有效槽位减少不等于节省物理显存；NativeBudget 的初始化、布局及淘汰策略也不同，只作为系统级对照。
+
+旧受控数据、C13、保护、扩维等实验归入[历史索引](archive/README.md)，不作为公开自然任务有效性的主证据。被移除的旧执行文件可从清理前 Git 提交恢复；本次清理没有修改正在运行的服务器代码、计划或进程。
