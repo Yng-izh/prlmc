@@ -23,6 +23,14 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "tools/natural_merge_v2_train.py",
     "tools/run_natural_merge_v2.py", "tools/summarize_natural_merge_v2.py",
     "tools/natural_merge_v2_training_fit.py",
+    "methods/prlmc/gated_slot_merge.py", "tools/prepare_natural_merge_v3.py",
+    "tools/natural_merge_v3_objective.py", "tools/natural_merge_v3_train.py",
+    "tools/natural_merge_v3_training_fit.py", "tools/run_natural_merge_v3.py",
+    "tools/summarize_natural_merge_v3.py",
+    "methods/prlmc/native_skip_merge.py", "tools/prepare_natural_merge_v4.py",
+    "tools/natural_merge_v4_objective.py", "tools/natural_merge_v4_train.py",
+    "tools/natural_merge_v4_training_fit.py", "tools/run_natural_merge_v4.py",
+    "tools/summarize_natural_merge_v4.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
 
@@ -196,6 +204,49 @@ def native_write(model, record, index):
         native_random_evicted_slots=model.num_tokens, seconds=time.monotonic()-started)
 
 
+def build_merge(architecture, num_layers, hidden, block):
+    from methods.prlmc.merge import SharedMemoryMerge
+    from methods.prlmc.slot_merge import SlotMemoryMerge
+    from methods.prlmc.gated_slot_merge import BudgetedSlotMemoryMerge, GraftedSlotMemoryMerge
+    from methods.prlmc.native_skip_merge import SupervisedDSlotMerge, NativeSkipSlotMerge
+    classes = {"block_v1": SharedMemoryMerge, "discarded_slot_attention_v1": SlotMemoryMerge,
+               "budgeted_dense_slot_v3": BudgetedSlotMemoryMerge,
+               "grouped_gated_sparse_slot_v3": GraftedSlotMemoryMerge,
+               "grouped_gated_sparse_slot_v4": SupervisedDSlotMerge,
+               "grouped_gated_sparse_native_v4": NativeSkipSlotMerge}
+    if architecture not in classes:
+        raise ValueError("unknown shared merge architecture")
+    kwargs = dict(rank=32, gamma_max=.05)
+    if architecture.endswith(("_v3", "_v4")):
+        if architecture.endswith("_v4"):
+            from prepare_natural_merge_v4 import TRAIN_V4 as training
+        else:
+            from prepare_natural_merge_v3 import TRAIN_V3 as training
+        spec = next(v for v in training["variants"].values() if v["architecture"] == architecture)
+        kwargs.update(gamma_max=spec["local_gate_max"], initial_gate=training["initial_gate"],
+                      global_rms_budget=training["global_rms_budget"])
+        if architecture != "budgeted_dense_slot_v3":
+            kwargs.update(num_groups=spec["groups"], reference_layer=spec["reference_layer"], topk=spec["topk"])
+    return classes[architecture](num_layers, hidden, block, **kwargs)
+
+
+def validate_merge_checkpoint(saved, architecture):
+    if saved.get("effective_gamma_max", .05) != .05 or saved.get("evaluation_eligible") is False:
+        raise ValueError("ineligible/gamma-mismatched checkpoint")
+    if architecture.endswith(("_v3", "_v4")):
+        if architecture.endswith("_v4"):
+            from prepare_natural_merge_v4 import TRAIN_V4 as training
+        else:
+            from prepare_natural_merge_v3 import TRAIN_V3 as training
+        variant = saved.get("variant")
+        if (variant not in training["variants"] or saved.get("training") != training
+                or saved.get("module_configuration") != training["variants"][variant]
+                or saved["module_configuration"]["architecture"] != architecture
+                or saved.get("global_rms_budget") != training["global_rms_budget"]
+                or saved.get("rank") != training["rank"]):
+            raise ValueError("C/D checkpoint architecture/training/budget mismatch")
+
+
 def load_runtime(model_path, checkpoint=None, train=False, architecture=None):
     import torch
     import yaml
@@ -227,15 +278,10 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None):
     if saved and architecture is not None and architecture != saved_architecture:
         raise ValueError("requested/checkpoint architecture mismatch")
     architecture = saved_architecture or architecture or "block_v1"
-    classes = {"block_v1": SharedMemoryMerge, "discarded_slot_attention_v1": SlotMemoryMerge}
-    if architecture not in classes:
-        raise ValueError("unknown shared merge architecture")
-    merge = classes[architecture](manager.num_layers, manager.hidden, manager.block,
-                                  rank=32, gamma_max=.05).to("cuda:0")
+    merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block).to("cuda:0")
     if checkpoint:
         merge.load_state_dict(saved["state_dict"], strict=True)
-        if saved.get("effective_gamma_max", .05) != .05 or saved.get("evaluation_eligible") is False:
-            raise ValueError("ineligible/gamma-mismatched checkpoint")
+        validate_merge_checkpoint(saved, architecture)
     merge.train(train).requires_grad_(train)
     initial = model.memory.detach().cpu().clone()
     return model, tokenizer, manager, merge, initial, cfg, saved

@@ -22,7 +22,8 @@ def merge_reports(reports,plan):
         raise ValueError("missing/duplicate sample shards")
     identity=("schema","experiment","partition","diagnostic_only","protocol","plan_sha256","plan_content_sha256",
         "checkpoint_sha256","sources","model","suite_sha256","freeze_sha256","resources",
-        "shared_state_sha256_before","shared_state_sha256_after","training_performed","optimizer_created")
+        "shared_state_sha256_before","shared_state_sha256_after","training_performed","optimizer_created",
+        "architecture","variant","training_configuration","train_plan_sha256","train_content_sha256")
     for report in reports:
         verify(report,plan)
         if report["sharding"]["count"]!=count or any(report.get(k)!=reports[0].get(k) for k in identity):

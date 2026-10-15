@@ -1,6 +1,34 @@
 # 工具入口
 
-当前实验按 `experiments/Natural-merge-v2-ABC.md` 执行。下面的自然融合入口保留原文件路径与内容，清理未改变 checkpoint 的源码哈希口径。
+当前最新方案按 `experiments/Natural-merge-v4-D-supervision-native.md` 执行；v4 已完成 Dsup/Dnative 开发 E1，v3/v2 的协议和归档证据保留。
+
+## 已完成的 v4 Dsup/Dnative
+
+| 入口 | 用途 |
+| --- | --- |
+| `prepare_natural_merge_v4.py` | 封存实际 EOS、前导空格答案边界和全部原始 QA 覆盖的 v4 计划 |
+| `natural_merge_v4_objective.py` | 内容 CE、Full 内容 KL、载体保护和独立 EOS CE |
+| `natural_merge_v4_train.py` | Dsup/Dnative 共用的 fresh 64-update 训练 |
+| `natural_merge_v4_training_fit.py` | 固定训练窗口完整生成诊断 |
+| `run_natural_merge_v4.py` | Dsup/Dnative 双卡队列，到开发 E1 为止 |
+| `summarize_natural_merge_v4.py` | Dsup/Dnative、Selection 对照及预设开发门槛 |
+| `test_natural_merge_v4.py` | v4 监督、EOS、梯度桥、native skip、预算和 checkpoint 契约测试 |
+
+v4 实际运行结果保存在服务器 `runs/natural_merge_v4_dd_20261015_0108/`。Dsup 通过开发门槛；Dnative 的全维直通支路未改善结果，暂不进入正式评测。
+
+## 已完成的 v3 C/D
+
+| 入口 | 用途 |
+| --- | --- |
+| `prepare_natural_merge_v3.py` | 从固定 v2 训练计划重新编码原始答案，封存 C/D 共同协议 |
+| `natural_merge_v3_objective.py` | 非载体恢复、载体保护、双学习率与循环原生来源跟踪 |
+| `natural_merge_v3_train.py` | C/D 共用的 fresh 64-update 训练 |
+| `natural_merge_v3_training_fit.py` | 固定训练窗口完整生成诊断 |
+| `run_natural_merge_v3.py` | C/D 单卡排队或双卡并行，到开发 E1 为止 |
+| `summarize_natural_merge_v3.py` | D−C、Selection 对照、压缩损失恢复及原定门槛 |
+| `test_natural_merge_v3.py` | 预算、梯度桥、源屏蔽、循环分组及计划一致性 CPU 测试 |
+
+新 architecture 已接入 `natural_merge_runtime.py`，冻结评测复用 `natural_merge_eval.py`。v3 不修改旧计划、结果或 source snapshot；新增源码会改变当前 manifest，旧冻结证书需配合原归档源码使用。
 
 ## 当前自然融合 A/B/C
 

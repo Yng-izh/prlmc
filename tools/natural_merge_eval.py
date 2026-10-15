@@ -184,6 +184,8 @@ def run(args):
     episode_indices = [i for i in range(len(plan["episodes"])) if i % args.shard_count == args.shard_index]
     report = dict(schema="natural_merge_results/1", status="running", experiment=plan["experiment"],
         architecture=saved.get("architecture", "block_v1"), variant=saved.get("variant"),
+        training_configuration=saved.get("training"), train_plan_sha256=saved.get("train_plan_sha256"),
+        train_content_sha256=saved.get("train_content_sha256"),
         partition=plan["partition"], diagnostic_only=args.legacy_diagnostic, protocol=plan["protocol"],
         plan_sha256=sha(args.plan), plan_content_sha256=plan["content_sha256"],
         checkpoint_sha256=sha(args.checkpoint), sources=source_manifest(), model=model_identity(args.model_path),
