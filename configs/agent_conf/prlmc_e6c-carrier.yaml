@@ -1,0 +1,108 @@
+# PRLM-C E6c / arm 3 of 3: the trained carrier-residual compactor.
+#
+# Identical to `prlmc_e6c-select.yaml` except `compact_mode` and the checkpoint.
+# The operator picks the *same* native carriers as the selection arm -- the picker
+# is shared code -- and then adds a bounded learned residual to them:
+#
+#     out = carrier + gamma * delta,   rms(gamma * delta) <= gamma_max * rms(carrier)
+#
+# At initialisation `up` is zero, so `delta == 0` and the output is bit-identical
+# to `select_blocks`. Every difference between this arm and the selection arm is
+# therefore attributable to what the checkpoint learned, which is the whole point
+# of the comparison.
+#
+# `carrier_ckpt` must point at the checkpoint produced by the E6c training run
+# (8 hard windows, Stage A 4 steps, Stage B 96 steps per window, 19 -> 9 blocks,
+# lr 1e-3, gamma_max 0.05). Loading it is what makes this arm "trained": without
+# a path here the run is the wiring control and must reproduce the selection arm
+# exactly. `_carrier_compactor` prints which of the two it did.
+agent_name: prlmc_agent
+
+model_path: /share/latent/MemoryLLM-8B
+dtype: float16
+device: cuda:0
+
+inject_max_tokens: 512
+max_new_tokens: 32
+
+model: prlmc-8b
+temperature: 0.0
+input_length_limit: 10000000
+buffer_length: 200
+output_dir: ./outputs/prlmc-e6c-carrier
+
+ablation_mode: OURS
+structural_ablation: trigger_occupancy_only
+
+prlmc:
+  # --- slot layout -------------------------------------------------------
+  k_anchor: 512
+  # 50% of the 12288-slot nominal working capacity; see the eviction arm.
+  k_max: 6144
+  anchor_source: first_chunk
+
+  # --- residual writing --------------------------------------------------
+  write_mode: append
+  gate_mode: ones
+  address_threshold: 0.85
+
+  # --- projection --------------------------------------------------------
+  projection: none
+
+  # --- novelty -----------------------------------------------------------
+  novelty_ema_beta: 0.9
+  basis_max_rank: 256
+  basis_energy: 0.95
+
+  # --- capacity trigger --------------------------------------------------
+  tau_k: 0.80
+  tau_n: 0.50
+  tau_k_exit: 0.0
+  tau_n_exit: 0.30
+  trigger_consecutive: 1
+  trigger: occupancy
+  rank_eta: 0.95
+  rank_max: 256
+
+  # --- compaction: native carriers + learned residual --------------------
+  compact_mode: carrier_residual
+  compact_ratio: 0.5
+  compact_period: 10
+  # 19 blocks. `compact_with_report` builds its window as
+  # `min(used - protect, max(compact_min_slots, used // 2))`, so a floor of
+  # 4864 makes every capacity-trigger compaction exactly 19 -> 9 blocks -- the
+  # same geometry the checkpoint was trained on. The 256 default would have made
+  # the benchmark compact a 10-block window instead, i.e. evaluate the trained
+  # operator at half the width it was trained at.
+  compact_min_slots: 4864
+  select_weights:
+    importance: 0.4
+    recency: 0.3
+    goal: 0.2
+    diversity: 0.1
+  carrier_rank: 32
+  # Must match the value training ran at. `tools/e6b_mini.py` overrides the YAML
+  # `carrier_gamma_max` from `--gamma-max`, and that run used 0.05, so the YAML
+  # default of 0.1 would silently rescale gamma at inference time.
+  carrier_gamma_max: 0.05
+  # Written by `tools/run_e6c_train.sh`; the benchmark driver refuses to start
+  # this arm without it, because a missing checkpoint silently degrades the run
+  # into the selection arm and would be reported as "trained carrier lost".
+  carrier_ckpt: /tmp/e6c_ckpt.pt
+
+  compact_probe: false
+  active_memory_mask: true
+  native_filler_only: true
+
+  # --- importance weights (section 3.4) ---------------------------------
+  importance_weights:
+    goal: 1.0
+    reuse: 0.5
+    recency: 0.5
+    confidence: 0.5
+    surprise: 0.5
+    emphasis: 1.0
+
+  # --- runtime -----------------------------------------------------------
+  stats_dir: ./outputs/prlmc-e6c-carrier
+  verbose: true

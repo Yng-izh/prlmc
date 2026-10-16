@@ -1,0 +1,98 @@
+# PRLM-C observation run (calibration stage 0).
+#
+# Purpose: record the per-write capacity signals so the thresholds in
+# prlmc_8b.yaml can be set from measured quantiles instead of guesses. This run
+# produces no reportable accuracy numbers -- compaction is disabled, so the pool
+# behaves as a plain append-and-evict residual memory.
+#
+# Two deliberate deviations from prlmc_8b.yaml, both to widen the observation:
+#
+#   compact_mode: none   Nothing is consolidated, so the trajectory reflects the
+#                        write path alone. Without this, compaction would change
+#                        the memory that later novelty values are measured
+#                        against, and the early and late writes would not be
+#                        comparable.
+#
+#   tau_k: 0.0           In occupancy_novelty_rank mode, tau_k gates whether the
+#                        rank spectrum is computed at all (see _observe_capacity).
+#                        With compact_mode none the trigger is never consulted,
+#                        so tau_k has no other effect; setting it to 0 forces the
+#                        spectrum on every write and yields a full rank
+#                        trajectory rather than one that starts only once
+#                        occupancy passes 0.80.
+#
+# Everything else matches the main configuration, because the thresholds are only
+# transferable if the write path that produced them is the same one.
+
+agent_name: prlmc_agent
+model_path: /share/latent/MemoryLLM-8B
+dtype: float16
+device: cuda:0
+
+inject_max_tokens: 512
+max_new_tokens: 32
+input_length_limit: 10000000
+buffer_length: 200
+output_dir: ./outputs/prlmc-obs
+
+# Required by AgentWrapper.__init__ before the prlmc branch is reached. The
+# tokenizer field is derived from `model`, but only "gpt-4o" selects a real
+# tiktoken encoding; every other value falls back to "gpt-4o-mini", whose
+# encoding the prlmc handler never uses because it tokenizes with the
+# checkpoint's own tokenizer.
+model: prlmc-8b
+temperature: 0.0
+
+stats_dir: ./outputs/prlmc-obs/stats
+verbose: true
+
+prlmc:
+  ablation_mode: OURS
+
+  # --- state partition ---------------------------------------------------
+  k_anchor: 512
+  anchor_source: first_chunk
+  write_mode: append
+
+  # --- write path --------------------------------------------------------
+  gate_mode: novelty
+  projection: none
+  projection_rank: 128
+  projection_lambdas: 0.5
+  novelty_ema_beta: 0.9
+  novelty_eps: 1.0e-8
+  additive_width: 256
+
+  # --- basis / rank ------------------------------------------------------
+  basis_max_rank: 256
+  basis_energy: 0.95
+  rank_eta: 0.95
+  rank_max: 256
+
+  # --- capacity trigger --------------------------------------------------
+  # tau_k is 0 so the rank spectrum is computed on every write: in
+  # occupancy_novelty_rank mode the spectrum is gated on `occupancy >= tau_k`
+  # (layout._observe_capacity), and the point of this run is the rank trajectory
+  # at all occupancies, not only above 0.80. tau_k_exit must stay <= tau_k or
+  # PRLMCConfig.__post_init__ rejects the config.
+  tau_k: 0.0
+  tau_n: 0.50
+  tau_k_exit: 0.0
+  tau_n_exit: 0.30
+  trigger_consecutive: 5
+  trigger: occupancy_novelty_rank
+
+  # --- consolidation (disabled for this run) -----------------------------
+  compact_mode: none
+  compact_ratio: 0.5
+  compact_period: 10
+  compact_min_slots: 256
+  compact_probe: false
+
+  importance_weights:
+    goal: 1.0
+    reuse: 0.5
+    recency: 0.5
+    confidence: 0.5
+    surprise: 0.5
+    emphasis: 1.0

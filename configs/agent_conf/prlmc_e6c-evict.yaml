@@ -1,0 +1,114 @@
+# PRLM-C E6c / arm 1 of 3: eviction. No compaction at all.
+#
+# E6c asks one question: under a memory budget that is genuinely tight, does a
+# trained learned compaction keep more correct answers than simply dropping what
+# does not fit? Three arms answer it, and they differ in exactly one key,
+# `compact_mode`:
+#
+#   evict    -> none            : the pool fills, then the oldest blocks are dropped
+#   select   -> select_blocks   : the window is compacted by native block selection
+#   carrier  -> carrier_residual: the window is compacted by the trained residual fusion
+#
+# Everything else is held identical across the three: k_max, k_anchor, the
+# occupancy trigger, gate=ones, the active mask, the filler policy, the backbone,
+# the benchmark. A difference in accuracy is therefore attributable to the
+# operator and to nothing else.
+#
+# With `compact_mode: none` the trigger is never reached -- `_maybe_compact`
+# returns immediately -- so this arm is pure capacity eviction, which is the
+# baseline the other two have to beat. `_place` frees room by calling
+# `_evict_oldest` whenever a write would exceed `working_capacity`.
+agent_name: prlmc_agent
+
+model_path: /share/latent/MemoryLLM-8B
+dtype: float16
+device: cuda:0
+
+inject_max_tokens: 512
+max_new_tokens: 32
+
+model: prlmc-8b
+temperature: 0.0
+input_length_limit: 10000000
+buffer_length: 200
+output_dir: ./outputs/prlmc-e6c-evict
+
+ablation_mode: OURS
+# The explicit keys below restate this and win over it; see build_config.
+structural_ablation: trigger_occupancy_only
+
+prlmc:
+  # --- slot layout -------------------------------------------------------
+  k_anchor: 512
+  # E6c capacity stress: the working budget is cut to 50% of the 12288 slots
+  # that `total - k_anchor` would otherwise allow. The pool keeps its physical
+  # width, because `cache_position` and the rotary offsets are derived from the
+  # config constants; only the addressable budget shrinks. `factconsolidation_sh_32k`
+  # writes 83 blocks and only 24 fit here, so compaction or eviction is now
+  # forced on this benchmark instead of merely allowed.
+  k_max: 6144
+  anchor_source: first_chunk
+
+  # --- residual writing --------------------------------------------------
+  write_mode: append
+  gate_mode: ones
+  address_threshold: 0.85
+
+  # --- projection --------------------------------------------------------
+  projection: none
+
+  # --- novelty -----------------------------------------------------------
+  novelty_ema_beta: 0.9
+  basis_max_rank: 256
+  basis_energy: 0.95
+
+  # --- capacity trigger --------------------------------------------------
+  # Identical in all three arms, though only the two compacting arms read it.
+  # tau_k 0.80 of the new 6144-slot budget is 4915 slots.
+  tau_k: 0.80
+  tau_n: 0.50
+  tau_k_exit: 0.0
+  tau_n_exit: 0.30
+  trigger_consecutive: 1
+  trigger: occupancy
+  rank_eta: 0.95
+  rank_max: 256
+
+  # --- compaction: this arm does none ------------------------------------
+  compact_mode: none
+  compact_ratio: 0.5
+  compact_period: 10
+  # 19 blocks. `compact_with_report` builds its window as
+  # `min(used - protect, max(compact_min_slots, used // 2))`, so a floor of
+  # 4864 makes every capacity-trigger compaction exactly 19 -> 9 blocks -- the
+  # same geometry the checkpoint was trained on. The 256 default would have made
+  # the benchmark compact a 10-block window instead, i.e. evaluate the trained
+  # operator at half the width it was trained at.
+  compact_min_slots: 4864
+  select_weights:
+    importance: 0.4
+    recency: 0.3
+    goal: 0.2
+    diversity: 0.1
+  # Declared so the three configs differ only in `compact_mode` and the
+  # parameters that arm actually consumes.
+  carrier_rank: 32
+  carrier_gamma_max: 0.05
+
+  # Inert in the benchmark path: register_probes has no call site.
+  compact_probe: false
+  active_memory_mask: true
+  native_filler_only: true
+
+  # --- importance weights (section 3.4) ---------------------------------
+  importance_weights:
+    goal: 1.0
+    reuse: 0.5
+    recency: 0.5
+    confidence: 0.5
+    surprise: 0.5
+    emphasis: 1.0
+
+  # --- runtime -----------------------------------------------------------
+  stats_dir: ./outputs/prlmc-e6c-evict
+  verbose: true

@@ -1,0 +1,142 @@
+{
+  "frozen_at": "2026-09-24",
+  "baseline": "MemoryLLM-8B on MemoryAgentBench",
+  "status": "tier0_verified_tier1_not_run",
+
+  "model": {
+    "path": "/share/latent/MemoryLLM-8B",
+    "source_repo": "YuWangX/memoryllm-8b",
+    "weight_bytes": 39134461953,
+    "shipped_dtype": "float32",
+    "used_dtype": "float16",
+    "expected_vram_gb": 19.6,
+    "attn_implementation": "sdpa",
+    "device_map_auto": false,
+    "architectures": ["MemoryLLM"],
+    "num_hidden_layers": 32,
+    "hidden_size": 4096,
+    "vocab_size": 128256,
+    "memory_pool_tokens_per_layer": 12800,
+    "num_blocks": 50,
+    "num_tokens": 256,
+    "checkpoint_initialized": 1,
+    "file_sha256_prefix": {
+      "config.json": "ffb703537dac7bd7",
+      "generation_config.json": "11951cc646c18d8e",
+      "model.safetensors.index.json": "a59754562bc49d55"
+    }
+  },
+
+  "environment": {
+    "python": "3.10.12",
+    "interpreter": "/share/latent/mllm_env/bin/python",
+    "torch": "2.5.1+cu124",
+    "transformers": "4.48.2",
+    "peft": "0.10.0",
+    "tokenizers": "0.21.4",
+    "huggingface_hub": "0.36.2",
+    "accelerate": "1.15.0",
+    "numpy": "1.26.4",
+    "gpu": "Tesla V100-PCIE-32GB",
+    "compute_capability": [7, 0],
+    "cuda": "12.4",
+    "excluded_packages": ["flash_attn", "minference", "faiss-gpu", "frontend", "hipporag"]
+  },
+
+  "run_params": {
+    "chunk_size": 400,
+    "inject_max_tokens": 512,
+    "max_new_tokens": 32,
+    "do_sample": false,
+    "min_inject_tokens": 16,
+    "reset_memory_per_context": true,
+    "device": "cuda:0",
+    "env": {
+      "HF_HUB_OFFLINE": "1",
+      "TOKENIZERS_PARALLELISM": "false"
+    }
+  },
+
+  "code_fingerprint_sha256_prefix": {
+    "methods/memoryllm.py": "aa9def532fd800b0",
+    "agent.py": "0289a09a2a5a950f",
+    "utils/templates.py": "691384d9f2fdfffe",
+    "utils/eval_data_utils.py": "05f37b56e60fad7a",
+    "methods/memoryllm_modeling/modeling_memoryllm.py": "48b509c7f1476239",
+    "methods/memoryllm_modeling/configuration_memoryllm.py": "abd00d3985f96fa2",
+    "configs/agent_conf/MemoryLLM/memoryllm_8b.yaml": "a2100000dfd89cfc"
+  },
+
+  "measured_rates": {
+    "model_load_seconds_once_per_process": 234.6,
+    "inject_seconds_per_chunk_400tok": 0.42,
+    "query_seconds_mean": 3.59,
+    "query_seconds_range": [3.48, 3.98]
+  },
+
+  "known_issues": [
+    "drop_memory uses torch.randperm with no seed: results are not reproducible across runs",
+    "memory pool saturates at 12800 tokens; contexts beyond ~6k tokens are randomly evicted, so large-context subsets do not measure full long-range recall",
+    "--max_test_queries_ablation is a global cumulative cap, not a per-context cap",
+    "agent save folder persists across runs and load_agent is a no-op for memoryllm, silently leaving an empty pool",
+    "pad_token_id == eos_token_id == 128001",
+    "memoryllm reuses the rag_agent query template wording"
+  ],
+
+  "runs": [
+    {
+      "run_id": "tier0-sh6k-20260924",
+      "date": "2026-09-24",
+      "tier": 0,
+      "purpose": "end-to-end link verification only; scores are not an evaluation result",
+      "dataset_config": "configs/data_conf/Conflict_Resolution/Factconsolidation_sh_6k.yaml",
+      "sub_dataset": "factconsolidation_sh_6k",
+      "dataset": "Conflict_Resolution",
+      "gpu": 6,
+      "chunk_size": 400,
+      "contexts_total": 1,
+      "contexts_run": 1,
+      "chunks": 16,
+      "queries_available": 100,
+      "queries_run": 5,
+      "wall_clock_seconds": 601.09,
+      "context_wall_clock_seconds": 258.88,
+      "model_load_seconds": 234.6,
+      "memorization_seconds": 6.67,
+      "metrics": {
+        "exact_match": 20.0,
+        "f1": 26.67,
+        "substring_exact_match": 40.0,
+        "rougeL_f1": 31.67,
+        "rougeL_recall": 46.67,
+        "rougeLsum_f1": 31.67,
+        "rougeLsum_recall": 46.67,
+        "input_len": 161.8,
+        "output_len": 32.0,
+        "query_time_len": 3.59
+      },
+      "results_path": "./outputs/memoryllm-8b/Conflict_Resolution/factconsolidation_sh_6k_unknown_in6000_size10_shots0_max_samples1_results.json"
+    }
+  ],
+
+  "chunk_counts_measured_at_400": {
+    "factconsolidation_sh_6k": {"contexts": 1, "chunks_per_context": [16], "total": 16, "queries": 100},
+    "factconsolidation_mh_6k": {"contexts": 1, "chunks_per_context": [16], "total": 16, "queries": 100},
+    "factconsolidation_sh_32k": {"contexts": 1, "chunks_per_context": [83], "total": 83, "queries": 100},
+    "factconsolidation_mh_32k": {"contexts": 1, "chunks_per_context": [83], "total": 83, "queries": 100},
+    "factconsolidation_sh_64k": {"contexts": 1, "chunks_per_context": [169], "total": 169, "queries": 100},
+    "factconsolidation_sh_262k": {"contexts": 1, "chunks_per_context": [688], "total": 688, "queries": 100},
+    "icl_banking77_5900shot_balance": {"contexts": 1, "chunks_per_context": [272], "total": 272, "queries": 100},
+    "icl_clinic150_7050shot_balance": {"contexts": 1, "chunks_per_context": [39], "total": 39, "queries": 100},
+    "icl_nlu_8296shot_balance": {"contexts": 1, "chunks_per_context": [333], "total": 333, "queries": 100},
+    "icl_trec_coarse_6600shot_balance": {"contexts": 1, "chunks_per_context": [270], "total": 270, "queries": 100},
+    "icl_trec_fine_6400shot_balance": {"contexts": 1, "chunks_per_context": [263], "total": 263, "queries": 100},
+    "detective_qa": {"contexts": 10, "chunks_per_context": [257, 260, 258, 306, 302, 283], "total": 3271, "queries_per_context": 6, "queries": 71},
+    "eventqa_65536": {"contexts": 5, "chunks_per_context": [170, 173, 173, 172, 171], "total": 859, "queries": 500},
+    "eventqa_131072": {"contexts": 5, "chunks_per_context": [339, 345, 346, 345, 341], "total": 1716, "queries": 500}
+  },
+
+  "open_decisions": [
+    "whether to add torch.manual_seed to make eviction reproducible, at the cost of pinning one specific eviction trajectory"
+  ]
+}

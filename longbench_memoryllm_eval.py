@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""Evaluate the frozen MemoryLLM-8B on the local LongBench test files.
+
+This entrypoint intentionally implements one capacity only: the checkpoint's
+native 50-block memory. It follows the MemoryLLM author prompt/chunking
+protocol, while making the 8k/16k context budget explicit: the final 2,048
+tokens are queried directly and the preceding tokens are written in chunks of
+at most 512 tokens. No training, PRLM-C compactor, or alternative capacity is
+available in this script.
+"""
+import argparse
+import hashlib
+import json
+import os
+import random
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_TASKS = ("hotpotqa", "2wikimqa", "musique", "qasper", "multifieldqa_en", "narrativeqa")
+# Pinned upstream source revisions used for the copied prompts and metric.
+LONGBENCH_COMMIT = "2e00731f8d0bff23dc4325161044d0ed8af94c1e"
+MEMORYLLM_COMMIT = "5acaf52d2e60087f6bc38a06063d7558ab9a2c2c"
+MAX_NEW = {
+    "hotpotqa": 32, "2wikimqa": 32, "musique": 32,
+    "multifieldqa_en": 64, "qasper": 128, "narrativeqa": 128,
+}
+PROMPTS = {
+    "narrativeqa": "You are given a story, which can be either a novel or a movie script, and a question. Answer the question asconcisely as you can, using a single phrase if possible. Do not provide any explanation.\n\nStory: {context}\n\nNow, answer the question based on the story asconcisely as you can, using a single phrase if possible. Do not provide any explanation.\n\nQuestion: {input}\n\nAnswer:",
+    "qasper": "You are given a scientific article and a question. Answer the question as concisely as you can, using a single phrase or sentence if possible. If the question cannot be answered based on the information in the article, write \"unanswerable\". If the question is a yes/no question, answer \"yes\", \"no\", or \"unanswerable\". Do not provide any explanation.\n\nArticle: {context}\n\n Answer the question based on the above article as concisely as you can, using a single phrase or sentence if possible. If the question cannot be answered based on the information in the article, write \"unanswerable\". If the question is a yes/no question, answer \"yes\", \"no\", or \"unanswerable\". Do not provide any explanation.\n\nQuestion: {input}\n\nAnswer:",
+    "multifieldqa_en": "Read the following text and answer briefly.\n\n{context}\n\nNow, answer the following question based on the above text, only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+    "hotpotqa": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+    "2wikimqa": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+    "musique": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+}
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                    separators=(",", ":")).encode()).hexdigest()
+
+
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    import torch
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+def qa_f1(prediction, answer):
+    import re
+    import string
+    from collections import Counter
+    def norm(s):
+        s = s.lower().translate(str.maketrans("", "", string.punctuation))
+        s = re.sub(r"\b(a|an|the)\b", " ", s)
+        return " ".join(s.split())
+    p, g = norm(prediction).split(), norm(answer).split()
+    if not p or not g:
+        return float(p == g)
+    common = sum((Counter(p) & Counter(g)).values())
+    return 2.0 * common / (len(p) + len(g))
+
+
+def score(prediction, answers):
+    return max(qa_f1(prediction, answer) for answer in answers)
+
+
+def load_rows(data_dir, task):
+    path = Path(data_dir) / (task + ".jsonl")
+    rows = [json.loads(line) for line in path.open() if line.strip()]
+    if not rows or any(not isinstance(r.get("context"), str) or not r["answers"] for r in rows):
+        raise ValueError(f"invalid LongBench rows: {path}")
+    return rows
+
+
+def split_prompt(tokenizer, task, row, total_tokens):
+    prompt = PROMPTS[task].format(context=row["context"], input=row["input"])
+    ids = tokenizer(prompt, add_special_tokens=False, truncation=False).input_ids
+    if len(ids) > total_tokens:
+        # Match the official LongBench tail-preserving truncation, while
+        # reserving the fixed 2,048-token direct query suffix.
+        ids = ids[-total_tokens:]
+    query_tokens = min(2048, len(ids))
+    write_ids = ids[:-query_tokens] if query_tokens else ids
+    query_ids = ids[-query_tokens:] if query_tokens else []
+    return prompt, ids, write_ids, query_ids
+
+
+def reset_model(model, initial_memory, initial_initialized):
+    import torch
+    with torch.no_grad():
+        model.memory.copy_(initial_memory)
+        model.initialized.copy_(initial_initialized)
+        if hasattr(model, "memory_active_mask"):
+            model.memory_active_mask.fill_(True)
+
+
+def native_write(model, token_ids):
+    import torch
+    ids = torch.tensor([token_ids], dtype=torch.long, device=model.memory.device)
+    attention = torch.ones((1, model.num_tokens + len(token_ids)), dtype=torch.long, device=ids.device)
+    with torch.no_grad():
+        model.inject_memory(ids, context_attention_mask=attention, update_memory=True)
+
+
+def generate(model, tokenizer, query_ids, max_new_tokens):
+    import torch
+    ids = torch.tensor([query_ids], dtype=torch.long, device=model.memory.device)
+    attention = torch.ones((1, model.num_blocks * model.num_tokens + len(query_ids)),
+                           dtype=torch.long, device=ids.device)
+    with torch.no_grad():
+        output = model.generate(input_ids=ids, attention_mask=attention,
+                                max_new_tokens=max_new_tokens, num_beams=1,
+                                do_sample=False, temperature=1.0,
+                                pad_token_id=tokenizer.pad_token_id,
+                                eos_token_id=tokenizer.eos_token_id)
+    out = output[0, ids.shape[1]:].detach().cpu().tolist()
+    return tokenizer.decode(out, skip_special_tokens=True), out
+
+
+def evaluate(args):
+    if args.capacity_blocks != 50:
+        raise ValueError("this protocol supports native checkpoint capacity only: --capacity-blocks 50")
+    if args.total_tokens not in (8192, 16384):
+        raise ValueError("--total-tokens must be 8192 or 16384")
+    tasks = tuple(args.tasks) if args.tasks else DEFAULT_TASKS
+    if any(t not in DEFAULT_TASKS for t in tasks):
+        raise ValueError("unsupported task")
+    seed_everything(args.seed)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_device)
+    import torch
+    from transformers import AutoTokenizer
+    sys.path.insert(0, str(ROOT))
+    from methods.memoryllm_modeling.modeling_memoryllm import MemoryLLM
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path, local_files_only=True)
+    tokenizer.pad_token = tokenizer.eos_token
+    model = MemoryLLM.from_pretrained(args.model_path, torch_dtype=torch.float16,
+        attn_implementation="sdpa", local_files_only=True).to("cuda:0").eval()
+    model.requires_grad_(False)
+    if int(model.num_blocks) != 50 or int(model.num_tokens) != 256 or int(model.initialized) != 1:
+        raise ValueError("checkpoint is not an initialized native 50-block MemoryLLM")
+    initial_memory = model.memory.detach().clone()
+    initial_initialized = model.initialized.clone()
+    report = dict(schema="longbench_memoryllm_results/1", status="running",
+        protocol=dict(model="MemoryLLM-8B", capacity="native_50_blocks", capacity_blocks=50,
+                      latent_tokens_per_block=256, max_write_tokens=512,
+                      total_input_tokens=args.total_tokens,
+                      direct_query_tokens=2048, write_prefix_tokens=args.total_tokens - 2048,
+                      max_new_tokens={t: MAX_NEW[t] for t in tasks}, seed=args.seed,
+                      do_sample=False, num_beams=1, training=False,
+                      benchmark="LongBench test", scoring="official QA F1"),
+        identity=dict(model_path=args.model_path, data_dir=args.data_dir,
+                      model_config_sha256=hashlib.sha256((Path(args.model_path)/"config.json").read_bytes()).hexdigest(),
+                      longbench_source_commit=LONGBENCH_COMMIT,
+                      memoryllm_source_commit=MEMORYLLM_COMMIT),
+        tasks=list(tasks), samples=[], progress=None)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    if Path(args.out).exists():
+        raise ValueError("output exists; refuse overwrite")
+    started = time.monotonic()
+    data_zip = Path(args.data_dir).parent / "data.zip"
+    if data_zip.is_file():
+        report["identity"]["data_zip_sha256"] = hashlib.sha256(data_zip.read_bytes()).hexdigest()
+    for task in tasks:
+        rows = load_rows(args.data_dir, task)
+        for sample_index, row in enumerate(rows):
+            reset_model(model, initial_memory, initial_initialized)
+            prompt, all_ids, write_ids, query_ids = split_prompt(tokenizer, task, row, args.total_tokens)
+            writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
+            for chunk in writes:
+                native_write(model, chunk)
+            prediction, output_ids = generate(model, tokenizer, query_ids, MAX_NEW[task])
+            report["samples"].append(dict(task=task, sample_index=sample_index, id=row.get("_id"),
+                input_tokens=len(all_ids), prefix_tokens=len(write_ids), query_tokens=len(query_ids),
+                write_count=len(writes), write_chunk_tokens=[len(x) for x in writes],
+                native_capacity_blocks=int(model.num_blocks), native_active_slots=int(model.memory.shape[1]),
+                prediction=prediction, output_tokens=output_ids, answers=row["answers"],
+                official_qa_f1=score(prediction, row["answers"])))
+            report["progress"] = dict(task=task, sample=sample_index + 1, total=len(rows))
+            with Path(args.out).open("w") as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+    report["status"] = "complete"
+    report["summary"] = {task: dict(n=sum(s["task"] == task for s in report["samples"]),
+        qa_f1=100 * np.mean([s["official_qa_f1"] for s in report["samples"] if s["task"] == task]))
+        for task in tasks}
+    report["elapsed_seconds"] = time.monotonic() - started
+    with Path(args.out).open("w") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--data-dir", required=True)
+    p.add_argument("--model-path", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--cuda-device", default="0")
+    p.add_argument("--total-tokens", type=int, required=True, choices=(8192, 16384))
+    p.add_argument("--capacity-blocks", type=int, default=50)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--tasks", nargs="+", choices=DEFAULT_TASKS)
+    evaluate(p.parse_args())
+
+
+if __name__ == "__main__":
+    main()

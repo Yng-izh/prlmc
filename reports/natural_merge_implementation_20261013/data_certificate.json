@@ -1,0 +1,149 @@
+{
+  "schema": "natural_merge_data_certificate/1",
+  "status": "passed",
+  "server": "v100-2",
+  "suite_sha256": "33d6b4ea60d91e58c481f65eff6bce69cf98e6160f5fdab3a00cab99c9bdf910",
+  "original_dataset": {
+    "repo": "YuWangX/KnowledgeRetention",
+    "revision": "c609067a4b7464dc4bf949cbb31996e47dd9be5a",
+    "source_paths": {
+      "squad/train-v2.0.json": "squad/train-v2.0.json",
+      "squad/dev-v2.0.json": "squad/dev-v2.0.json",
+      "squad/indices_squad_3.npy": "squad/indices_squad_3.npy"
+    },
+    "files": {
+      "squad/train-v2.0.json": "68dcfbb971bd3e96d5b46c7177b16c1a4e7d4bdef19fb204502738552dede002",
+      "squad/dev-v2.0.json": "80a5225e94905956a6446d296ca1093975c4d3b3260f1d6c8f68bc2ab77182d8",
+      "squad/indices_squad_3.npy": "d49c484cfe898e0afae780600064e5c5792f5477d49d56bf3f541c6b06bd11bb"
+    },
+    "scope": "original SQuAD train/dev and official indices; NQ transfer reuses separately pinned processed release",
+    "acquisition_endpoint": "https://huggingface.co",
+    "upstream_file_metadata": {
+      "squad/dev-v2.0.json": {
+        "type": "file",
+        "oid": "c6fa1a89a12c90b7fbfa8f6fb437cfff27af41ca",
+        "size": 4370528,
+        "path": "squad/dev-v2.0.json"
+      },
+      "squad/indices_squad_3.npy": {
+        "type": "file",
+        "oid": "9dcf75ba71b3b59ea761076eba870a5e83989fd8",
+        "size": 18128,
+        "lfs": {
+          "oid": "d49c484cfe898e0afae780600064e5c5792f5477d49d56bf3f541c6b06bd11bb",
+          "size": 18128,
+          "pointerSize": 130
+        },
+        "xetHash": "8be934f9ae38a456498115489c5c7e5a83738d562777650ebb72f10da564991e",
+        "path": "squad/indices_squad_3.npy"
+      },
+      "squad/train-v2.0.json": {
+        "type": "file",
+        "oid": "07e3c5fd9fc26adbdc85dbac3ae64d803d891daa",
+        "size": 42123633,
+        "lfs": {
+          "oid": "68dcfbb971bd3e96d5b46c7177b16c1a4e7d4bdef19fb204502738552dede002",
+          "size": 42123633,
+          "pointerSize": 133
+        },
+        "xetHash": "816b30f21f6eac33d4c511695243e6a6abe8d944944bc0ff4f730b92919a9004",
+        "path": "squad/train-v2.0.json"
+      }
+    },
+    "license": null,
+    "verification": "pinned commit resolved; byte sizes; Git blob SHA1 or LFS SHA256; local SHA256"
+  },
+  "processed_dataset_revision": "03a8db0d2d9ffd2caecae8f5f7af09294ece6e96",
+  "tokenizer": {
+    "tokenizer.json": "e134af98b985517b4f068e3755ae90d4e9cd2d45d328325dc503f1c6b2d06cc7",
+    "tokenizer_config.json": "c5c96eed84712e843610d03dc38f2329a40a02717898e4a87909d97c09c27459",
+    "special_tokens_map.json": "03d62862d41de30db9e05cb4865de4f36c48ab3032327139fcdfacc5798a4828"
+  },
+  "observed_articles_excluded": [
+    "Computational_complexity_theory",
+    "Normans"
+  ],
+  "plans": {
+    "train": {
+      "contexts": 312,
+      "qa": 312,
+      "streams": 8,
+      "writes_per_stream": [
+        39
+      ],
+      "truncated_related_writes": 0,
+      "plan_sha256": "83a547dccbaf1772cf75122187ed385ed8abdebc215a712eff7a6bfd8dec043e",
+      "content_sha256": "9a4c0449c4ef88e77ff3cfc8b4fd11ef706d41c878bc44dc85cb46400270eaec"
+    },
+    "E1-development": {
+      "contexts": 19,
+      "qa": 93,
+      "streams": 1,
+      "writes_per_stream": [
+        19
+      ],
+      "truncated_related_writes": 0,
+      "plan_sha256": "7d70595c282bc14af52956e05bd1e874b74f6d84dabd8dc28713dc91b3bcde1b",
+      "content_sha256": "addb4c44c00e0331426682a0e3008106fdba86526da45a5556328f5fb9ee681d"
+    },
+    "E1-formal": {
+      "contexts": 19,
+      "qa": 94,
+      "streams": 1,
+      "writes_per_stream": [
+        19
+      ],
+      "truncated_related_writes": 0,
+      "plan_sha256": "8b38d8362c57e03f3132ef9e25fc8bbe5bc4c12d7198e40913828a208d8cac3f",
+      "content_sha256": "ee211f88d80f6ba8d622caf6b9a8bd9fb18d3d8800097092fbab40de97859597"
+    },
+    "E2-squad30": {
+      "contexts": 32,
+      "qa": 153,
+      "streams": 32,
+      "writes_per_stream": [
+        31
+      ],
+      "truncated_related_writes": 0,
+      "plan_sha256": "fbbd079611233ef4c60e5cf82f566f567e858da89de8dc1d50cb69d24c3d3e20",
+      "content_sha256": "0ba414c7b578da400eadb7ad6014ae5be0c3292fbab45a80bf686ff0ad38e5f6"
+    },
+    "E3-squad60": {
+      "contexts": 32,
+      "qa": 153,
+      "streams": 32,
+      "writes_per_stream": [
+        61
+      ],
+      "truncated_related_writes": 0,
+      "plan_sha256": "c2dc1c032acf458a5538ee2740e4805c60d520f747d408c998d0d9f741b836d2",
+      "content_sha256": "4d69c0c2da57f07e9af80f15b297f89caff7d970612219701803f26c83d006e6"
+    },
+    "E3-naturalqa30": {
+      "contexts": 99,
+      "qa": 100,
+      "streams": 99,
+      "writes_per_stream": [
+        31
+      ],
+      "truncated_related_writes": 12,
+      "plan_sha256": "b5d66f815037142fdfe5073e21e6e7a4ac82c604f64ec2752bf93616c3c08819",
+      "content_sha256": "5fe9eaa56fee1dc66c601c0d59c2d1df00bd54bb9a14e279f8af2b04bcea465a"
+    }
+  },
+  "verified": [
+    "upstream original Git/LFS identities and byte sizes",
+    "all processed public file SHA256",
+    "all SQuAD original context and QA identities/spans",
+    "all original write tokens retokenized",
+    "unchanged NaturalQA public context/question/answer/write tokens",
+    "article and context train/dev/formal isolation",
+    "observed article exclusion",
+    "held-out distractor articles",
+    "same SQuAD30/60 initial stream"
+  ],
+  "reader_loaded": false,
+  "gpu_training_started": false,
+  "gpu_evaluation_started": false,
+  "scope": "original SQuAD complete train/dev and published processed NaturalQA; no unused full NQ JSONL download"
+}
