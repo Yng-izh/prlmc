@@ -1,71 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.01it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.98it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.78it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.52it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.54it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.53it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.55it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.78it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.69it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-{"update": 1, "stream": "train-0", "before_write": 20, "gold_ce": 5.311210322380066}
-{"update": 2, "stream": "train-0", "before_write": 30, "gold_ce": 5.064028771718343}
-{"update": 3, "stream": "train-1", "before_write": 20, "gold_ce": 4.934151554107666}
-{"update": 4, "stream": "train-1", "before_write": 30, "gold_ce": 5.367933281262716}
-{"update": 5, "stream": "train-2", "before_write": 20, "gold_ce": 4.610862904787064}
-{"update": 6, "stream": "train-2", "before_write": 30, "gold_ce": 5.312948179244995}
-{"update": 7, "stream": "train-3", "before_write": 20, "gold_ce": 4.948881876468659}
-{"update": 8, "stream": "train-3", "before_write": 30, "gold_ce": 4.869810104370117}
-{"update": 9, "stream": "train-4", "before_write": 20, "gold_ce": 4.414314562082291}
-{"update": 10, "stream": "train-4", "before_write": 30, "gold_ce": 4.645135033130646}
-{"update": 11, "stream": "train-5", "before_write": 20, "gold_ce": 4.853716707229614}
-{"update": 12, "stream": "train-5", "before_write": 30, "gold_ce": 4.953471477826437}
-{"update": 13, "stream": "train-6", "before_write": 20, "gold_ce": 4.3708786308765415}
-{"update": 14, "stream": "train-6", "before_write": 30, "gold_ce": 4.730719383557638}
-{"update": 15, "stream": "train-7", "before_write": 20, "gold_ce": 4.732812237739563}
-{"update": 16, "stream": "train-7", "before_write": 30, "gold_ce": 5.42565819422404}
-{"update": 17, "stream": "train-0", "before_write": 20, "gold_ce": 5.123221778869629}
-{"update": 18, "stream": "train-0", "before_write": 30, "gold_ce": 4.890299113591512}
-{"update": 19, "stream": "train-1", "before_write": 20, "gold_ce": 4.791072404384613}
-{"update": 20, "stream": "train-1", "before_write": 30, "gold_ce": 5.2233932654062905}
-{"update": 21, "stream": "train-2", "before_write": 20, "gold_ce": 4.496358734369278}
-{"update": 22, "stream": "train-2", "before_write": 30, "gold_ce": 5.210468316078186}
-{"update": 23, "stream": "train-3", "before_write": 20, "gold_ce": 4.8223321557044985}
-{"update": 24, "stream": "train-3", "before_write": 30, "gold_ce": 4.759148303667704}
-{"update": 25, "stream": "train-4", "before_write": 20, "gold_ce": 4.307868254184723}
-{"update": 26, "stream": "train-4", "before_write": 30, "gold_ce": 4.56227194070816}
-{"update": 27, "stream": "train-5", "before_write": 20, "gold_ce": 4.7336430788040165}
-{"update": 28, "stream": "train-5", "before_write": 30, "gold_ce": 4.844308336575826}
-{"update": 29, "stream": "train-6", "before_write": 20, "gold_ce": 4.282649314403534}
-{"update": 30, "stream": "train-6", "before_write": 30, "gold_ce": 4.631991322835287}
-{"update": 31, "stream": "train-7", "before_write": 20, "gold_ce": 4.635838443040848}
-{"update": 32, "stream": "train-7", "before_write": 30, "gold_ce": 5.313560167948405}
-{"update": 33, "stream": "train-0", "before_write": 20, "gold_ce": 5.010196089744568}
-{"update": 34, "stream": "train-0", "before_write": 30, "gold_ce": 4.796586863199869}
-{"update": 35, "stream": "train-1", "before_write": 20, "gold_ce": 4.666814124584198}
-{"update": 36, "stream": "train-1", "before_write": 30, "gold_ce": 5.100735759735107}
-{"update": 37, "stream": "train-2", "before_write": 20, "gold_ce": 4.415969914197921}
-{"update": 38, "stream": "train-2", "before_write": 30, "gold_ce": 5.139699880282084}
-{"update": 39, "stream": "train-3", "before_write": 20, "gold_ce": 4.696431183815003}
-{"update": 40, "stream": "train-3", "before_write": 30, "gold_ce": 4.646162907282512}
-{"update": 41, "stream": "train-4", "before_write": 20, "gold_ce": 4.220906955003739}
-{"update": 42, "stream": "train-4", "before_write": 30, "gold_ce": 4.492347419261932}
-{"update": 43, "stream": "train-5", "before_write": 20, "gold_ce": 4.643491208553314}
-{"update": 44, "stream": "train-5", "before_write": 30, "gold_ce": 4.753004121780395}
-{"update": 45, "stream": "train-6", "before_write": 20, "gold_ce": 4.212749099731445}
-{"update": 46, "stream": "train-6", "before_write": 30, "gold_ce": 4.556345880031586}
-{"update": 47, "stream": "train-7", "before_write": 20, "gold_ce": 4.547559046745301}
-{"update": 48, "stream": "train-7", "before_write": 30, "gold_ce": 5.213192907969157}
-{"update": 49, "stream": "train-0", "before_write": 20, "gold_ce": 4.922560083866119}
-{"update": 50, "stream": "train-0", "before_write": 30, "gold_ce": 4.7158300399780275}
-{"update": 51, "stream": "train-1", "before_write": 20, "gold_ce": 4.560106360912323}
-{"update": 52, "stream": "train-1", "before_write": 30, "gold_ce": 4.9986216227213545}
-{"update": 53, "stream": "train-2", "before_write": 20, "gold_ce": 4.339283496141434}
-{"update": 54, "stream": "train-2", "before_write": 30, "gold_ce": 5.067239618301391}
-{"update": 55, "stream": "train-3", "before_write": 20, "gold_ce": 4.6064695596694945}
-{"update": 56, "stream": "train-3", "before_write": 30, "gold_ce": 4.5715931336085}
-{"update": 57, "stream": "train-4", "before_write": 20, "gold_ce": 4.153240066766739}
-{"update": 58, "stream": "train-4", "before_write": 30, "gold_ce": 4.437086455027262}
-{"update": 59, "stream": "train-5", "before_write": 20, "gold_ce": 4.576800191402436}
-{"update": 60, "stream": "train-5", "before_write": 30, "gold_ce": 4.687936504681905}
-{"update": 61, "stream": "train-6", "before_write": 20, "gold_ce": 4.156921446323395}
-{"update": 62, "stream": "train-6", "before_write": 30, "gold_ce": 4.499368902047475}
-{"update": 63, "stream": "train-7", "before_write": 20, "gold_ce": 4.480015516281128}
-{"update": 64, "stream": "train-7", "before_write": 30, "gold_ce": 5.144918902715047}

@@ -1,18 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:03,  2.31it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:02,  2.56it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:01<00:01,  2.60it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  2.59it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:01,  2.61it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:02<00:00,  2.62it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  2.59it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:03<00:00,  2.69it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:03<00:00,  2.62it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[controlled] episode=15 facts=128 damaged=9 basis_rows=9 tail=40
-Traceback (most recent call last):
-  File "/share/latent/PRLM-C/tools/s1d_controlled_c13.py", line 516, in <module>
-    main()
-  File "/share/latent/PRLM-C/tools/s1d_controlled_c13.py", line 512, in main
-    run(p.parse_args())
-  File "/share/latent/PRLM-C/tools/s1d_controlled_c13.py", line 400, in run
-    basis, rows, _ = fact_basis(d0_arm, encoded, basis_keys, mask)
-  File "/share/latent/PRLM-C/tools/s1d_controlled_c13.py", line 302, in fact_basis
-    raise RuntimeError("fact basis rank %d < 13" % basis.shape[1])
-RuntimeError: fact basis rank 9 < 13

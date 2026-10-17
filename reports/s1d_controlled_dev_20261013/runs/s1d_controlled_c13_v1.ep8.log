@@ -1,36 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.08it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.89it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.75it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.65it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.59it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.52it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.51it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.65it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.65it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[controlled] episode=8 facts=128 damaged=14 basis_rows=14 tail=40
-[controlled] episode=8 step=1/60 tail_ce=1.218292 alpha_norm=0.010817 seconds=191.9
-[controlled] episode=8 step=10/60 tail_ce=1.211586 alpha_norm=0.095434 seconds=1883.7
-[controlled] episode=8 step=20/60 tail_ce=1.204941 alpha_norm=0.182285 seconds=3763.3
-[controlled] episode=8 step=30/60 tail_ce=1.199306 alpha_norm=0.251256 seconds=5649.3
-[controlled] episode=8 step=40/60 tail_ce=1.194919 alpha_norm=0.307350 seconds=7530.6
-[controlled] episode=8 step=50/60 tail_ce=1.191441 alpha_norm=0.356745 seconds=9416.4
-[controlled] episode=8 step=60/60 tail_ce=1.188692 alpha_norm=0.405202 seconds=11300.4
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-[s1d-gen] Full 1/64
-[s1d-gen] Full 21/64
-[s1d-gen] Full 41/64
-[s1d-gen] Full 61/64
-[s1d-gen] Selection 1/64
-[s1d-gen] Selection 21/64
-[s1d-gen] Selection 41/64
-[s1d-gen] Selection 61/64
-[s1d-gen] D0 1/64
-[s1d-gen] D0 21/64
-[s1d-gen] D0 41/64
-[s1d-gen] D0 61/64
-[s1d-gen] C 1/64
-[s1d-gen] C 21/64
-[s1d-gen] C 41/64
-[s1d-gen] C 61/64
-FINAL {"n": 64, "arms": {"Full": {"correct": 24, "em": 0.375}, "Selection": {"correct": 26, "em": 0.40625}, "D0": {"correct": 33, "em": 0.515625}, "C": {"correct": 33, "em": 0.515625}}, "compression_lost": ["What is the country of citizenship of Erich Koch?", "Who is the author of Dom Juan?", "What sport is Alexandre Pato associated with?", "What is the country of citizenship of David Sedaris?"], "rescue_d0_wrong": ["Who is the author of Dom Juan?", "What is the country of citizenship of David Sedaris?"], "rescued": [], "harmed": [], "R": 0, "H": 0, "net_target": 0, "C_vs_Selection": {"gained": ["In what country was Madchester created?", "What is the country of citizenship of Craig McCracken?", "What is the country of citizenship of Erich Koch?", "What is the country of citizenship of Pierre Janet?", "What sport is Chase Headley associated with?", "What sport is Alexandre Pato associated with?", "What is the country of citizenship of Alfie Boe?", "What sport is 2014 World Judo Championships associated with?"], "harmed": ["What religion is Francis of Assisi affiliated with?"], "net": 7, "delta_em": 0.109375}, "C_vs_D0": {"gained": [], "harmed": [], "net": 0, "delta_em": 0.0}}

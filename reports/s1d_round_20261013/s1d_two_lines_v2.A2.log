@@ -1,75 +1,0 @@
-[s1d2] rank=0/1 physical_gpu=8
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.23it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  4.14it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.96it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.81it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.77it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.73it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.78it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  4.03it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.92it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[s1d2] (3,17510) rescue=43 rescue_d0_wrong=38 protect=60
-[s1d2] (3,17510) supervision lines=40 skipped_short=19
-[s1d2] fact targets=20 thresholded=112 protect=20 basis=fact_answer_gradients_cached
-[s1d2] generation baselines skipped by protocol
-[s1d2] C identity-at-init verified
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-[s1d-gen] Full 1/276
-[s1d-gen] Full 21/276
-[s1d-gen] Full 41/276
-[s1d-gen] Full 61/276
-[s1d-gen] Full 81/276
-[s1d-gen] Full 101/276
-[s1d-gen] Full 121/276
-[s1d-gen] Full 141/276
-[s1d-gen] Full 161/276
-[s1d-gen] Full 181/276
-[s1d-gen] Full 201/276
-[s1d-gen] Full 221/276
-[s1d-gen] Full 241/276
-[s1d-gen] Full 261/276
-[s1d-gen] Selection 1/276
-[s1d-gen] Selection 21/276
-[s1d-gen] Selection 41/276
-[s1d-gen] Selection 61/276
-[s1d-gen] Selection 81/276
-[s1d-gen] Selection 101/276
-[s1d-gen] Selection 121/276
-[s1d-gen] Selection 141/276
-[s1d-gen] Selection 161/276
-[s1d-gen] Selection 181/276
-[s1d-gen] Selection 201/276
-[s1d-gen] Selection 221/276
-[s1d-gen] Selection 241/276
-[s1d-gen] Selection 261/276
-[s1d-gen] D0 1/276
-[s1d-gen] D0 21/276
-[s1d-gen] D0 41/276
-[s1d-gen] D0 61/276
-[s1d-gen] D0 81/276
-[s1d-gen] D0 101/276
-[s1d-gen] D0 121/276
-[s1d-gen] D0 141/276
-[s1d-gen] D0 161/276
-[s1d-gen] D0 181/276
-[s1d-gen] D0 201/276
-[s1d-gen] D0 221/276
-[s1d-gen] D0 241/276
-[s1d-gen] D0 261/276
-[s1d-gen] C 1/276
-[s1d-gen] C 21/276
-[s1d-gen] C 41/276
-[s1d-gen] C 61/276
-[s1d-gen] C 81/276
-[s1d-gen] C 101/276
-[s1d-gen] C 121/276
-[s1d-gen] C 141/276
-[s1d-gen] C 161/276
-[s1d-gen] C 181/276
-[s1d-gen] C 201/276
-[s1d-gen] C 221/276
-[s1d-gen] C 241/276
-[s1d-gen] C 261/276
-[s1d-gen] complete {"n": 276, "arms": {"Full": {"correct": 174, "em": 0.6304347826086957}, "Selection": {"correct": 121, "em": 0.4384057971014493}, "D0": {"correct": 100, "em": 0.36231884057971014}, "C": {"correct": 124, "em": 0.4492753623188406}}, "compression_lost": ["In what city was Paul Butterfield born?", "Who performed The Wall?", "Who developed File Explorer?", "Who developed Purification Rundown?", "What is the country of citizenship of Mazie Hirono?", "In what city was Guy Debord born?", "Who created Raising the Bar?", "What is the country of citizenship of Al-Waleed bin Talal?", "What continent is Toronto located in?", "Who performed Lady Madonna?", "Who performed Something?", "What is the country of citizenship of Kim Tae-hee?", "In what country was roller derby created?", "In what city was Oasis founded?", "What is the country of citizenship of Lasse Holm?", "What continent is Chu located in?", "Who created Experimental analysis of behavior?", "What is the country of citizenship of Andrzej Wajda?", "Who is the author of Angle of Repose?", "Who founded Cosmopolitan Productions?", "What is the country of citizenship of Alexander I of Russia?", "Who is Dita von Teese married to?", "In what country was Melodifestivalen 2013 created?", "Who developed Tu-95?", "Who developed iOS 9?", "Who is the author of Earthsea series?", "In what country was heartland rock created?", "What sport is center associated with?", "What continent is Bangladesh located in?", "Who founded Discovery Channel?", "Who created Hermia?", "What sport is Matt Kemp associated with?", "In what country was Outsourced created?", "What is the country of citizenship of Lucas di Grassi?", "What position does Kasey Keller play?", "What is the country of citizenship of Shigeru Miyamoto?", "In what country was Dream On created?", "In what city was Steve Jobs born?", "Who is Joseph C. Wilson married to?", "Who created Abe Sapien?", "In what country was The Indianapolis Star created?", "Who is the author of On Liberty?", "What is the country of citizenship of Laurance Rockefeller?", "Who created Chris Griffin?", "What is the country of citizenship of Lorenzo Lamas?", "What is the country of citizenship of Jean-Baptiste Charcot?", "What sport is HVV Den Haag associated with?", "What is the country of citizenship of Anton Chekhov?", "What religion is Josef Dobrovsk\u00fd affiliated with?", "What position does Frank Reich play?", "What religion is Hannah Arendt affiliated with?", "Who created Polonius?", "What religion is Victor Amadeus I affiliated with?", "What is Stephen Schwartz famous for?", "Who is Willie Soon employed by?"], "rescue_d0_wrong": ["In what city was Paul Butterfield born?", "Who developed File Explorer?", "Who developed Purification Rundown?", "What is the country of citizenship of Mazie Hirono?", "In what city was Guy Debord born?", "Who created Raising the Bar?", "What is the country of citizenship of Al-Waleed bin Talal?", "What continent is Toronto located in?", "Who performed Lady Madonna?", "Who performed Something?", "What is the country of citizenship of Kim Tae-hee?", "In what country was roller derby created?", "In what city was Oasis founded?", "What is the country of citizenship of Lasse Holm?", "What continent is Chu located in?", "Who created Experimental analysis of behavior?", "Who is the author of Angle of Repose?", "Who founded Cosmopolitan Productions?", "What is the country of citizenship of Alexander I of Russia?", "Who is Dita von Teese married to?", "In what country was Melodifestivalen 2013 created?", "Who developed Tu-95?", "Who developed iOS 9?", "Who is the author of Earthsea series?", "In what country was heartland rock created?", "What sport is center associated with?", "What continent is Bangladesh located in?", "Who founded Discovery Channel?", "Who created Hermia?", "In what country was Outsourced created?", "What is the country of citizenship of Lucas di Grassi?", "What position does Kasey Keller play?", "What is the country of citizenship of Shigeru Miyamoto?", "In what country was Dream On created?", "In what city was Steve Jobs born?", "Who is Joseph C. Wilson married to?", "Who created Abe Sapien?", "In what country was The Indianapolis Star created?", "Who is the author of On Liberty?", "What is the country of citizenship of Laurance Rockefeller?", "What sport is HVV Den Haag associated with?", "What religion is Josef Dobrovsk\u00fd affiliated with?", "What position does Frank Reich play?", "What religion is Hannah Arendt affiliated with?", "Who created Polonius?", "What religion is Victor Amadeus I affiliated with?", "What is Stephen Schwartz famous for?"], "rescued": ["In what city was Paul Butterfield born?", "In what city was Steve Jobs born?", "Who created Abe Sapien?", "In what country was The Indianapolis Star created?", "Who is the author of On Liberty?", "Who created Polonius?"], "harmed": ["What sport is Matt Kemp associated with?", "What position does Mario Manningham play?", "Who developed Aqua?"], "R": 6, "H": 3, "net_target": 3, "C_vs_Selection": {"gained": ["In what city was Paul Butterfield born?", "Who performed The Wall?", "What language does Richard Price speak?", "What is the country of citizenship of Andrzej Wajda?", "What sport is Afghanistan national football team associated with?", "Who is the author of Through the Looking-Glass?", "In what city was Steve Jobs born?", "Who created Abe Sapien?", "What position does Craig Counsell play?", "In what country was The Indianapolis Star created?", "Who is the author of On Liberty?", "Who created Chris Griffin?", "What is the country of citizenship of Lorenzo Lamas?", "What is the country of citizenship of Jean-Baptiste Charcot?", "What is the country of citizenship of Anton Chekhov?", "Who created Polonius?", "Who is Willie Soon employed by?", "What sport is Braintree Town F.C. associated with?"], "harmed": ["In what country was soca music created?", "What language does Guan Zhong speak?", "What language does Graham Greene speak?", "What sport is Jackie Jensen associated with?", "What is the country of citizenship of Ellen Pompeo?", "What is the capital of Czech Republic?", "What is the country of citizenship of Kate Bush?", "What language does Ed Boon speak?", "In what city did Josiah Quincy III work?", "What language does Diane Abbott speak?", "Who created Bob Cratchit?", "What language does Vytautas Landsbergis speak?", "Who developed Aqua?", "What is the country of citizenship of Noriyuki Iwadare?", "Who is Robert Browning employed by?"], "net": 3, "delta_em": 0.010869565217391304}, "C_vs_D0": {"gained": ["In what city was Paul Butterfield born?", "Who is the author of Les Mis\u00e9rables?", "What position does Ty Detmer play?", "What is the country of citizenship of Lu\u00eds Figo?", "What sport is Afghanistan national football team associated with?", "In what city was Steve Jobs born?", "Who is the director of inXile entertainment?", "Who founded Fiat S.p.A.?", "Who created Abe Sapien?", "What is the country of citizenship of Peter King?", "In what country was The Indianapolis Star created?", "Who is the author of Salome?", "Who is the author of On Liberty?", "What language does Joanna Newsom speak?", "Who founded McLaren?", "Who created Bart Simpson?", "Who created Known Space?", "Who created Polonius?", "Who founded Browning Arms Company?", "Who created WWE Tough Enough?", "Who is the author of Totem and Taboo?", "In what city was Kari Lehtonen born?", "Who is the author of Paradiso?", "In what city did Henry David Thoreau die?", "Who created Quatermass II?", "Who is the author of The Idiot?", "Who performed My Sweet Lord?"], "harmed": ["What sport is Matt Kemp associated with?", "What position does Mario Manningham play?", "Who developed Aqua?"], "net": 24, "delta_em": 0.08695652173913043}}
