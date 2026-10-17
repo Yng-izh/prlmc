@@ -39,3 +39,7 @@ reports/longbench_prlmc_v4_8k_analysis.md（official_qa_f1_truncated，%）：
 ## 证据位置
 
 runs/longbench_native50_20261015_082937/、runs/longbench_prlmc_v4/、runs_results/（逐题 JSON，dsup8k__* 等 27 项）。
+
+## 后续评测方案（规划中，未执行）
+
+- experiments/Evaluation-plan-benchmarks-baselines.md——三 benchmark（LongBench 6-QA / LooGLE / LongBench v2 Medium）× 五外部 baseline（MemoryLLM-8B、M+、H₂O、KIVI、ReST-KV）的统一预算（50 blocks / 3.125 GiB 真实历史存储）主表与消融副表方案；M+ 与 ReST-KV 的容量公平性验证未完成。
