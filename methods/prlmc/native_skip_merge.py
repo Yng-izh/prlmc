@@ -13,8 +13,8 @@ from .gated_slot_merge import GraftedSlotMemoryMerge
 class SupervisedDSlotMerge(GraftedSlotMemoryMerge):
     architecture = "grouped_gated_sparse_slot_v4"
 
-    def _sparse_attention(self, query, keys):
-        probabilities, indices = super()._sparse_attention(query, keys)
+    def _sparse_attention(self, query, keys, *extra):
+        probabilities, indices = super()._sparse_attention(query, keys, *extra)
         if hasattr(self, "_coverage_mass"):
             with torch.no_grad():
                 bins=(indices.detach()//self._coverage_block).flatten()

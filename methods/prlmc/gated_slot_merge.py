@@ -106,8 +106,26 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         initial_gate = kwargs.get("initial_gate", .02)
         nn.init.constant_(self.slot_gate.bias, math.log(initial_gate / (self.gamma_max - initial_gate)))
 
-    def _sparse_attention(self, query, keys):
-        logits = (query @ keys.T) / self.route_temperature
+    def _sparse_attention(self, query, keys, q_raw=None, k_raw=None, key_mask=None):
+        # Learned cosine and raw-projection cosine carry equal weight, on a
+        # shared 0.03 temperature; the per-key logsumexp term pushes routing
+        # away from few overloaded keys (load balancing). Raw projections and
+        # the prefix mask are explicit arguments so chunked checkpoint
+        # recomputation stays a pure function of its inputs.
+        if q_raw is None:
+            logits = (query @ keys.T) / max(1e-6, float(self.route_temperature))
+        else:
+            logits = (0.5 * (q_raw @ k_raw.T) + 0.5 * (query @ keys.T)) / 0.03
+        balance = getattr(self, "_balance_offset", None)
+        if balance is not None:
+            # Per-key load-balance prior, computed once over the full query set
+            # in forward and detached: chunks stay pure functions of their
+            # inputs, so results are independent of query_chunk_size.
+            logits = logits + balance
+        if key_mask is not None:
+            # True marks the leading "Context:" prefix slots of each block;
+            # they carry template text, not content, and must never be fused.
+            logits = logits + key_mask.float() * (-1e30)
         values, indices = logits.topk(min(self.topk, keys.shape[0]), dim=-1)
         # Only k weights are retained. Dense logits are transient/chunked.
         return torch.softmax(values, dim=-1), indices
@@ -163,15 +181,40 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
             return carriers.flatten(1, 2).contiguous()
         fusion = blocks.index_select(1, source_indices)
         ref = carriers[self.reference_layer].detach().float().flatten(0, 1)
-        query = _l2(self.q(_l2(ref)))
-        keys = _l2(self.k(_l2(fusion[self.reference_layer].detach().float().flatten(0, 1))))
-        alpha = self.gamma_max * torch.sigmoid(self.slot_gate(_l2(ref)))
+        q_raw = self.q(_l2(ref))
+        k_raw = self.k(_l2(fusion[self.reference_layer].detach().float().flatten(0, 1)))
+        query = _l2(q_raw)
+        keys = _l2(k_raw)
+        # Block-wise de-mean + z-score of the gate input pulls gate spread apart
+        # before the global RMS cap can flatten it. With the zero-initialized
+        # gate weight the standardized input leaves step-0 alpha unchanged.
+        gate_in = _l2(ref).reshape(-1, self.block, self.hidden)
+        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
+            gate_in.std(1, keepdim=True) + 1e-6)
+        alpha = self.gamma_max * torch.sigmoid(self.slot_gate(gate_in.flatten(0, 1)))
+        prefix = int(getattr(self, "prefix_slots", 4))
+        if 0 < prefix < self.block:
+            # True marks the leading "Context:" prefix slots of each block:
+            # they carry template text, not content, and must never be fused.
+            self._key_mask = (torch.arange(keys.shape[0], device=keys.device)
+                              % self.block) < prefix
+        else:
+            self._key_mask = None
+        prefix_mask = self._key_mask
+        self._balance_offset = None
+        if q_raw is not None:
+            with torch.no_grad():
+                full = (0.5 * (q_raw.detach() @ k_raw.detach().T)
+                        + 0.5 * (query.detach() @ keys.detach().T)) / 0.03
+                queries = max(1, full.shape[0])
+                self._balance_offset = (-0.5 * torch.logsumexp(full, dim=0, keepdim=True)
+                                        / max(1e-6, math.log(queries)))
         use_ckpt = torch.is_grad_enabled() and any(p.requires_grad for p in self.parameters())
         chunks = []
         for begin in range(0, target, self.query_chunk_size):
-            args = (query[begin:begin+self.query_chunk_size], keys)
-            chunks.append(checkpoint(self._sparse_attention, *args, use_reentrant=False)
-                          if use_ckpt else self._sparse_attention(*args))
+            chunks.append(self._sparse_attention(
+                query[begin:begin+self.query_chunk_size], keys,
+                q_raw[begin:begin+self.query_chunk_size], k_raw, prefix_mask))
         probabilities = torch.cat([p for p, _ in chunks])
         indices = torch.cat([i for _, i in chunks])
         outputs = []
