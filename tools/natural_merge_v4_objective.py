@@ -79,14 +79,29 @@ def make_optimizer(module):
         weight_decay=TRAIN_V4["weight_decay"])
 
 
+# Continuation-pollution first tokens: if the model treats the answer end as a
+# prompt boundary it will start a new "Context:"/"Question(s):" turn instead of
+# stopping. Penalizing their margin against the gold final token trains the EOS
+# decision, not just the token identity.
+BAD_CONTINUATION_IDS = (2014, 14924, 36349)  # " Context", " Question", " Questions"
+
+
 def objective_terms(logits, gold, reference_ce, teacher, coefficients):
     ce = F.cross_entropy(logits[:-1], gold[:-1])
     eos_ce = F.cross_entropy(logits[-1:], gold[-1:])
+    vocab = logits.shape[-1]
+    bad_ids = [i for i in BAD_CONTINUATION_IDS if i < vocab]
+    if bad_ids:
+        hallucination_penalty = (torch.logsumexp(logits[-1, bad_ids], dim=0)
+                                 - logits[-1, gold[-1]])
+    else:
+        hallucination_penalty = torch.zeros((), dtype=logits.dtype, device=logits.device)
+    eos_margin = F.relu(hallucination_penalty + 2.0)
     kd = teacher_kl(logits[:-1], teacher) if teacher is not None else ce.new_zeros(())
     recovery = coefficients["recovery"]*ce
     distillation = TRAIN_V4["teacher_weight"]*coefficients["teacher"]*kd
     protection = coefficients["protect"]*TRAIN_V4["protection_weight"]*F.relu(ce-reference_ce-TRAIN_V4["protection_margin"])
-    eos = TRAIN_V4["eos_weight"]*coefficients["eos"]*eos_ce
+    eos = TRAIN_V4["eos_weight"]*coefficients["eos"]*(eos_ce + 0.5*eos_margin)
     return ce, kd, recovery, distillation, protection, eos_ce, eos
 
 
