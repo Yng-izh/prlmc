@@ -110,11 +110,21 @@ def split_prompt(tokenizer, task, row, total_tokens):
     return prompt, ids, write_ids, query_ids
 
 
-def reset_model(model, initial_memory, initial_initialized):
+def truncated_prediction(prediction):
+    """Official LongBench post-processing: cut at the first newline."""
+    cut = prediction.find("\n")
+    return prediction if cut < 0 else prediction[:cut]
+
+
+def reset_model(model, initial_memory, initial_initialized, reset_memory=False):
     import torch
     with torch.no_grad():
         model.memory.copy_(initial_memory)
         model.initialized.copy_(initial_initialized)
+        if reset_memory:
+            # Clear the checkpoint's initial residual pool so every sample
+            # starts from a fully empty memory.
+            model.initialized.zero_()
         if hasattr(model, "memory_active_mask"):
             model.memory_active_mask.fill_(True)
 
@@ -130,6 +140,8 @@ def native_write(model, token_ids):
 def generate(model, tokenizer, query_ids, max_new_tokens):
     import torch
     ids = torch.tensor([query_ids], dtype=torch.long, device=model.memory.device)
+    newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
+    eos_ids = [tokenizer.eos_token_id, newline_id]
     attention = torch.ones((1, model.num_blocks * model.num_tokens + len(query_ids)),
                            dtype=torch.long, device=ids.device)
     with torch.no_grad():
@@ -137,7 +149,7 @@ def generate(model, tokenizer, query_ids, max_new_tokens):
                                 max_new_tokens=max_new_tokens, num_beams=1,
                                 do_sample=False, temperature=1.0, top_p=1.0, top_k=0,
                                 pad_token_id=tokenizer.pad_token_id,
-                                eos_token_id=tokenizer.eos_token_id)
+                                eos_token_id=eos_ids)
     out = output[0, ids.shape[1]:].detach().cpu().tolist()
     return tokenizer.decode(out, skip_special_tokens=True), out
 
@@ -223,13 +235,15 @@ def evaluate(args):
         for sample_index, row in enumerate(rows):
             sample_started = time.monotonic()
             seed_everything(args.seed)
-            reset_model(model, initial_memory, initial_initialized)
+            reset_model(model, initial_memory, initial_initialized,
+                        reset_memory=args.reset_memory)
             prompt, all_ids, write_ids, query_ids = split_prompt(tokenizer, task, row, args.total_tokens)
             original_tokens = len(tokenizer(prompt, add_special_tokens=False, truncation=False).input_ids)
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
             for chunk in writes:
                 native_write(model, chunk)
             prediction, output_ids = generate(model, tokenizer, query_ids, MAX_NEW[task])
+            truncated = truncated_prediction(prediction)
             if model.memory.shape[1] != 12800 or int(model.num_blocks) != 50:
                 raise ValueError("native capacity changed during evaluation")
             report["samples"].append(dict(task=task, sample_index=sample_index, id=row.get("_id"),
@@ -243,7 +257,8 @@ def evaluate(args):
                 max_new_tokens=MAX_NEW[task], output_token_count=len(output_ids),
                 seconds=time.monotonic()-sample_started,
                 prediction=prediction, output_tokens=output_ids, answers=row["answers"],
-                official_qa_f1=score(prediction, row["answers"])))
+                official_qa_f1=score(prediction, row["answers"]),
+                official_qa_f1_truncated=score(truncated, row["answers"])))
             report["progress"] = dict(task=task, sample=sample_index + 1, total=len(rows))
             report["elapsed_seconds"] = time.monotonic()-started
             atomic_json(output, report)
@@ -251,7 +266,10 @@ def evaluate(args):
                                   seconds=report["samples"][-1]["seconds"])), flush=True)
     report["status"] = "complete"
     report["summary"] = {task: dict(n=sum(s["task"] == task for s in report["samples"]),
-        qa_f1=100 * np.mean([s["official_qa_f1"] for s in report["samples"] if s["task"] == task]))
+        qa_f1=100 * np.mean([s["official_qa_f1_truncated"]
+                             for s in report["samples"] if s["task"] == task]),
+        qa_f1_raw=100 * np.mean([s["official_qa_f1"]
+                                 for s in report["samples"] if s["task"] == task]))
         for task in tasks}
     report["elapsed_seconds"] = time.monotonic() - started
     report["peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
@@ -267,6 +285,9 @@ def main():
     p.add_argument("--total-tokens", "--max_length", dest="total_tokens", type=int,
                    required=True, choices=(8192, 16384))
     p.add_argument("--capacity-blocks", type=int, default=50, choices=(50,))
+    p.add_argument("--reset-memory", action="store_true",
+                   help="clear the checkpoint's initial residual pool "
+                        "(model.initialized.zero_()) before every sample")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--tasks", nargs="+", choices=DEFAULT_TASKS)
     p.add_argument("--max-samples", type=int, default=None,

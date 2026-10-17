@@ -64,6 +64,8 @@ def truncated_prediction(prediction):
 
 def generate(model, tokenizer, query_ids, max_new_tokens):
     ids = torch.tensor([query_ids], dtype=torch.long, device=model.memory.device)
+    newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
+    eos_ids = [tokenizer.eos_token_id, newline_id]
     attention = torch.ones((1, model.memory.shape[1] + len(query_ids)),
                            dtype=torch.long, device=ids.device)
     with torch.no_grad():
@@ -71,7 +73,7 @@ def generate(model, tokenizer, query_ids, max_new_tokens):
                                 max_new_tokens=max_new_tokens, num_beams=1,
                                 do_sample=False, temperature=1.0, top_p=1.0, top_k=0,
                                 pad_token_id=tokenizer.pad_token_id,
-                                eos_token_id=tokenizer.eos_token_id)
+                                eos_token_id=eos_ids)
     out = output[0, ids.shape[1]:].detach().cpu().tolist()
     return tokenizer.decode(out, skip_special_tokens=True), out
 
@@ -254,7 +256,10 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--cuda-device", default="0")
     p.add_argument("--total-tokens", "--max_length", dest="total_tokens", type=int,
-                   required=True, choices=(8192, 16384))
+                   default=16384, choices=(8192, 16384),
+                   help="default 16384: the 20-block budget only triggers 19->9 "
+                        "merges when write_prefix_tokens exceeds 4096, so 8192 "
+                        "yields compression_count=0; 16384 guarantees merges")
     p.add_argument("--arm", default="SharedMerge",
                    choices=("SharedMerge", "Selection"),
                    help="SharedMerge = trained Dsup residual merge (our method); "
