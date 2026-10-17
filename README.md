@@ -6,6 +6,15 @@
 
 数据使用原始 SQuAD context、question 和 answer，训练与开发、正式评测按文章隔离。人造 episode 和逐窗口 C13 已退出主方法，仅保留历史诊断证据。
 
+## 文档导航（按研究时间线）
+
+- [00 导览](docs/00-overview.md) —— 研究时间线与当前主线
+- [01 问题发现](docs/01-problem-discovery.md) —— E0–E7、SIC、读出诊断（正文缺失，结论索引）
+- [02 方法探索](docs/02-method-exploration.md) —— S0/S1/S1c/S1d/G 系列（全部停线）
+- [03 自然融合主线](docs/03-natural-merge.md) —— v1 → v2 A/B/C → v3 C/D
+- [04 LongBench 评测](docs/04-longbench-eval.md) —— native50 基线 + PRLMC v4 三臂
+- [05 Public Retention](docs/05-public-retention.md) —— 冻结 SharedE6d 公开知识保持
+
 ## 已完成的 v2 实验
 
 | 组别 | 结构 | 训练目标 |
@@ -16,14 +25,13 @@
 
 三组固定同一 reader、312 个原始训练 context、1402 道原始 QA、rank=32、残差上限 0.05、19→9 块压缩和 64 次更新。只使用最后 checkpoint，生成协议及推进门槛预先固定。B−A 检验监督变化，C−B 检验整体融合结构变化。
 
-- [完整 A/B/C 协议与运行命令](experiments/Natural-merge-v2-ABC.md)
-- [E1/E2/E3 数据划分、评测与冻结门槛](experiments/Natural-cross-block-merge-design.md)
-- [本轮启动记录](reports/natural_merge_v2_20261014/status.md)
-- [报告索引与证据边界](reports/README.md)
+- [完整 A/B/C 协议与运行命令](archive/2026H1_legacy/experiments/Natural-merge-v2-ABC.md)
+- [E1/E2/E3 数据划分、评测与冻结门槛](archive/2026H1_legacy/experiments/Natural-cross-block-merge-design.md)
+- [本轮启动记录与逐题结果](runs/natural_merge_v2_abc_20261014_023355_r2/comparison.json)
 
-三组均已完成 64 次更新、训练内生成诊断和开发 E1。93 道开发问题上，Full / Selection / A / B / C 分别答对 35 / 26 / 27 / 27 / 27；三组相对 Selection 新增同一道题，无损伤，但均未恢复 Full-correct / Selection-wrong 的 9 道压缩损失题。非载体完整融合−屏蔽融合净收益均为零，三组都未通过推进门槛，未启动正式 E1/E2/E3。见[本轮结果与限制](reports/natural_merge_v2_20261014/results.md)和[原始对比](reports/natural_merge_v2_20261014/completed_run/comparison.json)。目前尚未证明正式自然任务上的稳定收益或跨任务泛化。
+三组均已完成 64 次更新、训练内生成诊断和开发 E1。93 道开发问题上，Full / Selection / A / B / C 分别答对 35 / 26 / 27 / 27 / 27；三组相对 Selection 新增同一道题，无损伤，但均未恢复 Full-correct / Selection-wrong 的 9 道压缩损失题。非载体完整融合−屏蔽融合净收益均为零，三组都未通过推进门槛，未启动正式 E1/E2/E3。见[原始对比](runs/natural_merge_v2_abc_20261014_023355_r2/comparison.json)。目前尚未证明正式自然任务上的稳定收益或跨任务泛化。
 
-上一轮自然融合开发 E1 同样未通过门槛，见[原始裁决](reports/natural_merge_initial_20261013/results.md)。历史失败结果与本轮原始证据均保留。
+上一轮自然融合开发 E1 同样未通过门槛，见[原始裁决](runs/natural_merge_initial_v1.results.md)。历史失败结果与本轮原始证据均保留。
 
 ## 仓库结构
 
@@ -31,11 +39,11 @@
 methods/prlmc/          共享融合模块、载体选择、记忆布局和兼容组件
 methods/memoryllm_modeling/  用于这些实验的 MemoryLLM reader 实现
 tools/                  数据准备、训练、冻结评测、验证和必要兼容依赖
-experiments/            当前自然融合 v1/v2/v3 协议
+experiments/            当前主线协议（v3 C/D、LongBench v4、public retention）
 data/                   固定公开数据版本及哈希清单；原始数据另行下载
 reports/                本轮记录和历史原始报告、逐题预测与校验证书
 references/             MemoryLLM 作者评测脚本及来源记录
-archive/                旧实验文档、历史导航及本次清理清单
+archive/                旧线代码与文档（2026H1_legacy）；docs/ 为研究时间线索引
 ```
 
 [工具入口](tools/README.md)区分当前实验与兼容依赖。历史报告和 source snapshot 保留原始内容及哈希；其中的运行时路径描述当时环境，不代表当前入口。
@@ -57,7 +65,7 @@ python tools/run_natural_merge_v2.py \
 
 卡号和模型路径按实际环境设置。输出目录必须不存在，运行器会检查每卡至少 28000 MiB 空闲；已启动任务不要重复执行。每组依次运行 smoke、全新训练、训练内生成诊断、开发 E1，然后生成对比报告。训练内生成不作为泛化证据；运行器不会自动开启正式 E1/E2/E3。
 
-首次准备数据及逐组运行请按[完整协议](experiments/Natural-merge-v2-ABC.md)执行。原始 SQuAD 下载入口为 `tools/stage_natural_merge_data.py`；v1 计划准备还要求已观察问题集、匹配的公开干扰段落和固定 NaturalQA 计划，不能省略这些输入来绕过隔离审计。
+首次准备数据及逐组运行请按[完整协议](archive/2026H1_legacy/experiments/Natural-merge-v2-ABC.md)执行。原始 SQuAD 下载入口为 `tools/stage_natural_merge_data.py`；v1 计划准备还要求已观察问题集、匹配的公开干扰段落和固定 NaturalQA 计划，不能省略这些输入来绕过隔离审计。
 
 ## CPU 验证
 
@@ -72,4 +80,4 @@ python -m unittest discover -s tools -p 'test_public_retention.py'
 
 Selection 与共享融合使用相同有效槽位预算。物理 reader 记忆池仍保持模型大小，因此有效槽位减少不等于节省物理显存；NativeBudget 的初始化、布局及淘汰策略也不同，只作为系统级对照。
 
-旧受控数据、C13、保护、扩维等实验归入[历史索引](archive/README.md)，不作为公开自然任务有效性的主证据。被移除的旧执行文件可从清理前 Git 提交恢复；本次清理没有修改正在运行的服务器代码、计划或进程。
+旧受控数据、C13、保护、扩维等实验归入历史索引（docs/02-method-exploration.md），不作为公开自然任务有效性的主证据。被移除的旧执行文件可从清理前 Git 提交恢复；本次清理没有修改正在运行的服务器代码、计划或进程。

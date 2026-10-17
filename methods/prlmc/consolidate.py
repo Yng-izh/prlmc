@@ -9,14 +9,14 @@ The operator families, in the order the experiments introduced them:
     trained to consume.
   * `svd_tokens` / `weighted_svd_tokens` -- principal directions scaled by their
     singular values. These emit K' brand-new vectors that lie off the native delta
-    memory manifold. Kept only as a failed baseline; see EXPERIMENTS.md E4.
+    memory manifold. Kept only as a failed baseline; see archive/2026H1_legacy/root/EXPERIMENTS.md (E4).
   * `carrier_residual` -- **native carriers plus a bounded learned residual**. The
     same blocks `select_blocks` would keep, fused by a shared block-level routing
     distribution and corrected by `gamma * delta`. At initialisation `delta` is
     exactly zero, so the operator is bit-identical to `select_blocks`; the output
     never leaves the native manifold by more than a bounded fraction of the
     carriers' own RMS. See `CarrierResidualCompactor` for the three structural
-    properties and `EXPERIMENTS.md` E6a/E6b for what training moves.
+    properties and archive/2026H1_legacy/root/EXPERIMENTS.md E6a/E6b for what training moves.
 
 Section 3.4 states the subtlety that governs this file:
 
@@ -112,7 +112,7 @@ _SELECT_LAYER = 0
 _EPS = 1e-8
 
 # Development starting values for the selection score. They are deliberately
-# tilted towards recency: the run that motivates this phase (EXPERIMENTS.md E4)
+# tilted towards recency: the run that motivates this phase (archive/2026H1_legacy/root/EXPERIMENTS.md E4)
 # shows that a compactor which discards recently written native blocks loses the
 # answer, so recency must be a strong default until E5b shows otherwise.
 _DEFAULT_SELECT_WEIGHTS = {

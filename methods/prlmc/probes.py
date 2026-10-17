@@ -157,7 +157,7 @@ def _probe_batches(
                 # span into the middle of it. The rendered `rag_agent` prompt is
                 # ~163 tokens, so any `max_length` below that scored an instruction
                 # word rather than the answer and every accuracy/gold number was
-                # independent of the memory pool. See EXPERIMENTS.md, E6a.
+                # independent of the memory pool. See archive/2026H1_legacy/root/EXPERIMENTS.md, E6a.
                 raise ValueError(
                     "_probe_batches: max_length=%d truncates the %d-token prompt; "
                     "the answer span would be mid-instruction"

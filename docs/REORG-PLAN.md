@@ -58,3 +58,12 @@ archive/docs/                    旧线正文归档（git mv，内容不动）
 
 - 根目录 LongBench-MemoryLLM-8B-native50.md 与 experiments/ 版本 diff 后：相同→删，不同→归档。
 - EXPERIMENTS.md 中被引用但缺失的正文（E0–E7/S0/G 系列等）：确认是否存在于其他机器/备份；如确认丢失，01/02 索引中标注「正文缺失」即可，不重建。
+
+---
+
+## 执行偏差记录（2026-10-17，t5 执行时追加）
+
+- t4 实际归档路径为 `archive/2026H1_legacy/{root,experiments,tools,...}`，非本计划 §四 的 `archive/docs/`。根 EXPERIMENTS.md → archive/2026H1_legacy/root/EXPERIMENTS.md；BASELINE.md → archive/2026H1_legacy/root/BASELINE.md；experiments/ 17 篇旧线 → archive/2026H1_legacy/experiments/。
+- 根目录 LongBench-MemoryLLM-8B-native50.md 副本由 t4 判定与正式版相同并删除（commit 456a446/c520085），未归档为 root-copy。
+- experiments_check_tmp.md/ 目录由 t4 按删除清单处置。
+- docs/00–05 六篇索引按 §三 新建于 docs/；README.md 增加文档导航段并修复归档后死链；methods/prlmc/consolidate.py、probes.py 注释中的 EXPERIMENTS.md 引用更新为归档路径。
