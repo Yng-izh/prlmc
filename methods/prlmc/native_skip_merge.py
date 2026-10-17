@@ -6,6 +6,7 @@ It is a source difference, not a claim of lossless copying or new memory slots.
 import torch
 from torch import nn
 
+from .consolidate import _DELTA_VAR_EPS
 from .gated_slot_merge import GraftedSlotMemoryMerge
 
 
@@ -40,8 +41,11 @@ class NativeSkipSlotMerge(SupervisedDSlotMerge):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Zero starts at exactly the same function as supervised D. One signed
+        # Zero starts at exactly the same function as supervised D: at
+        # native_gain=0 the merge is bit-identical to Selection. One signed
         # scalar is sufficient; the existing gates and cap bound both paths.
+        # (A per-layer gain would broadcast against [queries, hidden] inside
+        # _group_delta, which has no layer index, so it stays scalar.)
         self.native_gain = nn.Parameter(torch.zeros(()))
 
     def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
@@ -49,17 +53,23 @@ class NativeSkipSlotMerge(SupervisedDSlotMerge):
         adapted = super()._group_delta(probabilities, indices, source_layer,
                                       carrier_layer, down_weight, up_weight)
         source = source_layer.float().flatten(0, 1)
+        carrier = carrier_layer.float().flatten(0, 1)
+        carrier_rms = carrier.square().mean(-1, keepdim=True).sqrt()
         chunks = []
         # Do not materialize [2304,8,4096] at once on a 32-GiB V100.
         for start in range(0, indices.shape[0], self.query_chunk_size):
             ix = indices[start:start+self.query_chunk_size]
             p = probabilities[start:start+self.query_chunk_size]
             chunks.append((source[ix] * p.unsqueeze(-1)).sum(1))
-        native = torch.cat(chunks) - carrier_layer.float().flatten(0, 1)
-        return adapted + self.native_gain * native
+        # Native branch: per-slot RMS normalization first, then rescale to the
+        # carrier RMS, so its energy never flattens the adapted delta.
+        native = torch.cat(chunks) - carrier
+        native = native * torch.rsqrt(native.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS) * carrier_rms
+        combined = adapted + self.native_gain * native
+        return combined * torch.rsqrt(combined.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS) * carrier_rms
 
     def forward(self, *args, **kwargs):
         output = super().forward(*args, **kwargs)
         self.last_fusion.update(native_gain=float(self.native_gain.detach()),
-            native_path="same Top-8 full-width source average minus carrier; same slot gate and RMS cap")
+            native_path="same Top-8 full-width source average minus carrier; per-slot RMS-normalized to carrier scale")
         return output

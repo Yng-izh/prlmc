@@ -66,7 +66,7 @@ def make_optimizer(module):
     gates, matrices = [], []
     gate_names, matrix_names = [], []
     for name, parameter in module.named_parameters():
-        if name == "gamma_logit" or name.startswith("slot_gate."):
+        if name == "gamma_logit" or name.startswith("slot_gate.") or name == "native_gain":
             gates.append(parameter); gate_names.append(name)
         else:
             matrices.append(parameter); matrix_names.append(name)
@@ -74,7 +74,8 @@ def make_optimizer(module):
         raise ValueError("both optimizer groups required")
     return torch.optim.AdamW([
         dict(params=matrices, lr=TRAIN_V4["matrix_learning_rate"], name="matrices", parameter_names=matrix_names),
-        dict(params=gates, lr=TRAIN_V4["gate_learning_rate"], name="gates", parameter_names=gate_names)],
+        dict(params=gates, lr=TRAIN_V4["gate_learning_rate"], name="gates", parameter_names=gate_names,
+             weight_decay=0.)],
         weight_decay=TRAIN_V4["weight_decay"])
 
 
