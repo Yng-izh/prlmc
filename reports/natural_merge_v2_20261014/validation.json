@@ -1,0 +1,116 @@
+{
+  "status": "passed",
+  "date": "2026-10-14",
+  "remote_files_verified": 69,
+  "current_runtime_sources_match": {
+    "configs/agent_conf/prlmc_e6.yaml": true,
+    "methods/prlmc/config.py": true,
+    "methods/prlmc/importance.py": true,
+    "methods/prlmc/capacity.py": true,
+    "methods/prlmc/subspace.py": true,
+    "tools/native_qa_compare.py": true,
+    "methods/prlmc/merge.py": true,
+    "methods/prlmc/consolidate.py": true,
+    "methods/prlmc/layout.py": true,
+    "methods/prlmc/probes.py": true,
+    "tools/natural_merge_runtime.py": true,
+    "tools/prepare_natural_merge.py": true,
+    "tools/natural_merge_eval.py": true,
+    "tools/natural_merge_train.py": true,
+    "tools/verify_natural_merge.py": true,
+    "tools/public_retention_eval.py": true,
+    "tools/prepare_public_retention.py": true,
+    "tools/freeze_natural_merge.py": true,
+    "tools/run_natural_merge_parallel.py": true,
+    "methods/prlmc/slot_merge.py": true,
+    "tools/prepare_natural_merge_v2.py": true,
+    "tools/natural_merge_v2_train.py": true,
+    "tools/run_natural_merge_v2.py": true,
+    "tools/summarize_natural_merge_v2.py": true,
+    "tools/natural_merge_v2_training_fit.py": true,
+    "methods/memoryllm_modeling/modeling_memoryllm.py": true
+  },
+  "variants": {
+    "A": {
+      "development": {
+        "schema": "natural_merge_certificate/1",
+        "status": "passed",
+        "result_content_sha256": "f5bd02410804d8a424f936c1b01ab0bc292d727de740c9c78d9404b48d4f860d",
+        "plan_content_sha256": "addb4c44c00e0331426682a0e3008106fdba86526da45a5556328f5fb9ee681d",
+        "original_qa_count": 93,
+        "verified": [
+          "original QA and official primary rescoring",
+          "fixed carrier schedule",
+          "active budgets",
+          "isolated compression hooks",
+          "frozen state",
+          "paired context bootstrap",
+          "honest Full capacity"
+        ]
+      },
+      "updates": 64,
+      "checkpoint_sha256": "bec958e2513b656d306d567f8556d6abd63a2eeddb64114e077ae27c5d6e9638",
+      "training_fit_qa_count": 88
+    },
+    "B": {
+      "development": {
+        "schema": "natural_merge_certificate/1",
+        "status": "passed",
+        "result_content_sha256": "c64026e2c6b48c3d777e19c41da4176a52bae18d4ef093bf1d639f31f94607d5",
+        "plan_content_sha256": "addb4c44c00e0331426682a0e3008106fdba86526da45a5556328f5fb9ee681d",
+        "original_qa_count": 93,
+        "verified": [
+          "original QA and official primary rescoring",
+          "fixed carrier schedule",
+          "active budgets",
+          "isolated compression hooks",
+          "frozen state",
+          "paired context bootstrap",
+          "honest Full capacity"
+        ]
+      },
+      "updates": 64,
+      "checkpoint_sha256": "664d6088da560fd2f08cfad3a65686444a6dd66457531b3e6b5503c2a6c1bc31",
+      "training_fit_qa_count": 88
+    },
+    "C": {
+      "development": {
+        "schema": "natural_merge_certificate/1",
+        "status": "passed",
+        "result_content_sha256": "3ee6bbf5aff86917c228f2f5f8fa2c9f4e837521f0807f8f305489c3be1ebeb1",
+        "plan_content_sha256": "addb4c44c00e0331426682a0e3008106fdba86526da45a5556328f5fb9ee681d",
+        "original_qa_count": 93,
+        "verified": [
+          "original QA and official primary rescoring",
+          "fixed carrier schedule",
+          "active budgets",
+          "isolated compression hooks",
+          "frozen state",
+          "paired context bootstrap",
+          "honest Full capacity"
+        ]
+      },
+      "updates": 64,
+      "checkpoint_sha256": "b477c19131a1dd00788291bf3cac4758c32269472c5627039ba6e6b5bc22a3ee",
+      "training_fit_qa_count": 88
+    }
+  },
+  "all_stage_exit_codes_zero": true,
+  "server_comparison_matches_local_recomputation": true,
+  "formal_evaluation_started": false,
+  "development_gates": {
+    "A": false,
+    "B": false,
+    "C": false
+  },
+  "cpu_tests": {
+    "natural_merge": 40,
+    "public_retention": 15,
+    "passed": 55
+  },
+  "limitations": [
+    "No GPU rerun during archiving.",
+    "Local rescoring uses saved decoded texts and validates token limits; token-to-text decoding was checked by the server evaluation and is not rerun locally without tokenizer assets.",
+    "Only one already-observed development stream; training-fit is a diagnosis, not independent evaluation."
+  ]
+}

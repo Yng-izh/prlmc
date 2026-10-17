@@ -1,0 +1,10 @@
+{
+  "raw_data_manifest": "data/public_retention_original_c609067/public_dataset_manifest.json",
+  "suite_index": "reports/natural_merge_implementation_20261013/data_suite.json",
+  "data_certificate": "reports/natural_merge_implementation_20261013/data_certificate.json",
+  "prepare_script": "tools/prepare_natural_merge.py",
+  "remote_plans": "v100-1:/share/latent/PRLM-C/data/natural_merge_v1/",
+  "train_plan_sha256": "83a547dccbaf1772cf75122187ed385ed8abdebc215a712eff7a6bfd8dec043e",
+  "development_plan_sha256": "7d70595c282bc14af52956e05bd1e874b74f6d84dabd8dc28713dc91b3bcde1b",
+  "note": "Full plan files remain on the server; sealed suite records hashes and the preparation script reconstructs them from pinned public inputs."
+}

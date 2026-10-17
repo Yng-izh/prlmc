@@ -1,0 +1,152 @@
+{
+  "status": "superseded",
+  "pid": 77144,
+  "host": "v100-2",
+  "source_report": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.weak.json",
+  "source_log": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.weak.log",
+  "training_pid": 76584,
+  "original_launcher": {
+    "status": "superseded_parallel",
+    "pid": 76074,
+    "gpu": 0,
+    "created_utc": "2026-10-12T13:22:42.719609+00:00",
+    "protocol": {
+      "name": "C_risk_v1",
+      "version": 1,
+      "weight": 1.0,
+      "max_facts": 20,
+      "d0_ce_ceiling": 2.0,
+      "selection": "kept latest-owner facts; finite 0<=D0 CE<=2; descending D0 CE then key; top20",
+      "objective": "sum tail-4 CE + 1.0 * mean ReLU(kept fact answer CE - D0 CE)",
+      "tail_gradient_reduction": "sum, unchanged from C",
+      "protection_gradient_reduction": "mean over selected kept facts",
+      "qa_used_for_selection": false,
+      "qa_used_for_training": false,
+      "risk_is_proxy": true,
+      "weight_scan": false,
+      "checkpoint_selection": "final step60 only",
+      "weak_gate": {
+        "window": [
+          3,
+          17510
+        ],
+        "min_net": 5,
+        "max_harmed": 4
+      },
+      "strong_gate": {
+        "window": [
+          3,
+          16370
+        ],
+        "min_net": 9,
+        "max_harmed": 1
+      }
+    },
+    "script_hashes": {
+      "s1d_experiment1.py": "3516abb1ddc23e045acf93146ea41a14efa8073650da75fb0a6ba072f8ed16b5",
+      "s1d_risk_protection.py": "5d2800160609dd32525f7095ffc6bb20fc61c2d9c2c80745b03a0d1d74590877",
+      "verify_s1d_risk_protection.py": "5a3822a9800af341f91fd49a7b7d8b0b51393ee64e0e14d2c613a56c1f212174",
+      "run_s1d_risk_protection.py": "f95966d040e98ca1e9120d22beba63bc23b5dbbb0974cbfa66fa2a01577c1a74"
+    },
+    "stages": [
+      {
+        "stage": "smoke",
+        "window": [
+          3,
+          17510
+        ],
+        "steps": 1,
+        "report": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.smoke.json",
+        "log": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.smoke.log",
+        "baseline": "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json",
+        "command": [
+          "/share/latent/mllm_env/bin/python",
+          "/share/latent/PRLM-C/tools/s1d_experiment1.py",
+          "--exp1-arm",
+          "C",
+          "--risk-protection",
+          "--window",
+          "3,17510",
+          "--cuda-device",
+          "0",
+          "--model-path",
+          "/dev/shm/s1d_reader_fp16",
+          "--fact-cache",
+          "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt",
+          "--out",
+          "/share/latent/PRLM-C/runs/s1d_c_risk_v1.smoke.json",
+          "--steps",
+          "1",
+          "--measure-every",
+          "1",
+          "--skip-generation",
+          "--qa-max-tokens",
+          "256"
+        ],
+        "pid": 76141,
+        "started_utc": "2026-10-12T13:22:42.797290+00:00",
+        "exit_code": 0,
+        "finished_utc": "2026-10-12T13:40:41.443898+00:00",
+        "verification": {
+          "valid": true,
+          "steps": 1,
+          "window": [
+            3,
+            17510
+          ],
+          "gate_passed": false,
+          "R": 0,
+          "H": 0,
+          "net": 0,
+          "saved_basis_identical_to_C": true
+        }
+      },
+      {
+        "stage": "weak",
+        "window": [
+          3,
+          17510
+        ],
+        "steps": 60,
+        "report": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.weak.json",
+        "log": "/share/latent/PRLM-C/runs/s1d_c_risk_v1.weak.log",
+        "baseline": "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json",
+        "command": [
+          "/share/latent/mllm_env/bin/python",
+          "/share/latent/PRLM-C/tools/s1d_experiment1.py",
+          "--exp1-arm",
+          "C",
+          "--risk-protection",
+          "--window",
+          "3,17510",
+          "--cuda-device",
+          "0",
+          "--model-path",
+          "/dev/shm/s1d_reader_fp16",
+          "--fact-cache",
+          "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt",
+          "--out",
+          "/share/latent/PRLM-C/runs/s1d_c_risk_v1.weak.json",
+          "--steps",
+          "60",
+          "--measure-every",
+          "10",
+          "--skip-generation",
+          "--qa-max-tokens",
+          "256"
+        ],
+        "pid": 76584,
+        "started_utc": "2026-10-12T13:40:41.726675+00:00"
+      }
+    ],
+    "updated_utc": "2026-10-12T13:40:41.726724+00:00",
+    "replacement": "/share/latent/PRLM-C/runs/s1d_two_lines_v1.M1.monitor.json",
+    "note": "serial dispatcher stopped; existing M1 child retained; M2 runs independently"
+  },
+  "exit_code": null,
+  "exit_code_source": "adopted process: original exit code unavailable",
+  "last_measured_step": 0,
+  "updated_utc": "2026-10-12T14:06:52.012480+00:00",
+  "replacement": "s1d_two_lines_v2",
+  "note": "M1 training child retained"
+}

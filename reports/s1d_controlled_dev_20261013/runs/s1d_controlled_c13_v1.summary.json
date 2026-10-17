@@ -1,0 +1,429 @@
+{
+  "status": "incomplete",
+  "stage": "development",
+  "expected_episode_ids": [
+    0,
+    2,
+    4,
+    8,
+    14,
+    15,
+    17,
+    18
+  ],
+  "episodes": [
+    {
+      "episode": 0,
+      "status": "complete",
+      "path": "runs/s1d_controlled_c13_v1.ep0.json",
+      "C_em": 0.46875,
+      "D0_em": 0.453125,
+      "Selection_em": 0.4375,
+      "Full_em": 0.359375,
+      "C_minus_Selection": 0.03125,
+      "C_minus_D0": 0.015625,
+      "R": 0,
+      "H": 1,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 28,
+            "em": 0.4375
+          },
+          "D0": {
+            "correct": 29,
+            "em": 0.453125
+          },
+          "C": {
+            "correct": 30,
+            "em": 0.46875
+          }
+        },
+        "compression_lost": [
+          "What sport is Associação Atlética Caldense associated with?",
+          "What sport is Graeme Hick associated with?",
+          "What is the country of citizenship of Lonny Ross?",
+          "What sport is Gauliga associated with?"
+        ],
+        "rescue_d0_wrong": [
+          "What is the country of citizenship of Lonny Ross?"
+        ],
+        "rescued": [],
+        "harmed": [
+          "What is the country of citizenship of Meredith McGrath?"
+        ],
+        "R": 0,
+        "H": 1,
+        "net_target": -1,
+        "C_vs_Selection": {
+          "gained": [
+            "Who created Stephen Maturin?",
+            "What sport is Associação Atlética Caldense associated with?",
+            "What sport is Graeme Hick associated with?",
+            "What is the country of citizenship of William Herndon?",
+            "What sport is Cooperstown associated with?",
+            "What is the country of citizenship of John Amos?",
+            "What sport is Gauliga associated with?",
+            "What sport is W. G. Grace associated with?"
+          ],
+          "harmed": [
+            "What is the country of citizenship of Sven Väth?",
+            "Who is the author of Beveridge Report?",
+            "What religion is Welsh people affiliated with?",
+            "What religion is René Descartes affiliated with?",
+            "In what country was Weird NJ created?",
+            "What is the country of citizenship of Meredith McGrath?"
+          ],
+          "net": 2,
+          "delta_em": 0.03125
+        },
+        "C_vs_D0": {
+          "gained": [
+            "Who created Stephen Maturin?",
+            "What position does Eddy Curry play?"
+          ],
+          "harmed": [
+            "What is the country of citizenship of Meredith McGrath?"
+          ],
+          "net": 1,
+          "delta_em": 0.015625
+        }
+      },
+      "costs": {
+        "elapsed_seconds": 12239.09324481804,
+        "generation_seconds": 575.8157875202596,
+        "basis_seconds": 67.38825123384595,
+        "fact_discovery_seconds": 87.75233756611124,
+        "training_seconds": 11365.373912144918,
+        "peak_allocated_bytes": 29034655232,
+        "peak_reserved_bytes": 29838278656,
+        "explicit_basis_fp32_bytes": 6815744,
+        "alpha_fp32_bytes": 52
+      }
+    },
+    {
+      "episode": 4,
+      "status": "complete",
+      "path": "runs/s1d_controlled_c13_v1.ep4.json",
+      "C_em": 0.375,
+      "D0_em": 0.375,
+      "Selection_em": 0.296875,
+      "Full_em": 0.359375,
+      "C_minus_Selection": 0.078125,
+      "C_minus_D0": 0.0,
+      "R": 0,
+      "H": 1,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 19,
+            "em": 0.296875
+          },
+          "D0": {
+            "correct": 24,
+            "em": 0.375
+          },
+          "C": {
+            "correct": 24,
+            "em": 0.375
+          }
+        },
+        "compression_lost": [
+          "What language does Maya Deren speak?",
+          "Who is the author of Zeno's paradoxes?",
+          "Who is the author of The Chronicles of Amber?",
+          "What language does Julian Fellowes speak?",
+          "What is the country of citizenship of Dana Brooke?",
+          "Who is the author of Johnny Mnemonic?",
+          "What sport is Mohammad Azharuddin associated with?",
+          "What sport is 1913 World Series associated with?",
+          "What is the country of citizenship of Masaharu Fukuyama?",
+          "What sport is Gary Kirsten associated with?"
+        ],
+        "rescue_d0_wrong": [
+          "What language does Maya Deren speak?",
+          "Who is the author of Zeno's paradoxes?",
+          "Who is the author of The Chronicles of Amber?",
+          "What is the country of citizenship of Dana Brooke?",
+          "Who is the author of Johnny Mnemonic?",
+          "What sport is Mohammad Azharuddin associated with?"
+        ],
+        "rescued": [],
+        "harmed": [
+          "What is the country of citizenship of Rajat Kapoor?"
+        ],
+        "R": 0,
+        "H": 1,
+        "net_target": -1,
+        "C_vs_Selection": {
+          "gained": [
+            "What religion is Luke the Evangelist affiliated with?",
+            "What sport is 1996 NBA Draft associated with?",
+            "What language does Julian Fellowes speak?",
+            "What religion is Pedro Menéndez de Avilés affiliated with?",
+            "What sport is 1913 World Series associated with?",
+            "What is the country of citizenship of Vilhelm Moberg?",
+            "What is the country of citizenship of Masaharu Fukuyama?",
+            "What religion is Tyrannius Rufinus affiliated with?",
+            "What sport is Gary Kirsten associated with?",
+            "What is the country of citizenship of Frank Lloyd Wright?"
+          ],
+          "harmed": [
+            "What is the country of citizenship of Rajat Kapoor?",
+            "What religion is Jean-Claude Juncker affiliated with?",
+            "What is the country of citizenship of Karen Jarrett?",
+            "What is the country of citizenship of Steve Buscemi?",
+            "What sport is Uruguay national football team associated with?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "C_vs_D0": {
+          "gained": [
+            "What religion is Pedro Menéndez de Avilés affiliated with?"
+          ],
+          "harmed": [
+            "What is the country of citizenship of Rajat Kapoor?"
+          ],
+          "net": 0,
+          "delta_em": 0.0
+        }
+      },
+      "costs": {
+        "elapsed_seconds": 12138.339668318164,
+        "generation_seconds": 553.3564565540291,
+        "basis_seconds": 79.01743663707748,
+        "fact_discovery_seconds": 87.83635001815856,
+        "training_seconds": 11275.96511087194,
+        "peak_allocated_bytes": 29034655232,
+        "peak_reserved_bytes": 29840375808,
+        "explicit_basis_fp32_bytes": 6815744,
+        "alpha_fp32_bytes": 52
+      }
+    },
+    {
+      "episode": 8,
+      "status": "complete",
+      "path": "runs/s1d_controlled_c13_v1.ep8.json",
+      "C_em": 0.515625,
+      "D0_em": 0.515625,
+      "Selection_em": 0.40625,
+      "Full_em": 0.375,
+      "C_minus_Selection": 0.109375,
+      "C_minus_D0": 0.0,
+      "R": 0,
+      "H": 0,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 24,
+            "em": 0.375
+          },
+          "Selection": {
+            "correct": 26,
+            "em": 0.40625
+          },
+          "D0": {
+            "correct": 33,
+            "em": 0.515625
+          },
+          "C": {
+            "correct": 33,
+            "em": 0.515625
+          }
+        },
+        "compression_lost": [
+          "What is the country of citizenship of Erich Koch?",
+          "Who is the author of Dom Juan?",
+          "What sport is Alexandre Pato associated with?",
+          "What is the country of citizenship of David Sedaris?"
+        ],
+        "rescue_d0_wrong": [
+          "Who is the author of Dom Juan?",
+          "What is the country of citizenship of David Sedaris?"
+        ],
+        "rescued": [],
+        "harmed": [],
+        "R": 0,
+        "H": 0,
+        "net_target": 0,
+        "C_vs_Selection": {
+          "gained": [
+            "In what country was Madchester created?",
+            "What is the country of citizenship of Craig McCracken?",
+            "What is the country of citizenship of Erich Koch?",
+            "What is the country of citizenship of Pierre Janet?",
+            "What sport is Chase Headley associated with?",
+            "What sport is Alexandre Pato associated with?",
+            "What is the country of citizenship of Alfie Boe?",
+            "What sport is 2014 World Judo Championships associated with?"
+          ],
+          "harmed": [
+            "What religion is Francis of Assisi affiliated with?"
+          ],
+          "net": 7,
+          "delta_em": 0.109375
+        },
+        "C_vs_D0": {
+          "gained": [],
+          "harmed": [],
+          "net": 0,
+          "delta_em": 0.0
+        }
+      },
+      "costs": {
+        "elapsed_seconds": 12163.16105279699,
+        "generation_seconds": 566.9844183768146,
+        "basis_seconds": 64.66164033580571,
+        "fact_discovery_seconds": 87.76930719707161,
+        "training_seconds": 11300.412669116165,
+        "peak_allocated_bytes": 29034655232,
+        "peak_reserved_bytes": 29861347328,
+        "explicit_basis_fp32_bytes": 6815744,
+        "alpha_fp32_bytes": 52
+      }
+    },
+    {
+      "episode": 14,
+      "status": "complete",
+      "path": "runs/s1d_controlled_c13_v1.ep14.json",
+      "C_em": 0.421875,
+      "D0_em": 0.375,
+      "Selection_em": 0.328125,
+      "Full_em": 0.359375,
+      "C_minus_Selection": 0.09375,
+      "C_minus_D0": 0.046875,
+      "R": 0,
+      "H": 0,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 21,
+            "em": 0.328125
+          },
+          "D0": {
+            "correct": 24,
+            "em": 0.375
+          },
+          "C": {
+            "correct": 27,
+            "em": 0.421875
+          }
+        },
+        "compression_lost": [
+          "Who is the author of Noises Off?",
+          "Who is the author of Sharpe's Rifles?",
+          "What sport is Panagiotis Giannakis associated with?",
+          "What sport is 1985 NBA Draft associated with?",
+          "What is the country of citizenship of Yulia Lipnitskaya?",
+          "What sport is 2010–11 I-League associated with?"
+        ],
+        "rescue_d0_wrong": [
+          "Who is the author of Sharpe's Rifles?",
+          "What sport is Panagiotis Giannakis associated with?"
+        ],
+        "rescued": [],
+        "harmed": [],
+        "R": 0,
+        "H": 0,
+        "net_target": 0,
+        "C_vs_Selection": {
+          "gained": [
+            "Who is the author of Noises Off?",
+            "What position does Andoni Zubizarreta play?",
+            "What religion is Buddy Cianci affiliated with?",
+            "What sport is 1985 NBA Draft associated with?",
+            "What is the country of citizenship of Yulia Lipnitskaya?",
+            "What sport is 2010–11 I-League associated with?",
+            "What religion is Saint Eligius affiliated with?",
+            "What is the country of citizenship of Anne Rice?"
+          ],
+          "harmed": [
+            "What sport is Ian Harte associated with?",
+            "What is the country of citizenship of Red Callender?"
+          ],
+          "net": 6,
+          "delta_em": 0.09375
+        },
+        "C_vs_D0": {
+          "gained": [
+            "What position does Andoni Zubizarreta play?",
+            "What religion is James McGirr affiliated with?",
+            "What religion is Saint Eligius affiliated with?"
+          ],
+          "harmed": [],
+          "net": 3,
+          "delta_em": 0.046875
+        }
+      },
+      "costs": {
+        "elapsed_seconds": 12200.805933336727,
+        "generation_seconds": 572.1245662663132,
+        "basis_seconds": 64.61433406174183,
+        "fact_discovery_seconds": 87.49160821735859,
+        "training_seconds": 11333.048157238867,
+        "peak_allocated_bytes": 29033612800,
+        "peak_reserved_bytes": 29941039104,
+        "explicit_basis_fp32_bytes": 6815744,
+        "alpha_fp32_bytes": 52
+      }
+    }
+  ],
+  "failures": [
+    {
+      "episode": 2,
+      "path": "runs/s1d_controlled_c13_v1.ep2.json",
+      "status": "failed",
+      "failure": {
+        "type": "RuntimeError",
+        "message": "fact basis rank 12 < 13"
+      }
+    },
+    {
+      "episode": 15,
+      "path": "runs/s1d_controlled_c13_v1.ep15.json",
+      "status": "failed",
+      "failure": {
+        "type": "RuntimeError",
+        "message": "fact basis rank 9 < 13"
+      }
+    },
+    {
+      "episode": 17,
+      "path": "runs/s1d_controlled_c13_v1.ep17.json",
+      "status": "failed",
+      "failure": {
+        "type": "RuntimeError",
+        "message": "fact basis rank 12 < 13"
+      }
+    },
+    {
+      "episode": 18,
+      "path": "runs/s1d_controlled_c13_v1.ep18.json",
+      "status": "failed",
+      "failure": {
+        "type": "RuntimeError",
+        "message": "fact basis rank 10 < 13"
+      }
+    }
+  ],
+  "independent_official_rescoring": true,
+  "inference_unit": "episode",
+  "sealed_test_opened": false
+}

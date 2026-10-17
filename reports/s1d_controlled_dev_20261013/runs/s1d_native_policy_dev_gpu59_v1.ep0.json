@@ -1,0 +1,1345 @@
+{
+  "schema_version": "s1d_native_policy_eval/1",
+  "status": "complete",
+  "identity": {
+    "episode": 0,
+    "context_sha256": "5d6475af5cbca532bf8d24cfb8911f75ce1b8be344e6c61fa9008e5c7b27dd76",
+    "plan_sha256": "1444f62a1197a8663736f9f4d767aa3923f0432ab98507dde99de3d3bd64b9e5",
+    "model_manifest_sha256": "f383504c0db2f245055e9e2cc4f68043af470ea9bcbd3dd7faf0a57c119d6859",
+    "reference_sha256": "e5a36a3dfb3b12055ba2e1ef6278755fa0258c375dc5b93380b76b67c9fe4a4e",
+    "source_manifest": {
+      "tools/s1d_native_policy_eval.py": "943d05e8dde61135092ce49895c5555d013efe50a3fb6785fd1f57b544c07b8c",
+      "tools/run_s1d_native_policy_eval.py": "dce56ed376731d98fc47c37de7e90e0a2271d2d700be7ea8ffc6f3819cb46a2a",
+      "tools/s1d_shared_compactor_eval.py": "e77bee9c3e0afc47923e0f63c8480e67f429d202b213551866aaa80c272b54eb",
+      "tools/s1d_experiment1.py": "3516abb1ddc23e045acf93146ea41a14efa8073650da75fb0a6ba072f8ed16b5",
+      "tools/readout_probe.py": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+      "tools/native_qa_compare.py": "f882f45e5ed7a4364d38fe4e9aacfa60a331da70365d9269479526caedaa3839",
+      "methods/prlmc/probes.py": "1cde262679fc1f9ea3e2e7ece6a8dd41b6b122fecdf231c741942e4d3cad6cf9",
+      "methods/memoryllm_modeling/modeling_memoryllm.py": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68"
+    },
+    "protocol": {
+      "name": "s1d-native-write-drop-v1",
+      "arms": {
+        "NativeBudget": 11,
+        "NativeDefault": 50
+      },
+      "native_block_tokens": 256,
+      "native_drop_per_layer": true,
+      "training": false,
+      "seed": 0,
+      "write_chunks": [
+        30,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20
+      ],
+      "write_input": "identical raw numbered fact chunks to shared E6d evaluation",
+      "write_max_tokens": 512,
+      "injection": "MemoryLLM.inject_memory(update_memory=True)",
+      "first_write": "cold start; native repeat fills pool",
+      "drop": "native random per-layer slot removal, preserved order, then append",
+      "anchor_protection": false,
+      "compactor": false,
+      "active_mask": false,
+      "prompt": "fixed B2 FEWSHOT",
+      "stop_strings": [
+        "\n"
+      ],
+      "max_new_tokens": 32,
+      "scorer": "readout_probe.official_score",
+      "evaluation_questions": 64,
+      "scope": "native write/drop with controlled inputs and fixed B2 readout; not a full official benchmark run",
+      "test_policy": "development only; sealed test remains unopened"
+    },
+    "prompt_sha256": "9cd147a122c6f335e08c093baf59818fc4d08824137cf0072e96c0c11ca30733"
+  },
+  "native_policy_audit": {
+    "original_sha256": "48b509c7f1476239273d98b7480ed27b51e94fe1de877da224dd796af63f4d39",
+    "current_sha256": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68",
+    "unchanged_native_methods": [
+      "inject_memory",
+      "drop_memory",
+      "update_memory_with_delta_memory",
+      "cat_memory_and_hiddens"
+    ],
+    "method_sha256": {
+      "inject_memory": "9901007fda15fad6dec229dab20188bc779fd306cb9f0eaae8906bfe64ce197f",
+      "drop_memory": "f3066450508e43d3d950388aea695f7d6abe61f11054de6621fdb39d0fa37f4e",
+      "update_memory_with_delta_memory": "3a53d725e4767d883b638a114d7acbd1aeddef1f4bac4a033b287705a050852d",
+      "cat_memory_and_hiddens": "8d5c97f08d6ce362422d17853b529ff348ed1f596f15884888567f623cae613f"
+    }
+  },
+  "smoke": false,
+  "stage": "development",
+  "test_opened": false,
+  "training_performed": false,
+  "evaluation_opened": true,
+  "writes": {
+    "NativeBudget": [
+      {
+        "chunk": 0,
+        "lines": 30,
+        "input_tokens": 393,
+        "native_delta_slots": 256,
+        "first_write": true,
+        "randomly_removed_slots_per_layer": 0,
+        "seconds": 1.0291666011326015
+      },
+      {
+        "chunk": 1,
+        "lines": 20,
+        "input_tokens": 273,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.210318049415946
+      },
+      {
+        "chunk": 2,
+        "lines": 20,
+        "input_tokens": 277,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.16826274432241917
+      },
+      {
+        "chunk": 3,
+        "lines": 20,
+        "input_tokens": 251,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.16027517477050424
+      },
+      {
+        "chunk": 4,
+        "lines": 20,
+        "input_tokens": 274,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17133290693163872
+      },
+      {
+        "chunk": 5,
+        "lines": 20,
+        "input_tokens": 295,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.16353891603648663
+      },
+      {
+        "chunk": 6,
+        "lines": 20,
+        "input_tokens": 258,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17347320588305593
+      },
+      {
+        "chunk": 7,
+        "lines": 20,
+        "input_tokens": 284,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17422601114958525
+      },
+      {
+        "chunk": 8,
+        "lines": 20,
+        "input_tokens": 274,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17345800390467048
+      },
+      {
+        "chunk": 9,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1733035328797996
+      },
+      {
+        "chunk": 10,
+        "lines": 20,
+        "input_tokens": 268,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17864188412204385
+      },
+      {
+        "chunk": 11,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1742553641088307
+      },
+      {
+        "chunk": 12,
+        "lines": 20,
+        "input_tokens": 280,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17314814496785402
+      },
+      {
+        "chunk": 13,
+        "lines": 20,
+        "input_tokens": 254,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.15654888097196817
+      },
+      {
+        "chunk": 14,
+        "lines": 20,
+        "input_tokens": 292,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17742485227063298
+      },
+      {
+        "chunk": 15,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17712733801454306
+      },
+      {
+        "chunk": 16,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17334652319550514
+      },
+      {
+        "chunk": 17,
+        "lines": 20,
+        "input_tokens": 266,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17432483611628413
+      },
+      {
+        "chunk": 18,
+        "lines": 20,
+        "input_tokens": 283,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17400546884164214
+      },
+      {
+        "chunk": 19,
+        "lines": 20,
+        "input_tokens": 276,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17396727576851845
+      }
+    ],
+    "NativeDefault": [
+      {
+        "chunk": 0,
+        "lines": 30,
+        "input_tokens": 393,
+        "native_delta_slots": 256,
+        "first_write": true,
+        "randomly_removed_slots_per_layer": 0,
+        "seconds": 0.21873496007174253
+      },
+      {
+        "chunk": 1,
+        "lines": 20,
+        "input_tokens": 273,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19787860475480556
+      },
+      {
+        "chunk": 2,
+        "lines": 20,
+        "input_tokens": 277,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1934994999319315
+      },
+      {
+        "chunk": 3,
+        "lines": 20,
+        "input_tokens": 251,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.18392218556255102
+      },
+      {
+        "chunk": 4,
+        "lines": 20,
+        "input_tokens": 274,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19779546186327934
+      },
+      {
+        "chunk": 5,
+        "lines": 20,
+        "input_tokens": 295,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.205954744014889
+      },
+      {
+        "chunk": 6,
+        "lines": 20,
+        "input_tokens": 258,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.199917146936059
+      },
+      {
+        "chunk": 7,
+        "lines": 20,
+        "input_tokens": 284,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19694243697449565
+      },
+      {
+        "chunk": 8,
+        "lines": 20,
+        "input_tokens": 274,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1946242437697947
+      },
+      {
+        "chunk": 9,
+        "lines": 20,
+        "input_tokens": 275,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.20341205690056086
+      },
+      {
+        "chunk": 10,
+        "lines": 20,
+        "input_tokens": 268,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.2289707288146019
+      },
+      {
+        "chunk": 11,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19920720905065536
+      },
+      {
+        "chunk": 12,
+        "lines": 20,
+        "input_tokens": 280,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.2034280109219253
+      },
+      {
+        "chunk": 13,
+        "lines": 20,
+        "input_tokens": 254,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.17348524695262313
+      },
+      {
+        "chunk": 14,
+        "lines": 20,
+        "input_tokens": 292,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19394124671816826
+      },
+      {
+        "chunk": 15,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1918690730817616
+      },
+      {
+        "chunk": 16,
+        "lines": 20,
+        "input_tokens": 265,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19444967387244105
+      },
+      {
+        "chunk": 17,
+        "lines": 20,
+        "input_tokens": 266,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.1890471507795155
+      },
+      {
+        "chunk": 18,
+        "lines": 20,
+        "input_tokens": 283,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19259083410724998
+      },
+      {
+        "chunk": 19,
+        "lines": 20,
+        "input_tokens": 276,
+        "native_delta_slots": 256,
+        "first_write": false,
+        "randomly_removed_slots_per_layer": 256,
+        "seconds": 0.19148606900125742
+      }
+    ]
+  },
+  "predictions": {
+    "NativeBudget": {
+      "In what country was Jessie's Girl created?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "Who is the author of Hippolytus?": {
+        "prediction": " Roger Zelazny\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What is the country of citizenship of Carl Gustaf Wrangel?": {
+        "prediction": " Ecuador\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is SønderjyskE Fodbold associated with?": {
+        "prediction": " gridiron football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What position does Eric Decker play?": {
+        "prediction": " wide receiver\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is Gomez Addams married to?": {
+        "prediction": " Rosario Murillo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "Who created Stephen Maturin?": {
+        "prediction": " Patrick O'Brian\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "Who developed GNU Debugger?": {
+        "prediction": " Netscape Comunications Corporation\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 7
+      },
+      "What religion is Adrian I affiliated with?": {
+        "prediction": " Ethiopian Orthodox Tewahedo Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 8
+      },
+      "Who is John Quincy Adams employed by?": {
+        "prediction": " United States Department of State\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "In what country was Les Misérables created?": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Harry Potter?": {
+        "prediction": " J.K. Rowling\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What is the country of citizenship of David Tennant?": {
+        "prediction": " India\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is A.J. Auxerre associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What position does Eddy Curry play?": {
+        "prediction": " center\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is Henry VII married to?": {
+        "prediction": " Jessica Biel\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "Who created Land of Oz?": {
+        "prediction": " Galileo Galilei\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "Who developed macOS?": {
+        "prediction": " Netscape Comunications Corporation\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 7
+      },
+      "What religion is Al-Mu'tazz affiliated with?": {
+        "prediction": " Orthodox Christianity\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was reggae created?": {
+        "prediction": " Philippines\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is the author of Rhetoric?": {
+        "prediction": " Richard Brinsley Sheridan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What is the country of citizenship of Jon Robin Baitz?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Associação Atlética Caldense associated with?": {
+        "prediction": " pesäpallo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What position does DeMarcus Cousins play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is Kyle Reese married to?": {
+        "prediction": " Betty Ford\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Empress of Blandings?": {
+        "prediction": " John Venn\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What religion is Lamar Alexander affiliated with?": {
+        "prediction": " Arianism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "In what country was The Benny Hill Show created?": {
+        "prediction": " Turkey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is the author of Star Trek canon?": {
+        "prediction": " Sam Shepard\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Sven Väth?": {
+        "prediction": " Republic of Genova\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is Copa del Rey associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Jim Hawkins?": {
+        "prediction": " Robert Louis Stevenson\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What religion is Hirohito affiliated with?": {
+        "prediction": " Shinto\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Naruto created?": {
+        "prediction": " Japan\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Beveridge Report?": {
+        "prediction": " André Breton\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Joseph Bernardin?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Graeme Hick associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Welsh people affiliated with?": {
+        "prediction": " Protestantism\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Ripper Street created?": {
+        "prediction": " Turkey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Shakespeare's sonnets?": {
+        "prediction": " William Shakespeare\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Michael Dell?": {
+        "prediction": " South Africa\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Christy Mathewson associated with?": {
+        "prediction": " baseball\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is René Descartes affiliated with?": {
+        "prediction": " Ethiopian Orthodox Tewahedo Church\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 8
+      },
+      "In what country was Love Island created?": {
+        "prediction": " Yugoslavia\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is the author of Phèdre?": {
+        "prediction": " Jean Racine\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of John Tyndall?": {
+        "prediction": " Austria-Hungary\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Ståle Solbakken associated with?": {
+        "prediction": " ice hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Weird NJ created?": {
+        "prediction": " Turkey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of Lonny Ross?": {
+        "prediction": " Kingdom of Italy\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What sport is FK Radnički Beograd associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Edward Abbey?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Winter Meetings associated with?": {
+        "prediction": " ice hockey\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Meredith McGrath?": {
+        "prediction": " Afghanistan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Diego Simeone associated with?": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of William Herndon?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Cooperstown associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of John Amos?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Sourav Ganguly associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of John Lloyd?": {
+        "prediction": " Poland\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Pontevedra CF associated with?": {
+        "prediction": " rugby\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Hal Newhouser associated with?": {
+        "prediction": " field hockey\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What sport is Nyíregyháza Spartacus FC associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is Gauliga associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What sport is W. G. Grace associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      }
+    },
+    "NativeDefault": {
+      "In what country was Jessie's Girl created?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "Who is the author of Hippolytus?": {
+        "prediction": " William Shakespeare\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Carl Gustaf Wrangel?": {
+        "prediction": " Ecuador\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is SønderjyskE Fodbold associated with?": {
+        "prediction": " boxing\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What position does Eric Decker play?": {
+        "prediction": " wide receiver\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is Gomez Addams married to?": {
+        "prediction": " Peter Robinson\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Stephen Maturin?": {
+        "prediction": " Jack Kirby\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who developed GNU Debugger?": {
+        "prediction": " Boeing\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Adrian I affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is John Quincy Adams employed by?": {
+        "prediction": " University of Pittsburgh\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "In what country was Les Misérables created?": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Harry Potter?": {
+        "prediction": " Johann Wolfgang von Goethe\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 6
+      },
+      "What is the country of citizenship of David Tennant?": {
+        "prediction": " India\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is A.J. Auxerre associated with?": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What position does Eddy Curry play?": {
+        "prediction": " center\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "Who is Henry VII married to?": {
+        "prediction": " Margaret of Austria\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "Who created Land of Oz?": {
+        "prediction": " Jack Kirby\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who developed macOS?": {
+        "prediction": " Microsoft Corporation\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What religion is Al-Mu'tazz affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was reggae created?": {
+        "prediction": " Hong Kong\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Rhetoric?": {
+        "prediction": " Richard Brinsley Sheridan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What is the country of citizenship of Jon Robin Baitz?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Associação Atlética Caldense associated with?": {
+        "prediction": " pesäpallo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What position does DeMarcus Cousins play?": {
+        "prediction": " center\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is Kyle Reese married to?": {
+        "prediction": " Betty Ford\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Empress of Blandings?": {
+        "prediction": " Osamu Tezuka\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 6
+      },
+      "What religion is Lamar Alexander affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was The Benny Hill Show created?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Star Trek canon?": {
+        "prediction": " Barack Obama\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Sven Väth?": {
+        "prediction": " Finland\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Copa del Rey associated with?": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who created Jim Hawkins?": {
+        "prediction": " Matt Groening\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 4
+      },
+      "What religion is Hirohito affiliated with?": {
+        "prediction": " Shinto\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Naruto created?": {
+        "prediction": " Japan\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "Who is the author of Beveridge Report?": {
+        "prediction": " Jack London\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Joseph Bernardin?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Graeme Hick associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What religion is Welsh people affiliated with?": {
+        "prediction": " Christianity\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "In what country was Ripper Street created?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Shakespeare's sonnets?": {
+        "prediction": " William Shakespeare\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Michael Dell?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Christy Mathewson associated with?": {
+        "prediction": " baseball\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What religion is René Descartes affiliated with?": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Love Island created?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "Who is the author of Phèdre?": {
+        "prediction": " Emily Brontë\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What is the country of citizenship of John Tyndall?": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Ståle Solbakken associated with?": {
+        "prediction": " judo\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "In what country was Weird NJ created?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What is the country of citizenship of Lonny Ross?": {
+        "prediction": " Paraguay\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is FK Radnički Beograd associated with?": {
+        "prediction": " aikido\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 4
+      },
+      "What is the country of citizenship of Edward Abbey?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Winter Meetings associated with?": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of Meredith McGrath?": {
+        "prediction": " Afghanistan\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Diego Simeone associated with?": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of William Herndon?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Cooperstown associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What is the country of citizenship of John Amos?": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 5
+      },
+      "What sport is Sourav Ganguly associated with?": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What is the country of citizenship of John Lloyd?": {
+        "prediction": " Poland\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 2
+      },
+      "What sport is Pontevedra CF associated with?": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Hal Newhouser associated with?": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      },
+      "What sport is Nyíregyháza Spartacus FC associated with?": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 3
+      },
+      "What sport is Gauliga associated with?": {
+        "prediction": " pesäpallo\n\n",
+        "em": true,
+        "substring_em": true,
+        "generated_tokens": 5
+      },
+      "What sport is W. G. Grace associated with?": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false,
+        "generated_tokens": 2
+      }
+    }
+  },
+  "arm_metadata": {
+    "NativeBudget": {
+      "active_slots": 2816,
+      "physical_slots": 2816,
+      "source_memory_sha256": "57fdb0934505c0d2a1e0931e0a798ec4f2d3dda37c7dc33dfeedd6bfe9cf6b76",
+      "no_anchor": true,
+      "native_drop_per_layer": true,
+      "source_memory_unchanged": true
+    },
+    "NativeDefault": {
+      "active_slots": 12800,
+      "physical_slots": 12800,
+      "source_memory_sha256": "f91571ddb7cb10f5b4a386d1119cdec5d925d46625accb33cade5f730485de34",
+      "no_anchor": true,
+      "native_drop_per_layer": true,
+      "source_memory_unchanged": true
+    }
+  },
+  "progress": {
+    "arm": "NativeDefault",
+    "phase": "generation",
+    "questions": 64,
+    "total": 64
+  },
+  "summary": {
+    "NativeBudget": {
+      "correct": 24,
+      "n": 64,
+      "em": 0.375
+    },
+    "NativeDefault": {
+      "correct": 14,
+      "n": 64,
+      "em": 0.21875
+    }
+  },
+  "generation_questions": [
+    "In what country was Jessie's Girl created?",
+    "Who is the author of Hippolytus?",
+    "What is the country of citizenship of Carl Gustaf Wrangel?",
+    "What sport is SønderjyskE Fodbold associated with?",
+    "What position does Eric Decker play?",
+    "Who is Gomez Addams married to?",
+    "Who created Stephen Maturin?",
+    "Who developed GNU Debugger?",
+    "What religion is Adrian I affiliated with?",
+    "Who is John Quincy Adams employed by?",
+    "In what country was Les Misérables created?",
+    "Who is the author of Harry Potter?",
+    "What is the country of citizenship of David Tennant?",
+    "What sport is A.J. Auxerre associated with?",
+    "What position does Eddy Curry play?",
+    "Who is Henry VII married to?",
+    "Who created Land of Oz?",
+    "Who developed macOS?",
+    "What religion is Al-Mu'tazz affiliated with?",
+    "In what country was reggae created?",
+    "Who is the author of Rhetoric?",
+    "What is the country of citizenship of Jon Robin Baitz?",
+    "What sport is Associação Atlética Caldense associated with?",
+    "What position does DeMarcus Cousins play?",
+    "Who is Kyle Reese married to?",
+    "Who created Empress of Blandings?",
+    "What religion is Lamar Alexander affiliated with?",
+    "In what country was The Benny Hill Show created?",
+    "Who is the author of Star Trek canon?",
+    "What is the country of citizenship of Sven Väth?",
+    "What sport is Copa del Rey associated with?",
+    "Who created Jim Hawkins?",
+    "What religion is Hirohito affiliated with?",
+    "In what country was Naruto created?",
+    "Who is the author of Beveridge Report?",
+    "What is the country of citizenship of Joseph Bernardin?",
+    "What sport is Graeme Hick associated with?",
+    "What religion is Welsh people affiliated with?",
+    "In what country was Ripper Street created?",
+    "Who is the author of Shakespeare's sonnets?",
+    "What is the country of citizenship of Michael Dell?",
+    "What sport is Christy Mathewson associated with?",
+    "What religion is René Descartes affiliated with?",
+    "In what country was Love Island created?",
+    "Who is the author of Phèdre?",
+    "What is the country of citizenship of John Tyndall?",
+    "What sport is Ståle Solbakken associated with?",
+    "In what country was Weird NJ created?",
+    "What is the country of citizenship of Lonny Ross?",
+    "What sport is FK Radnički Beograd associated with?",
+    "What is the country of citizenship of Edward Abbey?",
+    "What sport is Winter Meetings associated with?",
+    "What is the country of citizenship of Meredith McGrath?",
+    "What sport is Diego Simeone associated with?",
+    "What is the country of citizenship of William Herndon?",
+    "What sport is Cooperstown associated with?",
+    "What is the country of citizenship of John Amos?",
+    "What sport is Sourav Ganguly associated with?",
+    "What is the country of citizenship of John Lloyd?",
+    "What sport is Pontevedra CF associated with?",
+    "What sport is Hal Newhouser associated with?",
+    "What sport is Nyíregyháza Spartacus FC associated with?",
+    "What sport is Gauliga associated with?",
+    "What sport is W. G. Grace associated with?"
+  ],
+  "costs": {
+    "elapsed_seconds": 326.7111324002035,
+    "peak_allocated_bytes": 28471273472,
+    "peak_reserved_bytes": 29207035904
+  },
+  "runtime": {
+    "gpu": "Tesla V100-PCIE-32GB",
+    "physical_gpu": 5,
+    "torch": "2.5.1+cu124"
+  }
+}

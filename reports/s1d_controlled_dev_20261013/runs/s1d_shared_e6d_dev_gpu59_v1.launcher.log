@@ -1,0 +1,17 @@
+START episode=0 gpu=5 pid=8980
+START episode=2 gpu=9 pid=8981
+EXIT episode=2 gpu=9 code=0
+START episode=4 gpu=9 pid=9854
+EXIT episode=0 gpu=5 code=0
+START episode=8 gpu=5 pid=9920
+EXIT episode=4 gpu=9 code=0
+START episode=14 gpu=9 pid=10804
+EXIT episode=8 gpu=5 code=0
+START episode=15 gpu=5 pid=10883
+EXIT episode=14 gpu=9 code=0
+START episode=17 gpu=9 pid=11508
+EXIT episode=15 gpu=5 code=0
+START episode=18 gpu=5 pid=11509
+EXIT episode=18 gpu=5 code=0
+EXIT episode=17 gpu=9 code=0
+FINAL {"status": "complete", "failures": [], "mean_delta": 0.064453125, "positive_episodes": 8, "negative_episodes": 0, "bootstrap_episode_delta_ci95": [0.05078125, 0.07421875]}

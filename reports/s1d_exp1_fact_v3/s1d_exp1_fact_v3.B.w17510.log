@@ -1,0 +1,501 @@
+[s1d2] rank=0/1 physical_gpu=9
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.93it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.79it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.64it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.50it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.48it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.45it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.45it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.62it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.58it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+[e6a] 19 writes, used=4864 slots, window=4864 slots
+[s1d2] (3,17510) rescue=43 rescue_d0_wrong=38 protect=60
+[s1d2] (3,17510) supervision lines=40 skipped_short=19
+[s1d2] fact targets=20 thresholded=112 protect=20 basis=old
+[s1d2] generation baselines skipped by protocol
+[s1d2] B identity-at-init verified
+[s1d2] B training step 1/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 2/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 3/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 4/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 5/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 6/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 7/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 8/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 9/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 10/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=10 loss=5.9105 dev=0.098 TF newR=0 harm=4 net=-4
+[s1d2] B training step 11/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 12/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 13/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 14/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 15/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 16/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 17/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 18/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 19/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 20/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=20 loss=5.6811 dev=0.189 TF newR=5 harm=6 net=-1
+[s1d2] B training step 21/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 22/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 23/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 24/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 25/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 26/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 27/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 28/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 29/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 30/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=30 loss=5.5531 dev=0.270 TF newR=6 harm=8 net=-2
+[s1d2] B training step 31/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 32/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 33/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 34/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 35/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 36/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 37/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 38/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 39/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 40/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=40 loss=5.5203 dev=0.321 TF newR=6 harm=8 net=-2
+[s1d2] B training step 41/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 42/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 43/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 44/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 45/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 46/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 47/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 48/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 49/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 50/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=50 loss=5.5064 dev=0.348 TF newR=6 harm=9 net=-3
+[s1d2] B training step 51/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 52/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 53/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 54/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 55/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 56/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 57/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 58/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 59/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] B training step 60/60
+[s1d2] rank=0 rescue backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 rescue backward 20/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 1/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 10/20 peak_allocated=25.30 GiB
+[s1d2] rank=0 protect backward 20/20 peak_allocated=25.30 GiB
+[s1d2] microbatch objective complete
+[s1d2] (3,17510) B step=60 loss=5.4999 dev=0.363 TF newR=6 harm=9 net=-3
+[s1d2] dev complete

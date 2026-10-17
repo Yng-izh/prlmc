@@ -1,0 +1,9 @@
+episode,status,Full,Selection,D0,C,C_minus_D0,C_minus_Selection,training_seconds,gamma_max,failure
+0,complete,23,28,29,30,1,2,11365.373912144918,0.1,
+2,failed,,,,,,,,,fact basis rank 12 < 13
+4,complete,23,19,24,24,0,5,11275.96511087194,0.1,
+8,complete,24,26,33,33,0,7,11300.412669116165,0.1,
+14,complete,23,21,24,27,3,6,11333.048157238867,0.1,
+15,failed,,,,,,,,,fact basis rank 9 < 13
+17,failed,,,,,,,,,fact basis rank 12 < 13
+18,failed,,,,,,,,,fact basis rank 10 < 13
