@@ -40,6 +40,20 @@ reports/longbench_prlmc_v4_8k_analysis.md（official_qa_f1_truncated，%）：
 
 runs/longbench_native50_20261015_082937/、runs/longbench_prlmc_v4/、runs_results/（逐题 JSON，dsup8k__* 等 27 项）。
 
+## 16k 结果（2026-10-17，12 run 全部完成）
+
+runs/longbench_prlmc_v4_16k/（official_qa_f1_truncated，%，n=200；g7 混入的 2 条 hotpotqa 重启样本不计入）：
+
+| 任务 | Selection 16k | Dsup 16k | Δ(Dsup−Sel) | 8k Dsup |
+|---|---|---|---|---|
+| hotpotqa | 35.01 | 37.84 | +2.83 | 35.20 |
+| 2wikimqa | 26.33 | 27.17 | +0.85 | 24.97 |
+| musique | 21.03 | 24.61 | +3.58 | 20.55 |
+| qasper | 25.44 | 25.52 | +0.07 | 24.76 |
+| narrativeqa | 21.85 | 22.01 | +0.15 | 19.81 |
+
+逐题配对（Dsup−Selection）：musique +3.58（21 胜/14 负）、hotpotqa +2.83（22/18）、narrativeqa +0.15（27/25）、2wikimqa +0.85（3/2，多数并列）、qasper +0.07。16k 相对 8k：musique +4.06、narrativeqa +2.20、hotpotqa +2.64、2wikimqa +2.20、qasper +0.76（Dsup 全线高于 8k）；多跳任务收益最大，Qasper/NarrativeQA 接近饱和。
+
 ## 后续评测方案（规划中，未执行）
 
 - experiments/Evaluation-plan-benchmarks-baselines.md——三 benchmark（LongBench 6-QA / LooGLE / LongBench v2 Medium）× 五外部 baseline（MemoryLLM-8B、M+、H₂O、KIVI、ReST-KV）的统一预算（50 blocks / 3.125 GiB 真实历史存储）主表与消融副表方案；M+ 与 ReST-KV 的容量公平性验证未完成。
