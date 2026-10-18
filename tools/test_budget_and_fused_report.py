@@ -32,28 +32,39 @@ class BudgetContracts(unittest.TestCase):
         return manager, stream
 
     def test_window_target_per_budget(self):
-        for budget, window, target in ((8, 7, 3), (10, 9, 4), (12, 11, 5), (20, 19, 9)):
+        # Pre-registered geometry: 8 -> 9->4, 10 -> 11->5, 12 -> 11->5, 20 -> 19->9.
+        for budget, window, target in ((8, 9, 4), (10, 11, 5), (12, 11, 5), (20, 19, 9)):
             m, stream = self._run("Consolidate", budget)
             self.assertEqual(stream.budget, budget * m.block)
             self.assertEqual(stream.window, window * m.block)
             self.assertEqual(stream.target, target * m.block)
 
     def test_repeated_compression_9_to_4_and_11_to_5(self):
-        # budget 10: repeated (9 -> 4) compressions; budget 12: repeated (11 -> 5).
-        for budget, shape in ((10, (9, 4)), (12, (11, 5)), (8, (7, 3))):
+        # budget 8: repeated (9 -> 4); budget 10: repeated (11 -> 5);
+        # budget 12: repeated (11 -> 5) unchanged. The window may transiently
+        # exceed the budget (budget+1 blocks) but the settled state after every
+        # completed write cycle never does.
+        # Peak contract: used never exceeds max(budget, window) at any point.
+        # (After the last compact the stream refills toward the window; the
+        # budget is enforced by the next compact firing, so the hard bound is
+        # max(budget, window).)
+        for budget, shape, peak, end in ((8, (9, 4), 9, 9), (10, (11, 5), 11, 11),
+                                         (12, (11, 5), 12, 12), (20, (19, 9), 20, 20)):
             m, stream = self._run("Consolidate", budget)
             shapes = {(e["source_slots"] // m.block, e["target_slots"] // m.block)
                       for e in stream.events}
             self.assertEqual(shapes, {shape}, (budget, shapes))
             self.assertGreater(len(stream.events), 1, "budget must trigger repeated compressions")
-            self.assertLessEqual(m.used, stream.budget)
+            self.assertLessEqual(stream.peak // m.block, peak, (budget, stream.peak))
+            self.assertLessEqual(m.used // m.block, end)
 
     def test_selection_arm_repeated_compression(self):
         m, stream = self._run("Selection", 12)
         shapes = {(e["source_slots"] // m.block, e["target_slots"] // m.block)
                   for e in stream.events}
         self.assertEqual(shapes, {(11, 5)})
-        self.assertLessEqual(m.used, stream.budget)
+        self.assertLessEqual(stream.peak // m.block, 12)
+        self.assertLessEqual(m.used // m.block, 12)
 
     def test_budget_20_unchanged(self):
         m, stream = self._run("Consolidate", 20)

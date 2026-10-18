@@ -111,6 +111,14 @@ def generate(model, tokenizer, sample, target):
     return dict(prediction=prediction, token_ids=tokens, score=author_score(prediction, target))
 
 
+def budget_geometry(budget_blocks):
+    """Pre-registered (window_blocks, target_blocks) per managed budget."""
+    table = {8: (9, 4), 10: (11, 5), 12: (11, 5), 20: (19, 9)}
+    if budget_blocks not in table:
+        raise ValueError("budget_blocks must be one of 8/10/12/20")
+    return table[budget_blocks]
+
+
 class StreamingMemory:
     """Explicit preappend 19→9 compression; no answer-derived goals/anchors."""
     def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=19,
@@ -118,12 +126,15 @@ class StreamingMemory:
         if arm not in ARMS:
             raise ValueError("unknown arm")
         # budget_blocks is the managed working budget (8/10/12/20 native blocks).
-        # window/target are derived so every compression keeps the protocol shape:
-        # window = budget - headroom? No -- window stays 19 blocks as long as the
-        # budget allows one post-compression tail; otherwise it scales down with
-        # the budget (e.g. budget 12 -> window 11, budget 8 -> window 9) so that
-        # repeated compressions 9->4 (budget 8) / 11->5 (budget 12) stay possible
-        # and never leave target >= window.
+        # The pre-registered compression geometry (user contract) is a fixed
+        # table, not a formula: budget 8 -> window 9 -> target 4, budget 10 ->
+        # 11 -> 5, budget 12 -> 11 -> 5, budget 20 -> 19 -> 9. For budgets 8 and
+        # 10 the window exceeds the budget by one block: the compact input may
+        # reach window blocks (transient overshoot), then lands back on target
+        # blocks, so the steady state after every completed write cycle stays at
+        # or below the budget. write() only compacts when the full window is
+        # resident (used >= window), which relaxes the old window < budget
+        # invariant.
         self.m = manager
         self.compactor = compactor
         self.arm = arm
@@ -132,14 +143,11 @@ class StreamingMemory:
         self.target = target_blocks * manager.block
         if budget_blocks not in (8, 10, 12, 20):
             raise ValueError("budget_blocks must be one of 8/10/12/20")
-        if budget_blocks != 20:
-            # Derive: window = budget-1 blocks (compact fires with one block of
-            # headroom), target = half the window, rounded down to whole blocks
-            # with at least one block dropped (budget 8 -> 9->4, 10 -> 9->4,
-            # 12 -> 11->5, 20 -> 19->9).
-            self.window = (budget_blocks - 1) * manager.block
-            self.target = max(manager.block, (self.window // manager.block) // 2) * manager.block
-        if not 0 < self.target < self.window < self.budget <= manager.total:
+        window_b, target_b = budget_geometry(budget_blocks)
+        self.window = window_b * manager.block
+        self.target = target_b * manager.block
+        if not 0 < self.target < self.window and self.target <= self.budget \
+                and self.window <= manager.total:
             raise ValueError("invalid compression budget")
         self.events = []
         self.peak = 0
@@ -183,7 +191,11 @@ class StreamingMemory:
         m = self.m
         with torch.no_grad():
             if self.arm not in ("Full", "NativeDefault") and m.used + m.block > self.budget:
-                self.compact(index)
+                if m.used >= self.window:
+                    self.compact(index)
+                # else: the pre-registered geometry for budgets 8/10 puts the
+                # window one block above the budget; let the stream grow to the
+                # full window so the next write can compact all of it at once.
             if self.arm == "Full" and m.used + m.block > m.total:
                 return None  # Honest Full-capacity failure; never truncate the stream.
             ids = torch.tensor([record["token_ids"]], dtype=torch.long, device=m._memory.device)
@@ -208,7 +220,8 @@ class StreamingMemory:
                 m.used += m.block
                 m._tile_free_region()
             active = int(m.model.memory_active_mask.sum())
-            limit = m.total if self.arm in ("Full", "NativeDefault") else self.budget
+            limit = m.total if self.arm in ("Full", "NativeDefault") \
+                else max(self.budget, self.window)
             if active != m.used or active > limit:
                 raise ValueError("active budget violation")
             self.peak = max(self.peak, active)

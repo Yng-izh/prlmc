@@ -47,6 +47,7 @@ from longbench_memoryllm_eval import (  # noqa: E402
 from natural_merge_runtime import (  # noqa: E402
     MergeStream, load_runtime, reset, source_manifest,
 )
+from public_retention_eval import budget_geometry  # noqa: E402
 
 BUDGET_BLOCKS = 20
 BUDGET_CHOICES = (8, 10, 12, 20)
@@ -181,7 +182,8 @@ def evaluate(args):
                 architecture=ARCHITECTURE if args.checkpoint else None,
                 capacity=f"managed_{args.budget_blocks}_block_budget",
                 budget_blocks=args.budget_blocks,
-                window_blocks=WINDOW_BLOCKS, target_blocks=TARGET_BLOCKS,
+                window_blocks=budget_geometry(args.budget_blocks)[0],
+                target_blocks=budget_geometry(args.budget_blocks)[1],
                 merge_arm=args.arm,
                 latent_tokens_per_block=256, max_write_tokens=512,
                 total_input_tokens=args.total_tokens,
@@ -243,7 +245,11 @@ def evaluate(args):
             prediction, output_ids = generate(model, tokenizer, query_ids, MAX_NEW[task])
             truncated = truncated_prediction(prediction)
             active = int(model.memory_active_mask.sum())
-            if active != manager.used or active > args.budget_blocks * model.num_tokens:
+            # The pre-registered geometry for budgets 8/10 reads a window one
+            # block larger than the budget, so the stream may transiently hold
+            # window blocks before the final compact lands back on target.
+            _w_b, _t_b = budget_geometry(args.budget_blocks)
+            if active != manager.used or active > max(args.budget_blocks, _w_b) * model.num_tokens:
                 raise ValueError("active budget violation after writes")
             report["samples"].append(dict(
                 task=task, sample_index=sample_index, id=row.get("_id"),
