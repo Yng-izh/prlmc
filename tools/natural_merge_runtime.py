@@ -120,6 +120,20 @@ class MergeStream(StreamingMemory):
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
                 seconds=time.monotonic()-begun, fusion=dict(self.compactor.last_fusion)))
+        elif self.merge_arm == "Consolidate":
+            import torch
+            from methods.prlmc.slot_consolidate import consolidate_slots
+            begun = time.monotonic()
+            output, kept, report = consolidate_slots(
+                source, target=self.target, block=m.block, weights=weights)
+            output = output.to(m.dtype)
+            install(m, output, self.window)
+            kept_blocks = sorted({s // m.block for s in report["kept_slots"]})
+            self.events.append(dict(before_write=write_index, source_slots=self.window,
+                target_slots=self.target, remaining_slots=m.used,
+                selected_blocks=kept_blocks,
+                seconds=time.monotonic() - begun,
+                consolidation=report))
         elif self.merge_arm == "Selection" and self.carrier_schedule is not None:
             begun = time.monotonic()
             blocks = source.reshape(m.num_layers, self.window//m.block, m.block, m.hidden)

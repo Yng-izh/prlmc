@@ -105,6 +105,15 @@ def run_sample(stream, writes):
     return compression_events
 
 
+def build_consolidate_merge(merge, arm, manager):
+    """--arm Consolidate swaps the (unused) learned module for the zero-parameter
+    slot-level consolidator; every other arm keeps the loaded merge untouched."""
+    if arm != "Consolidate":
+        return merge
+    from methods.prlmc.slot_consolidate import SlotConsolidateMerge
+    return SlotConsolidateMerge(manager.num_layers, manager.hidden, manager.block)
+
+
 def evaluate(args):
     if args.total_tokens not in (8192, 16384):
         raise ValueError("--total-tokens must be 8192 or 16384")
@@ -121,6 +130,9 @@ def evaluate(args):
     if args.arm == "SharedMerge":
         if not args.checkpoint or not Path(args.checkpoint).is_file():
             raise ValueError("--arm SharedMerge needs an existing --checkpoint")
+    elif args.arm == "Consolidate":
+        if args.checkpoint is not None:
+            raise ValueError("--arm Consolidate is training-free; drop --checkpoint")
     elif args.checkpoint is not None:
         raise ValueError("--arm Selection mutates no learned module; drop --checkpoint")
     output = Path(args.out)
@@ -161,7 +173,8 @@ def evaluate(args):
             raise ValueError("checkpoint file did not load")
         report = dict(schema="longbench_prlmc_results/1", status="running",
             protocol=dict(model="MemoryLLM-8B",
-                method=METHOD if args.checkpoint else "PRLM-C Selection",
+                method=("PRLM-C Consolidate (training-free plan A)" if args.arm == "Consolidate"
+                        else METHOD if args.checkpoint else "PRLM-C Selection"),
                 variant=saved["variant"] if saved else None,
                 architecture=ARCHITECTURE if args.checkpoint else None,
                 capacity="managed_20_block_budget", budget_blocks=BUDGET_BLOCKS,
@@ -221,6 +234,7 @@ def evaluate(args):
             original_tokens = len(tokenizer(prompt, add_special_tokens=False,
                                             truncation=False).input_ids)
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
+            merge = build_consolidate_merge(merge, args.arm, manager)
             stream = MergeStream(manager, merge, args.arm)
             compression_events = run_sample(stream, writes)
             prediction, output_ids = generate(model, tokenizer, query_ids, MAX_NEW[task])
@@ -283,7 +297,7 @@ def main():
                    help="trained Dsup/Dnative checkpoint; required for --arm SharedMerge, "
                         "unused for --arm Selection")
     p.add_argument("--arm", default="SharedMerge",
-                   choices=("SharedMerge", "Selection"),
+                   choices=("SharedMerge", "Selection", "Consolidate"),
                    help="SharedMerge = trained Dsup residual merge (our method); "
                         "Selection = same-budget pure block selector control")
     p.add_argument("--seed", type=int, default=0)

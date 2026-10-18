@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prepare_public_retention import digest, sha, tokenizer_manifest
 
 E6D_SHA = "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d"
-ARMS = ("Full", "Selection", "Recent", "SharedE6d", "NativeDefault")
+ARMS = ("Full", "Selection", "Recent", "SharedE6d", "NativeDefault", "Consolidate")
 
 
 def shard_samples(plan, index=0, count=1):
