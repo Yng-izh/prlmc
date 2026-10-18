@@ -49,6 +49,7 @@ from natural_merge_runtime import (  # noqa: E402
 )
 
 BUDGET_BLOCKS = 20
+BUDGET_CHOICES = (8, 10, 12, 20)
 WINDOW_BLOCKS = 19
 TARGET_BLOCKS = 9
 MODEL_PATH = "/share/latent/MemoryLLM-8B"
@@ -162,7 +163,8 @@ def evaluate(args):
     # checkpoint architecture/training/budget against TRAIN_V4.
     model, tokenizer, manager, merge, initial, cfg, saved = load_runtime(
         MODEL_PATH, checkpoint=args.checkpoint, train=False,
-        architecture=ARCHITECTURE if args.checkpoint else None)
+        architecture=ARCHITECTURE if args.checkpoint else None,
+        budget_blocks=args.budget_blocks)
     tokenizer.pad_token = tokenizer.eos_token
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
@@ -177,7 +179,8 @@ def evaluate(args):
                         else METHOD if args.checkpoint else "PRLM-C Selection"),
                 variant=saved["variant"] if saved else None,
                 architecture=ARCHITECTURE if args.checkpoint else None,
-                capacity="managed_20_block_budget", budget_blocks=BUDGET_BLOCKS,
+                capacity=f"managed_{args.budget_blocks}_block_budget",
+                budget_blocks=args.budget_blocks,
                 window_blocks=WINDOW_BLOCKS, target_blocks=TARGET_BLOCKS,
                 merge_arm=args.arm,
                 latent_tokens_per_block=256, max_write_tokens=512,
@@ -235,12 +238,12 @@ def evaluate(args):
                                             truncation=False).input_ids)
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
             merge = build_consolidate_merge(merge, args.arm, manager)
-            stream = MergeStream(manager, merge, args.arm)
+            stream = MergeStream(manager, merge, args.arm, budget_blocks=args.budget_blocks)
             compression_events = run_sample(stream, writes)
             prediction, output_ids = generate(model, tokenizer, query_ids, MAX_NEW[task])
             truncated = truncated_prediction(prediction)
             active = int(model.memory_active_mask.sum())
-            if active != manager.used or active > BUDGET_BLOCKS * model.num_tokens:
+            if active != manager.used or active > args.budget_blocks * model.num_tokens:
                 raise ValueError("active budget violation after writes")
             report["samples"].append(dict(
                 task=task, sample_index=sample_index, id=row.get("_id"),
@@ -293,6 +296,11 @@ def main():
                         "(prefix <= 6144) always has compression_count=0, while "
                         "16384 admits prefixes up to 14336 and fuses only the "
                         "samples whose own context is long enough")
+    p.add_argument("--budget-blocks", dest="budget_blocks", type=int,
+                   default=BUDGET_BLOCKS, choices=BUDGET_CHOICES,
+                   help="managed working budget in native blocks (8/10/12/20); "
+                        "lowers k_max so compaction fires more often, e.g. "
+                        "repeated 19->9 then 9->4 (budget 8) compressions")
     p.add_argument("--checkpoint", default=None,
                    help="trained Dsup/Dnative checkpoint; required for --arm SharedMerge, "
                         "unused for --arm Selection")

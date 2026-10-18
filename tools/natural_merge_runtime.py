@@ -86,9 +86,11 @@ def evaluate_questions(model, tokenizer, qas):
 
 
 class MergeStream(StreamingMemory):
-    def __init__(self, manager, compactor, arm, on_compression=None, carrier_schedule=None):
+    def __init__(self, manager, compactor, arm, on_compression=None, carrier_schedule=None,
+                 budget_blocks=20):
         aliases = {"SharedMerge": "SharedE6d", "CarrierOnlyFusion": "SharedE6d"}
-        super().__init__(manager, compactor, aliases.get(arm, arm))
+        super().__init__(manager, compactor, aliases.get(arm, arm),
+                         budget_blocks=budget_blocks)
         self.merge_arm = arm
         self.on_compression = on_compression
         self.carrier_schedule = carrier_schedule
@@ -275,7 +277,8 @@ def validate_merge_checkpoint(saved, architecture):
             raise ValueError("C/D checkpoint architecture/training/budget mismatch")
 
 
-def load_runtime(model_path, checkpoint=None, train=False, architecture=None):
+def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
+                 budget_blocks=20):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -295,7 +298,10 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None):
     if float(getattr(model, "memory_attn_scale", 1.)) != 1.:
         raise ValueError("reader attention gain must stay one")
     cfg = yaml.safe_load((ROOT/"configs/agent_conf/prlmc_e6.yaml").read_text())["prlmc"]
-    cfg.update(k_anchor=0, anchor_source="none", k_max=20*model.num_tokens, device="cuda:0",
+    if budget_blocks not in (8, 10, 12, 20):
+        raise ValueError("budget_blocks must be one of 8/10/12/20")
+    cfg.update(k_anchor=0, anchor_source="none", k_max=budget_blocks*model.num_tokens,
+        device="cuda:0",
         dtype="float16", active_memory_mask=True, trigger="none", compact_mode="carrier_residual",
         projection="none", basis_mode="none", compact_probe=False, stats_dir=None,
         carrier_gamma_max=.05, carrier_rank=32, write_mode="append", gate_mode="ones",
@@ -332,7 +338,7 @@ def reset(manager, initial):
 
 
 def costs(manager, merge):
-    return dict(physical_slots=manager.total, effective_budget_slots=20*manager.block,
+    return dict(physical_slots=manager.total, effective_budget_slots=manager.k_max,
         physical_pool_bytes=manager._memory.numel()*manager._memory.element_size(),
         shared_parameters=sum(p.numel() for p in merge.parameters()),
         shared_state_bytes=sum(t.numel()*t.element_size() for t in merge.state_dict().values()),

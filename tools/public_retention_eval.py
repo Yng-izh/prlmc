@@ -113,15 +113,32 @@ def generate(model, tokenizer, sample, target):
 
 class StreamingMemory:
     """Explicit preappend 19→9 compression; no answer-derived goals/anchors."""
-    def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=19, target_blocks=9):
+    def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=19,
+                 target_blocks=9):
         if arm not in ARMS:
             raise ValueError("unknown arm")
+        # budget_blocks is the managed working budget (8/10/12/20 native blocks).
+        # window/target are derived so every compression keeps the protocol shape:
+        # window = budget - headroom? No -- window stays 19 blocks as long as the
+        # budget allows one post-compression tail; otherwise it scales down with
+        # the budget (e.g. budget 12 -> window 11, budget 8 -> window 9) so that
+        # repeated compressions 9->4 (budget 8) / 11->5 (budget 12) stay possible
+        # and never leave target >= window.
         self.m = manager
         self.compactor = compactor
         self.arm = arm
         self.budget = budget_blocks * manager.block
         self.window = window_blocks * manager.block
         self.target = target_blocks * manager.block
+        if budget_blocks not in (8, 10, 12, 20):
+            raise ValueError("budget_blocks must be one of 8/10/12/20")
+        if budget_blocks != 20:
+            # Derive: window = budget-1 blocks (compact fires with one block of
+            # headroom), target = half the window, rounded down to whole blocks
+            # with at least one block dropped (budget 8 -> 9->4, 10 -> 9->4,
+            # 12 -> 11->5, 20 -> 19->9).
+            self.window = (budget_blocks - 1) * manager.block
+            self.target = max(manager.block, (self.window // manager.block) // 2) * manager.block
         if not 0 < self.target < self.window < self.budget <= manager.total:
             raise ValueError("invalid compression budget")
         self.events = []
