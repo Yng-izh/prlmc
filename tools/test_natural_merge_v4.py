@@ -31,7 +31,8 @@ class Contracts(unittest.TestCase):
         self.assertTrue(torch.equal(a(source,**kwargs),source[:,20:]))
         self.assertTrue(torch.equal(a(source,**kwargs),b(source,**kwargs)))
         (b(source,**kwargs)*torch.randn(4,18,8)).sum().backward()
-        self.assertGreater(b.native_gain.grad.abs().item(),0.)
+        self.assertEqual(b.native_gain.shape,(2,))
+        self.assertGreater(b.native_gain.grad.abs().sum().item(),0.)
         self.assertGreater(b.up_weight.grad.abs().sum().item(),0.)
         with torch.no_grad():
             b.native_gain.fill_(2);b.up_weight.normal_();b.slot_gate.bias.fill_(8)

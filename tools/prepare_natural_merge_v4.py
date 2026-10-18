@@ -15,13 +15,35 @@ TRAIN_V4=copy.deepcopy(TRAIN_V3)
 TRAIN_V4.update(answer_supervision="one leading ASCII space + original answer; separate true EOS CE",
     eos_weight=.25, teacher_scope="Full answer-content CE and KL only; EOS excluded from eligibility",
     qa_schedule="complete original QA coverage across sealed per-context event occurrences; context-balanced losses",
-    objective="context-balanced recovery content CE + eligible Full content KL + protection content hinge + separate EOS CE",
+    objective="context-balanced recovery content CE + eligible Full content KL + protection content hinge"
+              " + first-token Selection KL anchor + separate EOS CE",
+    # The content hinge is one-sided and sits at zero for most events, so the
+    # protect cohort receives no gradient exactly when the shared read starts to
+    # drift. The anchor below is non-negative everywhere and keeps the first
+    # answer token's distribution tied to the Selection reference at every event.
+    protection_anchor_weight=.10,
+    # v5 routing: the pretrained 4096-D representation dominates the score and
+    # the learned 32-D projection is a bounded residual view, so a domain shift
+    # cannot pull routing away from what the frozen reader calls similar.
+    native_prior_weight=.60, route_mix_temperature=.04, balance_strength=.15,
+    carrier_selector_layer=16,
     variants={
-        "Dsup":dict(architecture="grouped_gated_sparse_slot_v4",groups=8,reference_layer=16,
-                    routing="top8",topk=8,local_gate_max=.20,gate="slotwise shared across layers"),
-        "Dnative":dict(architecture="grouped_gated_sparse_native_v4",groups=8,reference_layer=16,
-                    routing="top8",topk=8,local_gate_max=.20,gate="slotwise shared across layers",
-                    native_path="same routed full-width source minus carrier; one zero-initialized signed gain")})
+        "Dsup":dict(architecture="grouped_gated_sparse_slot_v5",groups=8,reference_layer=16,
+                    routing="top8",topk=8,local_gate_max=.20,
+                    routing_score="0.6*native 4096-D cosine + 0.4*learned rank-32 cosine, tau .04,"
+                                  " column log-mean load balance .15",
+                    gate="slotwise hidden z-score + 3 domain-agnostic geometry features"
+                         " (top1 affinity, top-k sharpness, in-block redundancy); zero-initialized",
+                    carrier_selector_layer=16),
+        "Dnative":dict(architecture="grouped_gated_sparse_native_v5",groups=8,reference_layer=16,
+                    routing="top8",topk=8,local_gate_max=.20,
+                    routing_score="0.6*native 4096-D cosine + 0.4*learned rank-32 cosine, tau .04,"
+                                  " column log-mean load balance .15",
+                    gate="slotwise hidden z-score + 3 domain-agnostic geometry features"
+                         " (top1 affinity, top-k sharpness, in-block redundancy); zero-initialized",
+                    carrier_selector_layer=16,
+                    native_path="top-2 sharpened full-width source average minus carrier,"
+                                " routed-confidence scaled; one zero-initialized signed gain per layer group")})
 
 
 def make_schedule(episodes):

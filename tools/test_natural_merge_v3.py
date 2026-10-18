@@ -86,8 +86,12 @@ class ModuleContracts(unittest.TestCase):
 
     def test_grouped_sparse_router_and_checkpoint_roundtrip(self):
         module = modules()[1][1]
-        probabilities, indices = module._sparse_attention(torch.randn(9,3), torch.randn(20,3))
+        probabilities, indices, top1 = module._sparse_attention(torch.randn(9,3), torch.randn(20,3))
         self.assertEqual(indices.shape, (9,3)); self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(9)))
+        # The third value is the raw top-1 routing logit the geometry gate needs;
+        # it must be finite per query and consistent with the retained weights.
+        self.assertEqual(top1.shape, (9,)); self.assertTrue(bool(torch.isfinite(top1).all()))
+        self.assertTrue(bool((probabilities[:, 0] >= probabilities[:, -1]).all()))
         with torch.no_grad(): module.up_weight.normal_()
         other = modules()[1][1]; other.query_chunk_size = 5
         other.load_state_dict(module.state_dict(), strict=True)

@@ -4,6 +4,13 @@ C keeps v2's dense layer-0 routing and shared value matrices. D changes only
 the value grouping, routing and slot gates. Both are query independent, exactly
 Selection at initialization, and exactly Selection when discarded sources are
 removed. Stored-dtype rounding is included in the budget calculation.
+
+v5 makes D's routing domain independent in three ways, none of which moves the
+main line of the method: the pretrained 4096-D representation dominates the
+routing score (the learned 32-D projection is a bounded residual view), the
+slot gate additionally sees three scale-free geometry features, and the carrier
+selector scores blocks in the same layer routing reads. Every added branch is
+zero-initialised, so step 0 is still bit-identical to Selection.
 """
 import math
 
@@ -13,7 +20,7 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
 from .slot_merge import SlotMemoryMerge
-from .consolidate import _DELTA_VAR_EPS, _l2
+from .consolidate import _DELTA_VAR_EPS, _SELECT_LAYER, _l2
 
 
 def _energy(candidate, carrier):
@@ -86,16 +93,25 @@ class BudgetedSlotMemoryMerge(SlotMemoryMerge):
 class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
     architecture = "grouped_gated_sparse_slot_v3"
 
-    def __init__(self, *args, num_groups=8, reference_layer=16, topk=8, **kwargs):
+    def __init__(self, *args, num_groups=8, reference_layer=16, topk=8,
+                 native_prior_weight=.6, route_mix_temperature=.04,
+                 balance_strength=.15, **kwargs):
         kwargs.setdefault("gamma_max", .20)
         super().__init__(*args, **kwargs)
         self.num_groups = int(num_groups)
         self.reference_layer = int(reference_layer)
         self.topk = int(topk)
+        self.native_prior_weight = float(native_prior_weight)
+        self.route_mix_temperature = float(route_mix_temperature)
+        self.balance_strength = float(balance_strength)
         if not 1 <= self.num_groups <= self.num_layers or self.num_layers % self.num_groups:
             raise ValueError("groups must evenly divide reader layers")
         if not 0 <= self.reference_layer < self.num_layers or self.topk <= 0:
             raise ValueError("valid reference layer and positive top-k required")
+        if not 0. <= self.native_prior_weight <= 1. or self.route_mix_temperature <= 0:
+            raise ValueError("valid native-prior weight and routing temperature required")
+        if not 0. <= self.balance_strength < 1.:
+            raise ValueError("load-balance strength must be a small non-negative number")
         del self.down, self.up, self.gamma_logit
         self.down_weight = nn.Parameter(torch.empty(self.num_groups, self.rank, self.hidden))
         self.up_weight = nn.Parameter(torch.zeros(self.num_groups, self.hidden, self.rank))
@@ -103,19 +119,37 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
             nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
         self.slot_gate = nn.Linear(self.hidden, 1)
         nn.init.zeros_(self.slot_gate.weight)
+        # Routing quality gate: three dimensionless per-slot geometry features
+        # (top-1 affinity, top-k sharpness, in-block redundancy). Zero
+        # initialised, so the gate starts as the hidden-only gate and step 0
+        # stays exactly Selection.
+        self.rel_gate = nn.Linear(3, 1, bias=False)
+        nn.init.zeros_(self.rel_gate.weight)
+        # Set by every forward before routing; a plain attribute so it never
+        # enters the checkpoint or the state digest.
+        self._balance_offset = None
+        self._key_mask = None
         initial_gate = kwargs.get("initial_gate", .02)
         nn.init.constant_(self.slot_gate.bias, math.log(initial_gate / (self.gamma_max - initial_gate)))
 
-    def _sparse_attention(self, query, keys, q_raw=None, k_raw=None, key_mask=None):
-        # Learned cosine and raw-projection cosine carry equal weight, on a
-        # shared 0.03 temperature; the per-key logsumexp term pushes routing
-        # away from few overloaded keys (load balancing). Raw projections and
-        # the prefix mask are explicit arguments so chunked checkpoint
-        # recomputation stays a pure function of its inputs.
-        if q_raw is None:
+    def _sparse_attention(self, query, keys, q_nat=None, k_nat=None, key_mask=None):
+        # Two cosine views of the same (carrier slot, discarded slot) pair:
+        #   * q_nat @ k_nat.T  -- the pretrained 4096-D representation itself,
+        #     domain independent but noisy;
+        #   * query @ keys.T   -- the learned 32-D projection, sharp but fitted
+        #     on the training domain only.
+        # The pretrained view carries the larger weight so a domain shift cannot
+        # pull routing away from what the frozen reader already considers
+        # similar. A per-key column log-mean term pushes routing away from few
+        # overloaded keys. Native views and the prefix mask are explicit
+        # arguments so chunked checkpoint recomputation stays a pure function of
+        # its inputs.
+        if q_nat is None:
             logits = (query @ keys.T) / max(1e-6, float(self.route_temperature))
         else:
-            logits = (0.5 * (q_raw @ k_raw.T) + 0.5 * (query @ keys.T)) / 0.03
+            logits = (self.native_prior_weight * (q_nat @ k_nat.T)
+                      + (1. - self.native_prior_weight) * (query @ keys.T)
+                      ) / self.route_mix_temperature
         balance = getattr(self, "_balance_offset", None)
         if balance is not None:
             # Per-key load-balance prior, computed once over the full query set
@@ -128,10 +162,16 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
             logits = logits + key_mask.float() * (-1e30)
         values, indices = logits.topk(min(self.topk, keys.shape[0]), dim=-1)
         # Only k weights are retained. Dense logits are transient/chunked.
-        return torch.softmax(values, dim=-1), indices
+        # The third return value is the top-1 logit per query: the raw affinity
+        # feature of the geometry gate, not a renormalised weight.
+        return torch.softmax(values, dim=-1), indices, values[:, 0]
+
+    def group_gain(self, group):
+        """Optional per-layer-group scalar; the native skip arm overrides this."""
+        return None
 
     def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
-                     down_weight, up_weight):
+                     down_weight, up_weight, group_gain=None):
         values = F.linear(source_layer.float().flatten(0, 1), down_weight)
         # [queries,k,rank], never [queries,k,hidden].
         context = (values[indices] * probabilities.unsqueeze(-1)).sum(1)
@@ -180,18 +220,12 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
                 global_rms_budget=self.global_rms_budget)
             return carriers.flatten(1, 2).contiguous()
         fusion = blocks.index_select(1, source_indices)
-        ref = carriers[self.reference_layer].detach().float().flatten(0, 1)
-        q_raw = self.q(_l2(ref))
-        k_raw = self.k(_l2(fusion[self.reference_layer].detach().float().flatten(0, 1)))
-        query = _l2(q_raw)
-        keys = _l2(k_raw)
-        # Block-wise de-mean + z-score of the gate input pulls gate spread apart
-        # before the global RMS cap can flatten it. With the zero-initialized
-        # gate weight the standardized input leaves step-0 alpha unchanged.
-        gate_in = _l2(ref).reshape(-1, self.block, self.hidden)
-        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
-            gate_in.std(1, keepdim=True) + 1e-6)
-        alpha = self.gamma_max * torch.sigmoid(self.slot_gate(gate_in.flatten(0, 1)))
+        # Native view: the pretrained 4096-D slots themselves.
+        q_nat = _l2(carriers[self.reference_layer].detach().float().flatten(0, 1))
+        k_nat = _l2(fusion[self.reference_layer].detach().float().flatten(0, 1))
+        # Learned view: a bounded residual projection of those same slots.
+        query = _l2(self.q(q_nat))
+        keys = _l2(self.k(k_nat))
         prefix = int(getattr(self, "prefix_slots", 4))
         if 0 < prefix < self.block:
             # True marks the leading "Context:" prefix slots of each block:
@@ -202,26 +236,52 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
             self._key_mask = None
         prefix_mask = self._key_mask
         self._balance_offset = None
-        if q_raw is not None:
-            with torch.no_grad():
-                full = (0.5 * (q_raw.detach() @ k_raw.detach().T)
-                        + 0.5 * (query.detach() @ keys.detach().T)) / 0.03
-                queries = max(1, full.shape[0])
-                self._balance_offset = (-0.5 * torch.logsumexp(full, dim=0, keepdim=True)
-                                        / max(1e-6, math.log(queries)))
+        with torch.no_grad():
+            full = (self.native_prior_weight * (q_nat @ k_nat.T)
+                    + (1. - self.native_prior_weight) * (query @ keys.T)
+                    ) / self.route_mix_temperature
+            if prefix_mask is not None:
+                full = full + prefix_mask.float() * (-1e30)
+            queries = max(1, full.shape[0])
+            # Column log-mean over queries: subtract log(N) from the logsumexp so
+            # the term is an O(1) logit correction instead of growing with the
+            # number of carrier slots.
+            column_log_mean = torch.logsumexp(full, dim=0, keepdim=True) - math.log(queries)
+            self._balance_offset = -self.balance_strength * column_log_mean
         use_ckpt = torch.is_grad_enabled() and any(p.requires_grad for p in self.parameters())
         chunks = []
         for begin in range(0, target, self.query_chunk_size):
             chunks.append(self._sparse_attention(
                 query[begin:begin+self.query_chunk_size], keys,
-                q_raw[begin:begin+self.query_chunk_size], k_raw, prefix_mask))
-        probabilities = torch.cat([p for p, _ in chunks])
-        indices = torch.cat([i for _, i in chunks])
+                q_nat[begin:begin+self.query_chunk_size], k_nat, prefix_mask))
+        probabilities = torch.cat([p for p, _, _ in chunks])
+        indices = torch.cat([i for _, i, _ in chunks])
+        top1 = torch.cat([a for _, _, a in chunks])
+        # Geometry gate: the hidden-only gate cannot tell whether a carrier slot
+        # actually found a matching source. These three features can, and all of
+        # them are scale-free and domain agnostic:
+        #   affinity   -- top-1 routing logit (did this slot find a match?)
+        #   sharpness  -- p_max - p_min over the retained top-k weights
+        #   redundancy -- cos(slot, block centroid); generic slots score high
+        # Effects are per-block rather than per-feature: the gate decides *which
+        # slots inside one block* to trust, and the global RMS cap handles level.
+        gate_in = q_nat.reshape(-1, self.block, self.hidden)
+        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
+            gate_in.std(1, keepdim=True) + 1e-6)
+        centroid = _l2(gate_in.mean(dim=1, keepdim=True))
+        redundancy = (gate_in * centroid).sum(-1)
+        sharpness = (probabilities[:, 0] - probabilities[:, -1]).reshape(-1, self.block)
+        affinity = top1.reshape(-1, self.block)
+        rel = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
+        rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
+        gate_logits = (self.slot_gate(gate_in.flatten(0, 1))
+                       + self.rel_gate(rel.flatten(0, 1)))
+        alpha = self.gamma_max * torch.sigmoid(gate_logits)
         outputs = []
         for layer in range(self.num_layers):
             group = layer // (self.num_layers // self.num_groups)
             args = (probabilities, indices, fusion[layer], carriers[layer],
-                    self.down_weight[group], self.up_weight[group])
+                    self.down_weight[group], self.up_weight[group], self.group_gain(group))
             delta = (checkpoint(self._group_delta, *args, use_reentrant=False)
                      if use_ckpt else self._group_delta(*args))
             outputs.append((carriers[layer].float().flatten(0, 1) + alpha * delta).to(source.dtype))
@@ -229,6 +289,10 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
             self.last_gamma = float(alpha.mean())
             self.last_routing_entropy = float(-(probabilities * probabilities.clamp_min(1e-12).log()).sum(-1).mean())
             self.last_fusion.update(gamma=self.last_gamma, gate_min=float(alpha.min()), gate_max=float(alpha.max()),
-                routing_entropy=self.last_routing_entropy, sparse_attention_shape=list(indices.shape))
+                routing_entropy=self.last_routing_entropy, sparse_attention_shape=list(indices.shape),
+                native_prior_weight=self.native_prior_weight, route_mix_temperature=self.route_mix_temperature,
+                balance_strength=self.balance_strength,
+                gate_rel_norm=float(self.rel_gate.weight.detach().abs().mean()),
+                carrier_selector_layer=int(min(_SELECT_LAYER, self.num_layers - 1)))
         candidate = torch.stack(outputs)
         return self._cap(candidate, carriers.flatten(1, 2))

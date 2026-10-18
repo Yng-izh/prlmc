@@ -61,6 +61,7 @@ from methods.prlmc.config import PRLMCConfig
 from methods.prlmc.consolidate import (
     CarrierResidualCompactor,
     FixedBasisCarrierResidualCompactor,
+    _SELECT_LAYER,
     build_compactor,
     recent_block_compact,
     select_block_compact,
@@ -94,7 +95,14 @@ _COPY_CHUNK = 512
 # layer 0 and a candidate averaged over all 32 layers live in different spaces and
 # their cosine has no stable meaning. Keeping the choice explicit in one constant
 # is what makes it checkable.
-_REFERENCE_LAYER = 0
+#
+# It is 16, the same semantic mid layer the merge routes in
+# (`TRAIN_V4` variants use `reference_layer = 16`) and the same layer the carrier
+# selector scores blocks in (`consolidate._SELECT_LAYER`). Layer 0 features are
+# dominated by shallow detokenisation, so a carrier set, a goal direction and a
+# routing read taken from different layers describe different manifolds -- the
+# reason an in-domain gain could vanish on another dataset.
+_REFERENCE_LAYER = 16
 
 
 class SlotLayout:
@@ -442,7 +450,7 @@ class ProtectedResidualMemory:
             self._memory[:, self.layout.anchor_slice(), :] = tiled.to(self.dtype)
 
         self.anchor_slots = tiled.detach().clone()
-        self.goal_direction = summarise_block(tiled, layer=_REFERENCE_LAYER).detach()
+        self.goal_direction = summarise_block(tiled, layer=min(_REFERENCE_LAYER, tiled.shape[0] - 1)).detach()
         self.model.initialized.fill_(1)
 
         self._tile_free_region()
@@ -536,7 +544,7 @@ class ProtectedResidualMemory:
             self.skipped_chunks += 1
             return {"dropped": True, "raw_tokens": raw_tokens, "reason": "encode_failed"}
 
-        candidate = summarise_block(block, layer=_REFERENCE_LAYER)
+        candidate = summarise_block(block, layer=min(_REFERENCE_LAYER, block.shape[0] - 1))
         # The basis is estimated from centred activations, so the candidate has
         # to be centred with the same mean before it is scored. Without this the
         # novelty carried a constant offset that had nothing to do with the
@@ -933,7 +941,7 @@ class ProtectedResidualMemory:
             self.basis = None
             self.basis_mean = None
             return
-        activations = self._distinct()[_REFERENCE_LAYER]
+        activations = self._distinct()[self._reference_layer_index()]
         basis, mean, _ = estimate_basis(
             activations,
             max_rank=min(self.cfg.basis_max_rank, self.used),
@@ -943,6 +951,10 @@ class ProtectedResidualMemory:
         )
         self.basis = basis
         self.basis_mean = mean
+
+    def _reference_layer_index(self) -> int:
+        """Semantic reference layer, clamped for readers with fewer layers."""
+        return min(_REFERENCE_LAYER, self._memory.shape[0] - 1)
 
     def _address(self, candidate: torch.Tensor) -> Tuple[Optional[int], float]:
         """Return the existing block whose content is closest to `candidate`.
@@ -966,7 +978,7 @@ class ProtectedResidualMemory:
         reference = reference / (reference.norm() + 1e-8)
 
         with torch.no_grad():
-            region = self._distinct()[_REFERENCE_LAYER][: n_blocks * self.block]
+            region = self._distinct()[self._reference_layer_index()][: n_blocks * self.block]
             summaries = region.detach().to(torch.float32).reshape(n_blocks, self.block, -1)
             summaries = summaries.mean(dim=1)
             summaries = summaries / (summaries.norm(dim=-1, keepdim=True) + 1e-8)
@@ -1057,7 +1069,7 @@ class ProtectedResidualMemory:
     def _spectrum(self, max_rows: int = _SPECTRUM_MAX_ROWS) -> Optional[torch.Tensor]:
         if self.used < self.block:
             return None
-        activations = self._distinct()[_REFERENCE_LAYER].detach().to(torch.float32)
+        activations = self._distinct()[self._reference_layer_index()].detach().to(torch.float32)
         activations = self._subsample(activations, max_rows)
         activations = activations - activations.mean(dim=0, keepdim=True)
         try:
@@ -1361,7 +1373,11 @@ class ProtectedResidualMemory:
         ):
             return None
 
-        slots = self._memory[0, start : start + window, :]
+        # Same layer the carrier selector scores blocks in and the same layer
+        # `goal_direction` was summarised from, so the importance weights and the
+        # selector never disagree about which layer defines a block.
+        assert _SELECT_LAYER == _REFERENCE_LAYER
+        slots = self._memory[self._reference_layer_index(), start : start + window, :]
         recency = torch.arange(window, device=slots.device, dtype=torch.float32)
         region_mean = slots.detach().to(torch.float32).mean(dim=0, keepdim=True)
         surprise = (slots.detach().to(torch.float32) - region_mean).norm(dim=-1)

@@ -103,12 +103,16 @@ def weighted_svd_tokens(source: torch.Tensor, target: int, weights: torch.Tensor
 # Native block selection
 # ---------------------------------------------------------------------------
 #
-# The layer these summaries are computed in. It must match
-# `layout._REFERENCE_LAYER`, which is where the basis, the spectrum and the goal
-# direction live; a summary taken in another layer would be scored against a goal
-# direction from a different space. Duplicated as a local constant because
-# `layout` imports this module and importing back would be circular.
-_SELECT_LAYER = 0
+# The layer these summaries are computed in. It must match the layer the merge
+# routes in (`prepare_natural_merge_v4.TRAIN_V4` variants use `reference_layer`
+# = 16): a block scored in layer 0 is scored on shallow detokenisation features
+# while routing reads semantic mid-layer directions, so the carrier set and the
+# routed sources do not describe the same manifold. That mismatch is part of why
+# the 16k gains failed to transfer across domains. Small readers used by the CPU
+# contracts have fewer layers, so the index is clamped at the call site.
+# Duplicated as a local constant because `layout` imports this module and
+# importing back would be circular.
+_SELECT_LAYER = 16
 _EPS = 1e-8
 
 # Development starting values for the selection score. They are deliberately
@@ -235,7 +239,9 @@ def _select_block_indices(
                 cfg[key] = float(value)
 
     x = source.view(layers, b, block, d)
-    summary = x[_SELECT_LAYER].detach().to(torch.float32).mean(dim=1)  # [B, d]
+    # Clamp so the 16-layer semantic reference still applies to the tiny readers
+    # the CPU contracts build; a real 32-layer reader always selects layer 16.
+    summary = x[min(_SELECT_LAYER, layers - 1)].detach().to(torch.float32).mean(dim=1)  # [B, d]
 
     if weights is not None and weights.numel() == k:
         importance = weights.detach().to(torch.float32).view(b, block).mean(dim=1)
@@ -481,10 +487,11 @@ class CarrierResidualCompactor(nn.Module):
         # distribution; a value near 1.0 would make it almost uniform over 12
         # blocks and the prior would carry no information.
         self.route_temperature = 0.1
-        # The layer whose block means drive routing. Layer 0 is the same
-        # reference the carrier selector scores in (`_SELECT_LAYER`), so
-        # selection and routing at least agree on which layer defines a block.
-        self.reference_layer = 0
+        # The layer whose block means drive routing. It is the same reference
+        # the carrier selector scores in (`_SELECT_LAYER`), so selection and
+        # routing agree on which layer defines a block. Clamped to the reader's
+        # layer count where it is read.
+        self.reference_layer = _SELECT_LAYER
 
         self.forward_calls = 0
         self.last_gamma = 0.0

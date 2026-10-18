@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LongBench evaluation of the PRLM-C natural-merge (v4 Dsup) method.
+"""LongBench evaluation of the PRLM-C natural-merge (v5 Dsup) method.
 
 Same LongBench protocol as tools/longbench_memoryllm_eval.py
 (tail2048_native_write_v1: final 2,048 tokens queried directly, the prefix
@@ -8,7 +8,7 @@ written in chunks of at most 512 tokens), with two differences:
 1. The writer is the PRLM-C managed streaming path: writes go into a
    20-block working budget inside the checkpoint's physical 50-block pool,
    and a 19->9 block slot merge (the trained Dsup
-   `grouped_gated_sparse_slot_v4` module) consolidates the oldest 19 blocks
+   `grouped_gated_sparse_slot_v5` module) consolidates the oldest 19 blocks
    into 9 whenever the budget would be exceeded. No native random eviction
    runs: `inject_memory` is called with `update_memory=False` and the delta
    is placed by the manager, then the active mask hides the free region.
@@ -20,7 +20,7 @@ written in chunks of at most 512 tokens), with two differences:
 
 --arm Selection runs the identical protocol with the pure importance-weighted
 block selector (no residual merge module), the same comparison axis as the
-v4 development stream.
+v5 development stream.
 
 No training, no optimizer, greedy decoding, fixed seed 0.
 """
@@ -52,8 +52,12 @@ BUDGET_BLOCKS = 20
 WINDOW_BLOCKS = 19
 TARGET_BLOCKS = 9
 MODEL_PATH = "/share/latent/MemoryLLM-8B"
-CHECKPOINT = "/share/latent/PRLM-C/runs/natural_merge_v4_dd_20261015_0108/Dsup.train.pt"
-ARCHITECTURE = "grouped_gated_sparse_slot_v4"
+# v5 architecture string. A v4 checkpoint cannot be evaluated here: the v5
+# module changed routing, the gate inputs and the native path, and
+# `validate_merge_checkpoint` rejects the retired training record, so the
+# checkpoint has to be passed explicitly instead of silently defaulting.
+ARCHITECTURE = "grouped_gated_sparse_slot_v5"
+METHOD = "PRLM-C natural-merge v5 Dsup"
 
 
 def truncated_prediction(prediction):
@@ -114,6 +118,11 @@ def evaluate(args):
         raise ValueError("max-samples must be positive")
     if args.seed != 0:
         raise ValueError("the fixed evaluation seed is 0")
+    if args.arm == "SharedMerge":
+        if not args.checkpoint or not Path(args.checkpoint).is_file():
+            raise ValueError("--arm SharedMerge needs an existing --checkpoint")
+    elif args.checkpoint is not None:
+        raise ValueError("--arm Selection mutates no learned module; drop --checkpoint")
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
     done_ids = set()
@@ -121,7 +130,9 @@ def evaluate(args):
         if not args.resume:
             raise ValueError("output exists; refuse overwrite (use --resume)")
         prev = json.loads(output.read_text())
-        if prev.get("protocol", {}).get("total_input_tokens") != args.total_tokens or                 prev.get("identity", {}).get("checkpoint_sha256") != str(CHECKPOINT and __import__("hashlib").sha256(open(CHECKPOINT,"rb").read()).hexdigest()):
+        if (prev.get("protocol", {}).get("total_input_tokens") != args.total_tokens
+                or prev.get("identity", {}).get("checkpoint") != args.checkpoint
+                or prev.get("protocol", {}).get("merge_arm") != args.arm):
             raise ValueError("--resume output was produced by a different protocol/checkpoint")
         done_ids = {(s["task"], s["sample_index"]) for s in prev["samples"]}
         report = prev
@@ -138,16 +149,21 @@ def evaluate(args):
     # (carrier_residual, active mask, k_max = 20 blocks) and validates the
     # checkpoint architecture/training/budget against TRAIN_V4.
     model, tokenizer, manager, merge, initial, cfg, saved = load_runtime(
-        MODEL_PATH, checkpoint=CHECKPOINT, train=False, architecture=ARCHITECTURE)
+        MODEL_PATH, checkpoint=args.checkpoint, train=False,
+        architecture=ARCHITECTURE if args.checkpoint else None)
     tokenizer.pad_token = tokenizer.eos_token
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
-    checkpoint_sha256 = sha(CHECKPOINT)
+    checkpoint_sha256 = sha(args.checkpoint) if args.checkpoint else None
 
     if report is None:
-            report = dict(schema="longbench_prlmc_results/1", status="running",
-            protocol=dict(model="MemoryLLM-8B", method="PRLM-C natural-merge v4 Dsup",
-                variant=saved["variant"], architecture=ARCHITECTURE,
+        if args.checkpoint and saved is None:
+            raise ValueError("checkpoint file did not load")
+        report = dict(schema="longbench_prlmc_results/1", status="running",
+            protocol=dict(model="MemoryLLM-8B",
+                method=METHOD if args.checkpoint else "PRLM-C Selection",
+                variant=saved["variant"] if saved else None,
+                architecture=ARCHITECTURE if args.checkpoint else None,
                 capacity="managed_20_block_budget", budget_blocks=BUDGET_BLOCKS,
                 window_blocks=WINDOW_BLOCKS, target_blocks=TARGET_BLOCKS,
                 merge_arm=args.arm,
@@ -165,7 +181,7 @@ def evaluate(args):
                 seed_reset="reset to 0 before each sample",
                 memory_reset="checkpoint values, used=0 and full active mask before every sample"),
             identity=dict(model_path=MODEL_PATH, data_dir=args.data_dir,
-                checkpoint=CHECKPOINT, checkpoint_sha256=checkpoint_sha256,
+                checkpoint=args.checkpoint, checkpoint_sha256=checkpoint_sha256,
                 source_manifest=source_manifest(),
                 longbench_source_commit=LONGBENCH_COMMIT,
                 memoryllm_source_commit=MEMORYLLM_COMMIT,
@@ -257,9 +273,15 @@ def main():
     p.add_argument("--cuda-device", default="0")
     p.add_argument("--total-tokens", "--max_length", dest="total_tokens", type=int,
                    default=16384, choices=(8192, 16384),
-                   help="default 16384: the 20-block budget only triggers 19->9 "
-                        "merges when write_prefix_tokens exceeds 4096, so 8192 "
-                        "yields compression_count=0; 16384 guarantees merges")
+                   help="input cap; the per-sample write prefix is "
+                        "min(cap-2048, sample length). Merges fire only when that "
+                        "prefix reaches 20 blocks x 512 = 10240 tokens, so 8192 "
+                        "(prefix <= 6144) always has compression_count=0, while "
+                        "16384 admits prefixes up to 14336 and fuses only the "
+                        "samples whose own context is long enough")
+    p.add_argument("--checkpoint", default=None,
+                   help="trained Dsup/Dnative checkpoint; required for --arm SharedMerge, "
+                        "unused for --arm Selection")
     p.add_argument("--arm", default="SharedMerge",
                    choices=("SharedMerge", "Selection"),
                    help="SharedMerge = trained Dsup residual merge (our method); "

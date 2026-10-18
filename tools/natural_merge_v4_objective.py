@@ -66,7 +66,8 @@ def make_optimizer(module):
     gates, matrices = [], []
     gate_names, matrix_names = [], []
     for name, parameter in module.named_parameters():
-        if name == "gamma_logit" or name.startswith("slot_gate.") or name == "native_gain":
+        if (name == "gamma_logit" or name.startswith("slot_gate.") or name.startswith("rel_gate.")
+                or name == "native_gain"):
             gates.append(parameter); gate_names.append(name)
         else:
             matrices.append(parameter); matrix_names.append(name)
@@ -86,7 +87,7 @@ def make_optimizer(module):
 BAD_CONTINUATION_IDS = (2014, 14924, 36349)  # " Context", " Question", " Questions"
 
 
-def objective_terms(logits, gold, reference_ce, teacher, coefficients):
+def objective_terms(logits, gold, reference_ce, teacher, coefficients, anchor=None):
     ce = F.cross_entropy(logits[:-1], gold[:-1])
     eos_ce = F.cross_entropy(logits[-1:], gold[-1:])
     vocab = logits.shape[-1]
@@ -100,7 +101,15 @@ def objective_terms(logits, gold, reference_ce, teacher, coefficients):
     kd = teacher_kl(logits[:-1], teacher) if teacher is not None else ce.new_zeros(())
     recovery = coefficients["recovery"]*ce
     distillation = TRAIN_V4["teacher_weight"]*coefficients["teacher"]*kd
-    protection = coefficients["protect"]*TRAIN_V4["protection_weight"]*F.relu(ce-reference_ce-TRAIN_V4["protection_margin"])
+    hinge = F.relu(ce-reference_ce-TRAIN_V4["protection_margin"])
+    if anchor is not None:
+        # The hinge is one-sided: for a protect-cohort sample that is still at or
+        # below the Selection CE it contributes exactly zero, so nothing stops
+        # the shared read from drifting while it is still "good enough". The
+        # first-token KL is non-negative everywhere and pins the answer onset
+        # distribution to the Selection reference at every event.
+        hinge = hinge + TRAIN_V4["protection_anchor_weight"]*anchor
+    protection = coefficients["protect"]*TRAIN_V4["protection_weight"]*hinge
     eos = TRAIN_V4["eos_weight"]*coefficients["eos"]*(eos_ce + 0.5*eos_margin)
     return ce, kd, recovery, distillation, protection, eos_ce, eos
 
@@ -134,12 +143,16 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins, scale
     mask = _compacted_mask(m, m.used-window+target, m._memory.device)
     full_ce = [targets[q["id"]]["gold_ce"] for q in qas]
     selection_ce = []
+    # First-token distribution of the Selection reference, kept on CPU in fp32:
+    # the anchor below needs a target that does not move with the student.
+    selection_first = []
     with torch.no_grad(), _pool_in_place(m, m._memory.device, carriers, window, target) as injection:
         with active_mask_override(m.model, mask):
             for qa in qas:
                 injection.reinject()
                 logits, gold = answer_logits(m.model, qa, m._memory.device)
                 selection_ce.append(float(F.cross_entropy(logits[:-1], gold[:-1])))
+                selection_first.append(F.softmax(logits[0].float(), -1).cpu())
     if not torch.isfinite(torch.tensor(full_ce+selection_ce)).all():
         raise ValueError("nonfinite reference CE")
     eligible = [cohort == "recover" and full_ce[i] <= TRAIN_V4["teacher_max_gold_ce"]
@@ -159,8 +172,12 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins, scale
                 with differentiable_memory(m.model, pool):
                     logits, gold = answer_logits(m.model, qa, m._memory.device)
                 teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
+                anchor = None
+                if coefficients[i]["protect"] > 0:
+                    anchor = F.kl_div(F.log_softmax(logits[0].float(), -1),
+                                      selection_first[i].to(logits.device), reduction="sum")
                 ce,kd,recovery,distillation,protection,eos_ce,eos = objective_terms(
-                    logits,gold,selection_ce[i],teacher,coefficients[i])
+                    logits,gold,selection_ce[i],teacher,coefficients[i],anchor)
                 loss = recovery+distillation+protection+eos
                 if not torch.isfinite(loss): raise ValueError("nonfinite C/D objective")
                 (scaler.scale(loss) if scaler else loss).backward()
@@ -171,6 +188,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins, scale
                     full_ce=full_ce[i], selection_ce=selection_ce[i], shared_ce=float(ce.detach()),
                     weight=coefficients[i]["weight"], eos_ce=float(eos_ce.detach()), eos_term=float(eos.detach()), teacher_eligible=eligible[i], teacher_kl=float(kd.detach()),
                     recovery_term=float(recovery.detach()), protection_term=float(protection.detach()),
+                    protection_anchor=float(anchor.detach()) if anchor is not None else 0.,
                     answer_token_count=len(qa["content_ids"])))
                 del pool, logits, ce, kd, recovery, distillation, protection, eos_ce, eos, loss
     if leaf.grad is None or not torch.isfinite(leaf.grad).all():
@@ -203,7 +221,8 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins, scale
             shared_minus_selection_ce=sum(r["shared_ce"]-r["selection_ce"] for r in subset)/len(subset))
     return dict(objective=total, gold_ce=sum(r["shared_ce"] for r in rows)/len(rows),
         weighted_gold_ce=recovery_sum, teacher_kl=kd_sum/TRAIN_V4["teacher_weight"],
-        protection_hinge=protect_sum, eos_loss=eos_sum, teacher_eligible_count=eligible_count,
+        protection_hinge=protect_sum,
+        protection_anchor=sum(r["protection_anchor"] for r in rows)/len(rows), eos_loss=eos_sum, teacher_eligible_count=eligible_count,
         teacher_weight=TRAIN_V4["teacher_weight"], original_qa_count=len(qas), qas=rows,
         cohorts=means, carrier_indices=index_list, retained_native_origins=list(origins.blocks),
         gradient_norms_before_clip=gradient_norms, grad_norm_before_clip=norm,

@@ -212,32 +212,46 @@ def build_merge(architecture, num_layers, hidden, block):
     classes = {"block_v1": SharedMemoryMerge, "discarded_slot_attention_v1": SlotMemoryMerge,
                "budgeted_dense_slot_v3": BudgetedSlotMemoryMerge,
                "grouped_gated_sparse_slot_v3": GraftedSlotMemoryMerge,
-               "grouped_gated_sparse_slot_v4": SupervisedDSlotMerge,
-               "grouped_gated_sparse_native_v4": NativeSkipSlotMerge}
+               # v4 is retired: its checkpoints were trained with layer-0 carrier
+               # selection, learned-only routing and a single shared native gain,
+               # none of which this code reproduces. Keeping the name out of the
+               # registry makes reusing an old checkpoint a loud error instead of
+               # a silent re-interpretation.
+               "grouped_gated_sparse_slot_v5": SupervisedDSlotMerge,
+               "grouped_gated_sparse_native_v5": NativeSkipSlotMerge}
     if architecture not in classes:
         raise ValueError("unknown shared merge architecture")
     kwargs = dict(rank=32, gamma_max=.05)
-    if architecture.endswith(("_v3", "_v4")):
-        if architecture.endswith("_v4"):
-            from prepare_natural_merge_v4 import TRAIN_V4 as training
-        else:
-            from prepare_natural_merge_v3 import TRAIN_V3 as training
+    training = training_for(architecture)
+    if training is not None:
         spec = next(v for v in training["variants"].values() if v["architecture"] == architecture)
         kwargs.update(gamma_max=spec["local_gate_max"], initial_gate=training["initial_gate"],
                       global_rms_budget=training["global_rms_budget"])
         if architecture != "budgeted_dense_slot_v3":
             kwargs.update(num_groups=spec["groups"], reference_layer=spec["reference_layer"], topk=spec["topk"])
+        if architecture.endswith("_v5"):
+            kwargs.update(native_prior_weight=training["native_prior_weight"],
+                          route_mix_temperature=training["route_mix_temperature"],
+                          balance_strength=training["balance_strength"])
     return classes[architecture](num_layers, hidden, block, **kwargs)
+
+
+def training_for(architecture):
+    """Sealed supervision record a checkpoint must reproduce, or None for baselines."""
+    if architecture.endswith("_v3"):
+        from prepare_natural_merge_v3 import TRAIN_V3 as training
+        return training
+    if architecture.endswith(("_v4", "_v5")):
+        from prepare_natural_merge_v4 import TRAIN_V4 as training
+        return training
+    return None
 
 
 def validate_merge_checkpoint(saved, architecture):
     if saved.get("effective_gamma_max", .05) != .05 or saved.get("evaluation_eligible") is False:
         raise ValueError("ineligible/gamma-mismatched checkpoint")
-    if architecture.endswith(("_v3", "_v4")):
-        if architecture.endswith("_v4"):
-            from prepare_natural_merge_v4 import TRAIN_V4 as training
-        else:
-            from prepare_natural_merge_v3 import TRAIN_V3 as training
+    training = training_for(architecture)
+    if training is not None:
         variant = saved.get("variant")
         if (variant not in training["variants"] or saved.get("training") != training
                 or saved.get("module_configuration") != training["variants"][variant]
