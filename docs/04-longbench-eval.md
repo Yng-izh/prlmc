@@ -11,6 +11,8 @@
 
 每题同时记录 official_qa_f1 与 official_qa_f1_truncated（第一个换行前截断）。MemoryLLM 解码器会在答案后继续生成追问文本，raw F1 被解码伪影压低；汇总以 truncated 为主指标，qa_f1_raw 附带。**跨论文比较必须确认对方口径。**
 
+退化形态已实测（native50 16k hotpotqa，n=200）：192/200 条输出在首行答案后继续复读 `Question: …\nAnswer:` 模板（如 `' Miller v. California was brought to court first.\n\nQuestion: Which case …\nAnswer:'`），平均输出 129.6 字符，只有 6 条短于 20 字符。这是 reader 的续写/prompt 模板伪影，不是融合方法的问题；截断取首行即可恢复（同一批样本 raw 9.44 → truncated 35.80）。
+
 ## 8k 首轮结果（2026-10-16，口径已更正）
 
 reports/longbench_prlmc_v4_8k_analysis.md 的原表把 native50 列写成了 `official_qa_f1_truncated`，实际存的是 raw `official_qa_f1`：082937 那次基线用的工具版本逐题不记录 truncated（200 条样本的键里根本没有该字段，hotpotqa 8.83 恰好等于 raw 均值）。**2026-10-18 用当前工具的截断函数对已存 `prediction` 重新打分，得到同口径数字**（n 与原表一致，按 id 去重）：
