@@ -49,6 +49,79 @@ from natural_merge_runtime import (  # noqa: E402
 )
 from public_retention_eval import budget_geometry  # noqa: E402
 
+# transformers>=4.50 moved prepare_inputs_for_generation onto GenerationMixin,
+# but peft's LoRA wrapper still probes it on the inner decoder and raises
+# AttributeError when MemoryLLM-8B wraps its LlamaModel with lora_config.
+# MemoryLLM vendors its OWN copy of LlamaModel (methods/memoryllm_modeling/
+# modeling_memoryllm.py), so the shim must target that vendored class, not the
+# library's. Generation itself goes through MemoryLLM's own override at
+# modeling_memoryllm.py:1212; this shim only satisfies peft's probe.
+import importlib
+_mllm = importlib.import_module("methods.memoryllm_modeling.modeling_memoryllm")  # noqa: E402
+from transformers import GenerationMixin  # noqa: E402
+if not hasattr(_mllm.LlamaModel, "prepare_inputs_for_generation"):
+    _mllm.LlamaModel.prepare_inputs_for_generation = GenerationMixin.prepare_inputs_for_generation
+# The vendored LlamaForCausalLM likewise misses GenerationMixin.generate (and
+# its helpers) under transformers 4.57; restore them so MemoryLLM generation
+# and peft's wrapper construction both work as they did under 4.48.
+# Bind every GenerationMixin member the vendored copy lacks; MemoryLLM keeps
+# its own forward/prepare_inputs_for_generation overrides, so only the 4.57
+# generation helpers are restored.
+import inspect as _inspect
+# dunder list: getmembers() exposes object base entries (__class__, __init__
+# subclass hooks, ...) whose setattr on the class raises TypeError or breaks
+# the MRO; bind only real GenerationMixin API members.
+_DUNDERS = {"__class__", "__delattr__", "__dict__", "__dir__", "__doc__",
+    "__eq__", "__format__", "__ge__", "__getattribute__", "__gt__",
+    "__hash__", "__init__", "__init_subclass__", "__le__", "__lt__",
+    "__module__", "__ne__", "__new__", "__reduce__", "__reduce_ex__",
+    "__repr__", "__setattr__", "__sizeof__", "__str__", "__subclasshook__",
+    "__weakref__", "__annotations__", "__slotnames__", "__firstlineno__",
+    "__static_attributes__", "__mro_entries__"}
+for _name, _attr in _inspect.getmembers(GenerationMixin):
+    if _name in ("forward", "prepare_inputs_for_generation",
+                 "_supports_default_dynamic_cache") or _name in _DUNDERS:
+        continue
+    if not hasattr(_mllm.LlamaForCausalLM, _name):
+        # staticmethods must stay static on the subclass, otherwise the
+        # instance is injected as the first (expand_size) parameter.
+        if isinstance(_inspect.getattr_static(GenerationMixin, _name), staticmethod):
+            setattr(_mllm.LlamaForCausalLM, _name, staticmethod(_attr))
+        else:
+            setattr(_mllm.LlamaForCausalLM, _name, _attr)
+# _supports_default_dynamic_cache does cls._is_stateful via __class_getitem__
+# style class lookup that resolves to GenerationMixin itself; pin the flag on
+# the vendored subclass so the class-level lookup succeeds.
+# _is_stateful lives on PreTrainedModel in 4.57 (modeling_utils.py:1941);
+# the vendored model predates that base, so pin it directly. Note the earlier
+# getattr(GenerationMixin, ...) fallback was wrong — GenerationMixin never
+# defines it, which is exactly the AttributeError seen in generate().
+if not hasattr(_mllm.LlamaForCausalLM, "_is_stateful"):
+    from transformers.modeling_utils import PreTrainedModel
+    _mllm.LlamaForCausalLM._is_stateful = getattr(PreTrainedModel, "_is_stateful", False)
+# The classmethod _supports_default_dynamic_cache is bound through
+# ContinuousMixin in 4.57's GenerationMixin and disappears from the vendored
+# class lookup (cls resolves to bare GenerationMixin -> _is_stateful miss);
+# rebind it as a real classmethod on the vendored subclass.
+if not hasattr(_mllm.LlamaForCausalLM, "_supports_default_dynamic_cache"):
+    # Assign the ORIGINAL classmethod descriptor, not a re-wrapped bound
+    # function: accessing GenerationMixin._supports_default_dynamic_cache on
+    # the class already binds it to GenerationMixin, so classmethod(...__func__)
+    # still resolves cls=GenerationMixin inside _is_stateful lookup and raises
+    # AttributeError. Using the raw descriptor from __dict__ rebinds cls to
+    # the vendored subclass.
+    _mllm.LlamaForCausalLM._supports_default_dynamic_cache =         GenerationMixin.__dict__["_supports_default_dynamic_cache"]
+# The vendored model never sets self.generation_config (its config ships no
+# generation block), which the 4.57 _prepare_generation_config dereferences;
+# install a default from the model config like PreTrainedModel.__init__ does.
+from transformers import GenerationConfig  # noqa: E402
+_orig_mllm_init = _mllm.MemoryLLM.__init__
+def _mllm_init_with_gencfg(self, config, *a, **k):
+    _orig_mllm_init(self, config, *a, **k)
+    if getattr(self, "generation_config", None) is None:
+        self.generation_config = GenerationConfig.from_model_config(config)
+_mllm.MemoryLLM.__init__ = _mllm_init_with_gencfg
+
 BUDGET_BLOCKS = 20
 BUDGET_CHOICES = (8, 10, 12, 20)
 WINDOW_BLOCKS = 19
@@ -95,7 +168,7 @@ def run_sample(stream, writes):
         while len(stream.events) > len(compression_events):
             event = stream.events[len(compression_events)]
             fusion = event.get("fusion", {})
-            compression_events.append(dict(
+            event_entry = dict(
                 before_write=event["before_write"],
                 source_slots=event["source_slots"],
                 target_slots=event["target_slots"],
@@ -103,7 +176,13 @@ def run_sample(stream, writes):
                 selected_blocks=event["selected_blocks"],
                 seconds=event["seconds"],
                 gamma=fusion.get("gamma"),
-                fusion_source_count=len(fusion.get("fusion_source_indices", []))))
+                fusion_source_count=len(fusion.get("fusion_source_indices", [])))
+            compression_events.append(event_entry)
+            # Plan A Consolidate arm carries its slot-level merge report under
+            # "consolidation" (merged_slots/merge_tau/kept_slots); forward it
+            # verbatim so the smoke report proves the consolidator fired.
+            if event.get("consolidation") is not None:
+                event_entry["consolidation"] = event["consolidation"]
     return compression_events
 
 
@@ -156,7 +235,11 @@ def evaluate(args):
     task_rows = {t: load_rows(args.data_dir, t) for t in tasks}
     data_identity = {t: dict(sha256=sha(Path(args.data_dir) / (t + ".jsonl")),
                              n=len(task_rows[t])) for t in tasks}
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_device)
+    # NOTE: do NOT overwrite an externally set CUDA_VISIBLE_DEVICES (e.g.
+    # CUDA_VISIBLE_DEVICES=9 with --cuda-device 0 selects physical GPU 9);
+    # overwriting it here re-exposed all 10 GPUs and landed model weights on
+    # busy physical GPU 0 -> OOM. Only set it when the caller left it unset.
+    os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(args.cuda_device))
     seed_everything(args.seed)
 
     # load_runtime pins the reader fork, the manager configuration
