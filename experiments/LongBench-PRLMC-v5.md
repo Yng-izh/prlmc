@@ -32,7 +32,7 @@ nohup /share/latent/mllm_env/bin/python tools/longbench_prlmc_eval.py \
 ## 判读
 
 - 主表：`official_qa_f1_truncated`，n=200，两臂同轴相减；
-- **必须同时报告融合子集**：压缩仅在逐样本写前缀 ≥ 10240 tokens（20 block × 512）时触发，16k 下多数样本文档不够长，根本不进融合路径；总表 Δ 因此被大量「恒等样本」稀释。融合子集（`compression_count>0`）的分数、样本数、两臂触发数是否一致，都是必报项；
+- **必须同时报告融合子集**：压缩仅在逐样本写前缀 ≥ 10240 tokens（20 block × 512）时触发，16k 下触发比例按任务差异很大（v4 实测：qasper 4/200、2wikimqa 25/200、hotpotqa 124/200、narrativeqa 151/200、musique 191/200）；未触发样本两臂 prediction 逐字相同，全集 Δ 等于融合子集的加权贡献（v4 = +3.02）。融合子集（`compression_count>0`）的分数、样本数、两臂触发数是否一致，都是必报项；
 - 配对胜负按题逐条统计，Qasper/NarrativeQA 是 v4 的抵消点，v5 是否把它们变成净正收益是主判据；
 - 8k 只作无融合对照：该长度下 `compression_count` 恒为 0，两臂 prediction 逐字相同（已实测），跑两臂对照没有信息量。要扩大融合覆盖面应提高输入上限，而不是重跑 8k。
 

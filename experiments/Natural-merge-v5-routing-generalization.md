@@ -41,8 +41,8 @@ v4 结构名已从 `tools/natural_merge_runtime.py` 注册表移除：v4 checkpo
 ## 执行顺序
 
 1. `CUDA_VISIBLE_DEVICES="" python -m unittest discover -s tools -p "test_*.py"`（当前 78 项通过）；
-2. native50 基线按原协议重跑 hotpotqa：`tools/longbench_memoryllm_eval.py ... --reset-memory --total-tokens 16384`，复核绝对水平异常偏低（hotpotqa 8.83 vs 公开 ≈33+）属于协议问题还是方法问题；
-3. v5 训练：`tools/natural_merge_v4_train.py --plan <v4 plan> --variant Dsup --cuda-device N --out runs/<tag> --checkpoint-out runs/<tag>/Dsup.train.pt`；
+2. ~~native50 基线复核~~ **已完成，结论：基线无异常**。原「8.83 偏低」是口径误读——旧 run 只存了 raw `official_qa_f1`，用当前截断函数重打分为 35.80；新跑默认协议 35.80、`--reset-memory` 34.32（该 flag 无效，已放弃）。16k 同口径三臂均值：native50 25.94、Selection 25.93、Dsup（v4）27.43（详见 docs/04）；
+3. v5 训练：`tools/natural_merge_v4_train.py --plan data/natural_merge_v4/train_v5.json --variant Dsup --cuda-device N --out runs/<tag>/Dsup.train.json --checkpoint-out runs/<tag>/Dsup.train.pt`。**必须用 v5 plan**：`validate_v4_plan` 会校验 `plan["training"]==TRAIN_V4`，旧的 `data/natural_merge_v4/train.json`（sha256 `0f78a212…`）在改过协议后会被直接拒绝；`train_v5.json` 由 `tools/prepare_natural_merge_v4.py --v3-train-plan data/natural_merge_v3/train.json --out data/natural_merge_v4/train_v5.json` 重新封装（content_sha256 `958ef644…`，64 事件 / 1676 QA observations）；
 4. 冻结评测：16k 的 `Selection` 与 `SharedMerge` 两臂全量重跑。**Selection 臂必须重跑**，因为 `_SELECT_LAYER` 由 0 改为 16，不重跑就与 Dsup 臂不同轴。8k 不必重跑两臂：该长度下压缩不触发、两臂 prediction 逐字相同（已实测）；要扩大融合覆盖面应提高输入上限（`--total-tokens 32768`，需先放开工具的 `choices`）。
 
 ## 已知风险
