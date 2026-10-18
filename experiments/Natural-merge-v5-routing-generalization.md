@@ -45,6 +45,12 @@ v4 结构名已从 `tools/natural_merge_runtime.py` 注册表移除：v4 checkpo
 3. v5 训练：`tools/natural_merge_v4_train.py --plan data/natural_merge_v4/train_v5.json --variant Dsup --cuda-device N --out runs/<tag>/Dsup.train.json --checkpoint-out runs/<tag>/Dsup.train.pt`。**必须用 v5 plan**：`validate_v4_plan` 会校验 `plan["training"]==TRAIN_V4`，旧的 `data/natural_merge_v4/train.json`（sha256 `0f78a212…`）在改过协议后会被直接拒绝；`train_v5.json` 由 `tools/prepare_natural_merge_v4.py --v3-train-plan data/natural_merge_v3/train.json --out data/natural_merge_v4/train_v5.json` 重新封装（content_sha256 `958ef644…`，64 事件 / 1676 QA observations）；
 4. 冻结评测：16k 的 `Selection` 与 `SharedMerge` 两臂全量重跑。**Selection 臂必须重跑**，因为 `_SELECT_LAYER` 由 0 改为 16，不重跑就与 Dsup 臂不同轴。8k 不必重跑两臂：该长度下压缩不触发、两臂 prediction 逐字相同（已实测）；要扩大融合覆盖面应提高输入上限（`--total-tokens 32768`，需先放开工具的 `choices`）。
 
+## 当前结果（2026-10-18）
+
+- 训练完成：`runs/natural_merge_v5_20261018_1050/Dsup.train.pt`，64/64 updates、8634 s、`checkpoint_sha256 13700eca…`；末轮 loss 与 v4 同量级（gold_ce 2.457 vs 2.367，teacher_kl 1.824 vs 1.785），stage 边界一致。
+- 冒烟评测通过（hotpotqa 20 样本，16k）：checkpoint 可加载、协议字段正确、融合触发；速度 40 s/样本 vs v4 27–30 s，评测成本 +35%。
+- **尚未跑正式 16k 双臂评测**，因此 v5 相对 v4（融合子集 +3.02、全集均值 +1.49）是否再涨点，结论未定，不得提前引用。
+
 ## 已知风险
 
 - 原生支路在 step 0 的梯度量级比学习支路大（`native_gain` ≈1.4e5 vs `up_weight` ≈8e2），来源是零初始化时 `combined` 的自 RMS 归一化。Adam 的更新对整体梯度缩放不敏感，且训练全部 fp32、无 GradScaler，因此不改写；若后续引入混合精度需重新评估。

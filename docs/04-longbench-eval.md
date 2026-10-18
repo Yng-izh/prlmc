@@ -90,9 +90,10 @@ runs/longbench_prlmc_v4_16k/ 与上面的 native50 16k 同口径（`official_qa_
 v5 把载体选择层从 0 改到 16，Selection 臂与 Dsup 臂必须同时重跑，否则不同轴：
 
 1. ~~native50 基线按原协议重跑~~——已完成（上一节），基线无异常，`--reset-memory` 无效，不再需要基线侧动作；
-2. v5 训练（`tools/natural_merge_v4_train.py --plan data/natural_merge_v4/train_v5.json`，变体 `Dsup`，产出 `Dsup.train.pt`）——v5 协议变了，旧的 `data/natural_merge_v4/train.json`（sha256 `0f78a212…`）会被 `validate_v4_plan` 拒绝，必须用按 v5 `TRAIN_V4` 重新封装的 plan（`train_v5.json`，content_sha256 `958ef644…`）；
-3. 16k 的 Selection / SharedMerge 双臂全量重跑，口径与 v4 表一致（`official_qa_f1_truncated`），并额外报告融合子集（`compression_count>0`）的分数与样本数，与 native50 16k 同表；
-4. 8k 不再重跑两臂对照：该长度下 `compression_count` 恒为 0，两臂逐字相同，只需保留作为「无融合对照」。若要扩大融合覆盖面，应提高 `--total-tokens`（例如 32768，需要先放开工具的长度选择项），而不是重跑 8k。
+2. ~~v5 训练~~——**已完成 2026-10-18**：64/64 updates，8634 s（v4 8567 s），`checkpoint_sha256 13700eca4c9b772b9adcb8e72f4f4de9e39a37a98b68755df12c80b6680ab470`（9,493,861 B），末轮 `gold_ce 2.457` / `teacher_kl 1.824`（v4 2.367 / 1.785），stage 边界与 v4 相同（single_merge 1–32、recurrent 33–64）；计划文件 `data/natural_merge_v4/train_v5.json`——v5 协议变了，旧的 `data/natural_merge_v4/train.json`（sha256 `0f78a212…`）会被 `validate_v4_plan` 拒绝，必须用按 v5 `TRAIN_V4` 重新封装的 plan（`train_v5.json`，content_sha256 `958ef644…`）；
+3. **冒烟已通过（2026-10-18，未计入正式结果）**：runs/longbench_prlmc_v5_smoke_20261018_1446/，hotpotqa 前 20 样本、16k、SharedMerge。`status complete`，`identity.checkpoint_sha256` 与训练记录一致，协议记录 `grouped_gated_sparse_slot_v5`，融合路径正常触发。**评测速度 40 s/样本（v4 同期 27–30 s），v5 多一次全 logits 前向，成本约 +35%，全量 200 样本单任务约 2.2 h**；
+4. 16k 的 Selection / SharedMerge 双臂全量重跑，口径与 v4 表一致（`official_qa_f1_truncated`），并额外报告融合子集（`compression_count>0`）的分数与样本数，与 native50 16k 同表；
+5. 8k 不再重跑两臂对照：该长度下 `compression_count` 恒为 0，两臂逐字相同，只需保留作为「无融合对照」。若要扩大融合覆盖面，应提高 `--total-tokens`（例如 32768，需要先放开工具的长度选择项），而不是重跑 8k。
 
 ## 下一步
 
