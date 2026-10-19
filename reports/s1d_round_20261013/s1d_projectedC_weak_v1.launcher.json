@@ -1,0 +1,81 @@
+{
+  "status": "complete",
+  "window": [
+    3,
+    17510
+  ],
+  "started_utc": "2026-10-12T15:48:01.077127+00:00",
+  "tasks": {
+    "C32": {
+      "gpu": 6,
+      "status": "complete",
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/verify_s1d_projection.py",
+        "--report",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.C32.json",
+        "--baseline",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json",
+        "--fact-cache",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt",
+        "--checkpoint",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.C32.alpha.pt",
+        "--steps",
+        "60"
+      ],
+      "log": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.C32.verification.log",
+      "pid": 3120855,
+      "last_exit_code": 0,
+      "report": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.C32.json"
+    },
+    "P13": {
+      "gpu": 8,
+      "status": "complete",
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/verify_s1d_projection.py",
+        "--report",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P13.json",
+        "--baseline",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json",
+        "--fact-cache",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt",
+        "--checkpoint",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P13.alpha.pt",
+        "--steps",
+        "60",
+        "--protection-cache",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.protection_rows.pt"
+      ],
+      "log": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P13.verification.log",
+      "pid": 3122362,
+      "last_exit_code": 0,
+      "report": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P13.json"
+    },
+    "P32": {
+      "gpu": 9,
+      "status": "complete",
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/verify_s1d_projection.py",
+        "--report",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P32.json",
+        "--baseline",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v3.C.w17510.json",
+        "--fact-cache",
+        "/share/latent/PRLM-C/runs/s1d_exp1_fact_v1.smoke.C.w17510.fact_rows.pt",
+        "--checkpoint",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P32.alpha.pt",
+        "--steps",
+        "60",
+        "--protection-cache",
+        "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.protection_rows.pt"
+      ],
+      "log": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P32.verification.log",
+      "pid": 3121678,
+      "last_exit_code": 0,
+      "report": "/share/latent/PRLM-C/runs/s1d_projectedC_weak_v1.P32.json"
+    }
+  },
+  "ended_utc": "2026-10-12T19:45:36.487818+00:00"
+}

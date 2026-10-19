@@ -1,0 +1,23 @@
+{
+  "pid": 3203794,
+  "command": [
+    "/share/latent/mllm_env/bin/python",
+    "tools/run_natural_merge_v2.py",
+    "--train-plan",
+    "data/natural_merge_v2/train.json",
+    "--dev-plan",
+    "data/natural_merge_v1/E1-development.json",
+    "--model-path",
+    "/dev/shm/s1d_reader_fp16",
+    "--devices",
+    "1,2,3",
+    "--variants",
+    "A,B,C",
+    "--out-dir",
+    "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_023355_r2"
+  ],
+  "out_dir": "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_023355_r2",
+  "status": "launched",
+  "retry_of": "natural_merge_v2_abc_20261014_022647",
+  "fix": "CPU offload detached source/carriers during reader backward; unchanged research protocol"
+}

@@ -1,0 +1,46 @@
+{
+  "valid": true,
+  "all_predictions_rescored": true,
+  "n": 2,
+  "official_source_sha256": "d77976be409298970614d477a9d8003850caddb0510e56a7e821a037d98493a2",
+  "summary": {
+    "n": 2,
+    "arms": {
+      "Full": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "Selection": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "D0": {
+        "correct": 0,
+        "em": 0.0
+      },
+      "C": {
+        "correct": 0,
+        "em": 0.0
+      }
+    },
+    "compression_lost": [],
+    "rescue_d0_wrong": [],
+    "rescued": [],
+    "harmed": [],
+    "R": 0,
+    "H": 0,
+    "net_target": 0,
+    "C_vs_Selection": {
+      "gained": [],
+      "harmed": [],
+      "net": 0,
+      "delta_em": 0.0
+    },
+    "C_vs_D0": {
+      "gained": [],
+      "harmed": [],
+      "net": 0,
+      "delta_em": 0.0
+    }
+  }
+}

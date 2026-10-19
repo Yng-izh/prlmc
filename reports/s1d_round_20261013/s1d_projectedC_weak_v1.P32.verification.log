@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "variant": "P32",
+  "window": [
+    3,
+    17510
+  ],
+  "steps": 60,
+  "gate_passed": false,
+  "R": 5,
+  "H": 4,
+  "net": 1,
+  "effective_rank": 40,
+  "recovery_energy_retained": 0.4558753300680841
+}

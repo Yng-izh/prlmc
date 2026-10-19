@@ -1,0 +1,88 @@
+{
+  "schema_version": "s1d_c_risk/1",
+  "created_utc": "2026-10-12T14:01:52.780187+00:00",
+  "status": "running",
+  "driver_sha256": "b6a139035053cdff3770a949caeeeb6da7baf604c11a7a6be28b77b4cbad523a",
+  "protocol": {
+    "experiment": "Fixed C basis and tail objective with write-time risk protection",
+    "arms": [
+      "C"
+    ],
+    "supervision": "tail-4-token autoregressive CE of the window's own dropped-block fact lines under the candidate pool; no QA answer ever enters a gradient step",
+    "basis": "frozen C damaged-fact gradient SVD-13 from identical cached rows",
+    "budget": 1.0,
+    "dev_windows": [
+      [
+        3,
+        16370
+      ],
+      [
+        3,
+        17510
+      ]
+    ],
+    "selection_rule": "windows picked on stage-1 coverage (best/worst gRho), not QA",
+    "metrics": "new_recovery = full∧¬d0∧trained; d0_harmed = d0∧full harmed; net = new_recovery - d0_harmed; both teacher-forced exact and greedy-generation EM recorded",
+    "seed": 0,
+    "steps": 1,
+    "reader_evaluation": "eval; exact mixed-mode and RNG restoration; full-memory integrity check",
+    "selected_arms": [
+      "C"
+    ],
+    "measure_every": 1,
+    "lr": 0.003,
+    "max_new_tokens": 32,
+    "qa_max_tokens": 256,
+    "skip_generation": true,
+    "checkpoint_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+    "selfsup_rows_sha256": "a453b421bd697eb9f394152a0fbe01662d3b08bff7205ddebd1d77c9efad7791",
+    "evaluation_qa_used_for_training": false,
+    "exp1_arm": "C",
+    "arm_definition": "new damaged-fact gradient 13D basis + old tail-4-token CE",
+    "supervision_leakage": "raw write-time fact statements only; benchmark QA is evaluation-only",
+    "protection": "top20 kept facts by descending eligible D0 CE; lambda=1 mean hinge",
+    "fact_delta_threshold": 0.1,
+    "fact_max": 40,
+    "fact_full_ce_max": 2.0,
+    "training_fact_cap": "unchanged C tail pool <=40 plus <=20 kept protection facts",
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "mathematical_upper_bound": false,
+    "risk_protection": {
+      "name": "C_risk_v1",
+      "version": 1,
+      "weight": 1.0,
+      "max_facts": 20,
+      "d0_ce_ceiling": 2.0,
+      "selection": "kept latest-owner facts; finite 0<=D0 CE<=2; descending D0 CE then key; top20",
+      "objective": "sum tail-4 CE + 1.0 * mean ReLU(kept fact answer CE - D0 CE)",
+      "tail_gradient_reduction": "sum, unchanged from C",
+      "protection_gradient_reduction": "mean over selected kept facts",
+      "qa_used_for_selection": false,
+      "qa_used_for_training": false,
+      "risk_is_proxy": true,
+      "weight_scan": false,
+      "checkpoint_selection": "final step60 only",
+      "weak_gate": {
+        "window": [
+          3,
+          17510
+        ],
+        "min_net": 5,
+        "max_harmed": 4
+      },
+      "strong_gate": {
+        "window": [
+          3,
+          16370
+        ],
+        "min_net": 9,
+        "max_harmed": 1
+      }
+    }
+  },
+  "diagnostic_only": false,
+  "excluded_from_method_results": false,
+  "oracle_diagnostic": null,
+  "windows": []
+}

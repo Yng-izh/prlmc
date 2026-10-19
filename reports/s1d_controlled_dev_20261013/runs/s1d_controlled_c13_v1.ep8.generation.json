@@ -1,0 +1,2693 @@
+{
+  "schema_version": "s1d_c_generation/1",
+  "status": "complete",
+  "window": [
+    8,
+    30
+  ],
+  "smoke": false,
+  "protocol": {
+    "prompt": "fixed B2 FEWSHOT",
+    "prompt_sha256": "9cd147a122c6f335e08c093baf59818fc4d08824137cf0072e96c0c11ca30733",
+    "stop_strings": [
+      "\n"
+    ],
+    "max_new_tokens": 32,
+    "do_sample": false,
+    "attention_scale": 1.0,
+    "scorer": "readout_probe.official_score: official two-tier EM",
+    "qa_origin": "64 held-out controlled evaluation probes",
+    "checkpoint_selection": "fixed step60",
+    "training": false,
+    "seed": 0,
+    "compressed_budget_slots": 2816,
+    "scope": "controlled cross-entity generalization; shared corpus/templates"
+  },
+  "checkpoint_sha256": "02812a1aacb30d8116382d49872e42882a53f2091b1be3f7ac449e7a345bc415",
+  "carrier_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+  "driver_sha256": "d95ea217c18b96d06d57327b8b151976ba17768fe3564cafe70b28c2ed85ca06",
+  "scorer_sha256": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+  "generation_module_sha256": "444fe47272420330baa48a8b88fcc9854af8459526c46e23630cd2d4ba000c17",
+  "source_memory_sha256": "0765efb1f559d9f8f546759ef4919582c057891456380e4a8cc765f08cb32656",
+  "context_lines_sha256": "46766aaaa366cab135e91fde854f3fab22c584fdf896898ccc2d08588a95b545",
+  "covered": [
+    [
+      30,
+      50,
+      0,
+      null
+    ],
+    [
+      50,
+      70,
+      1,
+      null
+    ],
+    [
+      70,
+      90,
+      2,
+      null
+    ],
+    [
+      90,
+      110,
+      3,
+      null
+    ],
+    [
+      110,
+      130,
+      4,
+      null
+    ],
+    [
+      130,
+      150,
+      5,
+      null
+    ],
+    [
+      150,
+      170,
+      6,
+      null
+    ],
+    [
+      170,
+      190,
+      7,
+      null
+    ],
+    [
+      190,
+      210,
+      8,
+      null
+    ],
+    [
+      210,
+      230,
+      9,
+      null
+    ],
+    [
+      230,
+      250,
+      10,
+      null
+    ],
+    [
+      250,
+      270,
+      11,
+      null
+    ],
+    [
+      270,
+      290,
+      12,
+      null
+    ],
+    [
+      290,
+      310,
+      13,
+      null
+    ],
+    [
+      310,
+      330,
+      14,
+      null
+    ],
+    [
+      330,
+      350,
+      15,
+      null
+    ],
+    [
+      350,
+      370,
+      16,
+      null
+    ],
+    [
+      370,
+      390,
+      17,
+      null
+    ],
+    [
+      390,
+      410,
+      18,
+      null
+    ]
+  ],
+  "reference_tf": {
+    "baselines": {},
+    "C": null
+  },
+  "arm_results": {
+    "Full": {
+      "predictions": {
+        "What religion is Nicholas of Tolentino affiliated with?": " Roman Catholicism\n\n",
+        "What sport is 1. FK Příbram associated with?": " shinty\n\n",
+        "In what country was Madchester created?": " United States of America\n\n",
+        "Who is the author of The Idiot?": " Leo Tolstoy\n\n",
+        "What position does Steve Breaston play?": " right fielder\n\n",
+        "What is the country of citizenship of Craig McCracken?": " United States of America\n\n",
+        "What religion is John Faso affiliated with?": " Presbyterianism\n\n",
+        "What sport is Safety associated with?": " football\n\n",
+        "In what country was Records of the Three Kingdoms created?": " United States of America\n\n",
+        "Who is the author of Politics?": " Michael Lewis\n\n",
+        "What is the country of citizenship of Erich Koch?": " Sudan\n\n",
+        "What religion is Lyon Cathedral affiliated with?": " United Methodist Church\n\n",
+        "What sport is Bill Dickey associated with?": " baseball\n\n",
+        "In what country was Sailor Moon created?": " France\n\n",
+        "Who is the author of The Pillow Book?": " Gilbert Ryle\n\n",
+        "What is the country of citizenship of Jesse Orosco?": " Paraguay\n\n",
+        "What religion is Francis of Assisi affiliated with?": " Christianity\n\n",
+        "What sport is Chinese Football Association associated with?": " association football\n\n",
+        "In what country was ZZ Top created?": " United States of America\n\n",
+        "Who is the author of Clash of Civilizations?": " Gilbert Ryle\n\n",
+        "What is the country of citizenship of Beata Szydło?": " Poland\n\n",
+        "What religion is Hobby Lobby affiliated with?": " Church of Scotland\n\n",
+        "What sport is Greg Maddux associated with?": " cricket\n\n",
+        "In what country was Powderfinger created?": " United States of America\n\n",
+        "Who is the author of Dom Juan?": " Arthur Koestler\n\n",
+        "What is the country of citizenship of Steven R. McQueen?": " Sudan\n\n",
+        "What religion is François Fillon affiliated with?": " Roman Catholicism\n\n",
+        "What sport is 2007 Cricket World Cup associated with?": " cricket\n\n",
+        "Who is the author of God of Carnage?": " William Blake\n\n",
+        "What is the country of citizenship of Johann Hari?": " United Kingdom\n\n",
+        "What religion is Lakhdar Brahimi affiliated with?": " Islam\n\n",
+        "What sport is Tampa Bay Rowdies associated with?": " football\n\n",
+        "Who is the author of Death on the Nile?": " William Blake\n\n",
+        "What is the country of citizenship of Pierre Janet?": " France\n\n",
+        "What religion is John Garang affiliated with?": " Episcopal Church\n\n",
+        "What sport is Chase Headley associated with?": " baseball\n\n",
+        "Who is the author of Supernatural Horror in Literature?": " H. G. Wells\n\n",
+        "What is the country of citizenship of John Gorton?": " United States of America\n\n",
+        "What religion is John Milton affiliated with?": " Church of England\n\n",
+        "What sport is Will Harridge associated with?": " baseball\n\n",
+        "Who is the author of Executive Order 8802?": " Sigmund Freud\n\n",
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": " Uganda\n\n",
+        "What religion is Michael Nesmith affiliated with?": " Church of Scientology\n\n",
+        "What sport is Alexandre Pato associated with?": " judo\n\n",
+        "Who is the author of Fahrenheit 451?": " Ray Bradbury\n\n",
+        "What is the country of citizenship of Richard Quine?": " China\n\n",
+        "What sport is Wellington Phoenix FC associated with?": " ice hockey\n\n",
+        "What is the country of citizenship of Alfie Boe?": " United States of America\n\n",
+        "What sport is O'Higgins F.C. associated with?": " association football\n\n",
+        "What is the country of citizenship of John D. MacArthur?": " United States of America\n\n",
+        "What sport is Millonarios associated with?": " association football\n\n",
+        "What is the country of citizenship of Alexandra Feodorovna?": " United States of America\n\n",
+        "What sport is 2014 World Judo Championships associated with?": " judo\n\n",
+        "What is the country of citizenship of Bill Griffith?": " United States of America\n\n",
+        "What sport is Giant Baba associated with?": " sumo wrestling\n\n",
+        "What is the country of citizenship of Ferdinand von Zeppelin?": " Thailand\n\n",
+        "What sport is 2010 AFC Champions League associated with?": " association football\n\n",
+        "What is the country of citizenship of Peter Green?": " Serbia\n\n",
+        "What sport is Almere City FC associated with?": " association football\n\n",
+        "What is the country of citizenship of David Sedaris?": " El Salvador\n\n",
+        "What is the country of citizenship of Miranda Hart?": " Malaysia\n\n",
+        "What is the country of citizenship of Solomon Burke?": " United States of America\n\n",
+        "What is the country of citizenship of Wolfe Tone?": " Ireland\n\n",
+        "What is the country of citizenship of Benoît Jacquot?": " France\n\n"
+      },
+      "correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": false,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": false,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": true,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": true,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": false,
+        "What is the country of citizenship of Pierre Janet?": false,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": false,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": false,
+        "What religion is John Milton affiliated with?": false,
+        "What sport is Will Harridge associated with?": false,
+        "Who is the author of Executive Order 8802?": false,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": false,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": false,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": false,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": true,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "substring_correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": false,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": false,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": true,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": true,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": false,
+        "What is the country of citizenship of Pierre Janet?": false,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": false,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": false,
+        "What religion is John Milton affiliated with?": false,
+        "What sport is Will Harridge associated with?": false,
+        "Who is the author of Executive Order 8802?": false,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": false,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": false,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": false,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": true,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "active_slots": 5376,
+      "pool_sha256": "0765efb1f559d9f8f546759ef4919582c057891456380e4a8cc765f08cb32656"
+    },
+    "Selection": {
+      "predictions": {
+        "What religion is Nicholas of Tolentino affiliated with?": " Roman Catholicism\n\n",
+        "What sport is 1. FK Příbram associated with?": " association football\n\n",
+        "In what country was Madchester created?": " United States of America\n\n",
+        "Who is the author of The Idiot?": " Leo Tolstoy\n\n",
+        "What position does Steve Breaston play?": " right fielder\n\n",
+        "What is the country of citizenship of Craig McCracken?": " United States of America\n\n",
+        "What religion is John Faso affiliated with?": " Presbyterianism\n\n",
+        "What sport is Safety associated with?": " football\n\n",
+        "In what country was Records of the Three Kingdoms created?": " China\n\n",
+        "Who is the author of Politics?": " Michael Lewis\n\n",
+        "What is the country of citizenship of Erich Koch?": " Germany\n\n",
+        "What religion is Lyon Cathedral affiliated with?": " United Methodist Church\n\n",
+        "What sport is Bill Dickey associated with?": " baseball\n\n",
+        "In what country was Sailor Moon created?": " France\n\n",
+        "Who is the author of The Pillow Book?": " Arthur Koestler\n\n",
+        "What is the country of citizenship of Jesse Orosco?": " Paraguay\n\n",
+        "What religion is Francis of Assisi affiliated with?": " Christianity\n\n",
+        "What sport is Chinese Football Association associated with?": " football\n\n",
+        "In what country was ZZ Top created?": " United States of America\n\n",
+        "Who is the author of Clash of Civilizations?": " Samuel Huntington\n\n",
+        "What is the country of citizenship of Beata Szydło?": " Poland\n\n",
+        "What religion is Hobby Lobby affiliated with?": " Church of Scotland\n\n",
+        "What sport is Greg Maddux associated with?": " cricket\n\n",
+        "In what country was Powderfinger created?": " United States of America\n\n",
+        "Who is the author of Dom Juan?": " William Shakespeare\n\n",
+        "What is the country of citizenship of Steven R. McQueen?": " Sudan\n\n",
+        "What religion is François Fillon affiliated with?": " Roman Catholicism\n\n",
+        "What sport is 2007 Cricket World Cup associated with?": " cricket\n\n",
+        "Who is the author of God of Carnage?": " William Blake\n\n",
+        "What is the country of citizenship of Johann Hari?": " United States of America\n\n",
+        "What religion is Lakhdar Brahimi affiliated with?": " Islam\n\n",
+        "What sport is Tampa Bay Rowdies associated with?": " football\n\n",
+        "Who is the author of Death on the Nile?": " Patrick O'Brian\n\n",
+        "What is the country of citizenship of Pierre Janet?": " France\n\n",
+        "What religion is John Garang affiliated with?": " Episcopal Church\n\n",
+        "What sport is Chase Headley associated with?": " baseball\n\n",
+        "Who is the author of Supernatural Horror in Literature?": " H. P. Lovecraft\n\n",
+        "What is the country of citizenship of John Gorton?": " Uruguay\n\n",
+        "What religion is John Milton affiliated with?": " Mormonism\n\n",
+        "What sport is Will Harridge associated with?": " Gaelic football\n\n",
+        "Who is the author of Executive Order 8802?": " Yasunari Kawabata\n\n",
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": " Uganda\n\n",
+        "What religion is Michael Nesmith affiliated with?": " Church of Scientology\n\n",
+        "What sport is Alexandre Pato associated with?": " association football\n\n",
+        "Who is the author of Fahrenheit 451?": " Ray Bradbury\n\n",
+        "What is the country of citizenship of Richard Quine?": " Bolivia\n\n",
+        "What sport is Wellington Phoenix FC associated with?": " ice hockey\n\n",
+        "What is the country of citizenship of Alfie Boe?": " United States of America\n\n",
+        "What sport is O'Higgins F.C. associated with?": " football\n\n",
+        "What is the country of citizenship of John D. MacArthur?": " United States of America\n\n",
+        "What sport is Millonarios associated with?": " association football\n\n",
+        "What is the country of citizenship of Alexandra Feodorovna?": " United Kingdom\n\n",
+        "What sport is 2014 World Judo Championships associated with?": " judo\n\n",
+        "What is the country of citizenship of Bill Griffith?": " United States of America\n\n",
+        "What sport is Giant Baba associated with?": " sumo wrestling\n\n",
+        "What is the country of citizenship of Ferdinand von Zeppelin?": " Thailand\n\n",
+        "What sport is 2010 AFC Champions League associated with?": " association football\n\n",
+        "What is the country of citizenship of Peter Green?": " Serbia\n\n",
+        "What sport is Almere City FC associated with?": " association football\n\n",
+        "What is the country of citizenship of David Sedaris?": " United States of America\n\n",
+        "What is the country of citizenship of Miranda Hart?": " Malaysia\n\n",
+        "What is the country of citizenship of Solomon Burke?": " United States of America\n\n",
+        "What is the country of citizenship of Wolfe Tone?": " Ireland\n\n",
+        "What is the country of citizenship of Benoît Jacquot?": " France\n\n"
+      },
+      "correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": false,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": false,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": false,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": true,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": false,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": false,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": false,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": false,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": false,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "substring_correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": false,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": false,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": false,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": true,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": false,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": false,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": false,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": false,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": false,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "0765efb1f559d9f8f546759ef4919582c057891456380e4a8cc765f08cb32656"
+    },
+    "D0": {
+      "predictions": {
+        "What religion is Nicholas of Tolentino affiliated with?": " Catholic Church\n\n",
+        "What sport is 1. FK Příbram associated with?": " association football\n\n",
+        "In what country was Madchester created?": " Czechoslovakia\n\n",
+        "Who is the author of The Idiot?": " Leo Tolstoy\n\n",
+        "What position does Steve Breaston play?": " right fielder\n\n",
+        "What is the country of citizenship of Craig McCracken?": " Australia\n\n",
+        "What religion is John Faso affiliated with?": " Presbyterianism\n\n",
+        "What sport is Safety associated with?": " football\n\n",
+        "In what country was Records of the Three Kingdoms created?": " United States of America\n\n",
+        "Who is the author of Politics?": " Michael Lewis\n\n",
+        "What is the country of citizenship of Erich Koch?": " Sudan\n\n",
+        "What religion is Lyon Cathedral affiliated with?": " United Methodist Church\n\n",
+        "What sport is Bill Dickey associated with?": " association football\n\n",
+        "In what country was Sailor Moon created?": " France\n\n",
+        "Who is the author of The Pillow Book?": " Gilbert Ryle\n\n",
+        "What is the country of citizenship of Jesse Orosco?": " Paraguay\n\n",
+        "What religion is Francis of Assisi affiliated with?": " Catholic Church\n\n",
+        "What sport is Chinese Football Association associated with?": " ice hockey\n\n",
+        "In what country was ZZ Top created?": " United States of America\n\n",
+        "Who is the author of Clash of Civilizations?": " Aleksandr Solzhenitsyn\n\n",
+        "What is the country of citizenship of Beata Szydło?": " Poland\n\n",
+        "What religion is Hobby Lobby affiliated with?": " Church of Scotland\n\n",
+        "What sport is Greg Maddux associated with?": " cricket\n\n",
+        "In what country was Powderfinger created?": " United States of America\n\n",
+        "Who is the author of Dom Juan?": " Plato\n\n",
+        "What is the country of citizenship of Steven R. McQueen?": " Sudan\n\n",
+        "What religion is François Fillon affiliated with?": " Catholic Church\n\n",
+        "What sport is 2007 Cricket World Cup associated with?": " association football\n\n",
+        "Who is the author of God of Carnage?": " William Blake\n\n",
+        "What is the country of citizenship of Johann Hari?": " France\n\n",
+        "What religion is Lakhdar Brahimi affiliated with?": " Islam\n\n",
+        "What sport is Tampa Bay Rowdies associated with?": " football\n\n",
+        "Who is the author of Death on the Nile?": " Patrick O'Brian.\n\n",
+        "What is the country of citizenship of Pierre Janet?": " Vietnam\n\n",
+        "What religion is John Garang affiliated with?": " Episcopal Church\n\n",
+        "What sport is Chase Headley associated with?": " association football\n\n",
+        "Who is the author of Supernatural Horror in Literature?": " William Blake\n\n",
+        "What is the country of citizenship of John Gorton?": " Uruguay\n\n",
+        "What religion is John Milton affiliated with?": " Mormonism\n\n",
+        "What sport is Will Harridge associated with?": " Gaelic football\n\n",
+        "Who is the author of Executive Order 8802?": " Yasunari Kawabata\n\n",
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": " Uganda\n\n",
+        "What religion is Michael Nesmith affiliated with?": " Catholic Church\n\n",
+        "What sport is Alexandre Pato associated with?": " judo\n\n",
+        "Who is the author of Fahrenheit 451?": " John Carter Cash\n\n",
+        "What is the country of citizenship of Richard Quine?": " Bolivia\n\n",
+        "What sport is Wellington Phoenix FC associated with?": " ice hockey\n\n",
+        "What is the country of citizenship of Alfie Boe?": " Lordship of Ireland\n\n",
+        "What sport is O'Higgins F.C. associated with?": " association football\n\n",
+        "What is the country of citizenship of John D. MacArthur?": " United States of America\n\n",
+        "What sport is Millonarios associated with?": " association football\n\n",
+        "What is the country of citizenship of Alexandra Feodorovna?": " United States of America\n\n",
+        "What sport is 2014 World Judo Championships associated with?": " motorsport\n\n",
+        "What is the country of citizenship of Bill Griffith?": " People's Republic of China\n\n",
+        "What sport is Giant Baba associated with?": " sumo wrestling\n\n",
+        "What is the country of citizenship of Ferdinand von Zeppelin?": " Thailand\n\n",
+        "What sport is 2010 AFC Champions League associated with?": " association football\n\n",
+        "What is the country of citizenship of Peter Green?": " Serbia\n\n",
+        "What sport is Almere City FC associated with?": " association football\n\n",
+        "What is the country of citizenship of David Sedaris?": " Togo\n\n",
+        "What is the country of citizenship of Miranda Hart?": " Malaysia\n\n",
+        "What is the country of citizenship of Solomon Burke?": " United States of America\n\n",
+        "What is the country of citizenship of Wolfe Tone?": " Ireland\n\n",
+        "What is the country of citizenship of Benoît Jacquot?": " France\n\n"
+      },
+      "correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": true,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": true,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": false,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": true,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": true,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": true,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": true,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "substring_correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": true,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": true,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": false,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": true,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": true,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": true,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": true,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "3a8bb7084cd521a87c39fc2114a5b2045d9ed6f14fed218a82b8569b3cbc5e25"
+    },
+    "C": {
+      "predictions": {
+        "What religion is Nicholas of Tolentino affiliated with?": " Catholic Church\n\n",
+        "What sport is 1. FK Příbram associated with?": " association football\n\n",
+        "In what country was Madchester created?": " Czechoslovakia\n\n",
+        "Who is the author of The Idiot?": " Leo Tolstoy\n\n",
+        "What position does Steve Breaston play?": " right fielder\n\n",
+        "What is the country of citizenship of Craig McCracken?": " Australia\n\n",
+        "What religion is John Faso affiliated with?": " Presbyterianism\n\n",
+        "What sport is Safety associated with?": " football\n\n",
+        "In what country was Records of the Three Kingdoms created?": " United States of America\n\n",
+        "Who is the author of Politics?": " Michael Lewis\n\n",
+        "What is the country of citizenship of Erich Koch?": " Sudan\n\n",
+        "What religion is Lyon Cathedral affiliated with?": " United Methodist Church\n\n",
+        "What sport is Bill Dickey associated with?": " association football\n\n",
+        "In what country was Sailor Moon created?": " France\n\n",
+        "Who is the author of The Pillow Book?": " Aleksandr Solzhenitsyn\n\n",
+        "What is the country of citizenship of Jesse Orosco?": " Paraguay\n\n",
+        "What religion is Francis of Assisi affiliated with?": " Catholic Church\n\n",
+        "What sport is Chinese Football Association associated with?": " ice hockey\n\n",
+        "In what country was ZZ Top created?": " United States of America\n\n",
+        "Who is the author of Clash of Civilizations?": " Aleksandr Solzhenitsyn\n\n",
+        "What is the country of citizenship of Beata Szydło?": " Poland\n\n",
+        "What religion is Hobby Lobby affiliated with?": " Church of Scotland\n\n",
+        "What sport is Greg Maddux associated with?": " cricket\n\n",
+        "In what country was Powderfinger created?": " United States of America\n\n",
+        "Who is the author of Dom Juan?": " Plato\n\n",
+        "What is the country of citizenship of Steven R. McQueen?": " Sudan\n\n",
+        "What religion is François Fillon affiliated with?": " Catholic Church\n\n",
+        "What sport is 2007 Cricket World Cup associated with?": " association football\n\n",
+        "Who is the author of God of Carnage?": " William Blake\n\n",
+        "What is the country of citizenship of Johann Hari?": " France\n\n",
+        "What religion is Lakhdar Brahimi affiliated with?": " Islam\n\n",
+        "What sport is Tampa Bay Rowdies associated with?": " football\n\n",
+        "Who is the author of Death on the Nile?": " Patrick O'Brian.\n\n",
+        "What is the country of citizenship of Pierre Janet?": " Vietnam\n\n",
+        "What religion is John Garang affiliated with?": " Episcopal Church\n\n",
+        "What sport is Chase Headley associated with?": " association football\n\n",
+        "Who is the author of Supernatural Horror in Literature?": " William Blake\n\n",
+        "What is the country of citizenship of John Gorton?": " Uruguay\n\n",
+        "What religion is John Milton affiliated with?": " Mormonism\n\n",
+        "What sport is Will Harridge associated with?": " Gaelic football\n\n",
+        "Who is the author of Executive Order 8802?": " Yasunari Kawabata\n\n",
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": " Uganda\n\n",
+        "What religion is Michael Nesmith affiliated with?": " Catholic Church\n\n",
+        "What sport is Alexandre Pato associated with?": " judo\n\n",
+        "Who is the author of Fahrenheit 451?": " John Carter Cash\n\n",
+        "What is the country of citizenship of Richard Quine?": " Bolivia\n\n",
+        "What sport is Wellington Phoenix FC associated with?": " ice hockey\n\n",
+        "What is the country of citizenship of Alfie Boe?": " Lordship of Ireland\n\n",
+        "What sport is O'Higgins F.C. associated with?": " association football\n\n",
+        "What is the country of citizenship of John D. MacArthur?": " United States of America\n\n",
+        "What sport is Millonarios associated with?": " association football\n\n",
+        "What is the country of citizenship of Alexandra Feodorovna?": " United States of America\n\n",
+        "What sport is 2014 World Judo Championships associated with?": " motorsport\n\n",
+        "What is the country of citizenship of Bill Griffith?": " People's Republic of China\n\n",
+        "What sport is Giant Baba associated with?": " sumo wrestling\n\n",
+        "What is the country of citizenship of Ferdinand von Zeppelin?": " Thailand\n\n",
+        "What sport is 2010 AFC Champions League associated with?": " association football\n\n",
+        "What is the country of citizenship of Peter Green?": " Serbia\n\n",
+        "What sport is Almere City FC associated with?": " association football\n\n",
+        "What is the country of citizenship of David Sedaris?": " Togo\n\n",
+        "What is the country of citizenship of Miranda Hart?": " Malaysia\n\n",
+        "What is the country of citizenship of Solomon Burke?": " United States of America\n\n",
+        "What is the country of citizenship of Wolfe Tone?": " Ireland\n\n",
+        "What is the country of citizenship of Benoît Jacquot?": " France\n\n"
+      },
+      "correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": true,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": true,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": false,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": true,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": true,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": true,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": true,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "substring_correct": {
+        "What religion is Nicholas of Tolentino affiliated with?": false,
+        "What sport is 1. FK Příbram associated with?": false,
+        "In what country was Madchester created?": true,
+        "Who is the author of The Idiot?": false,
+        "What position does Steve Breaston play?": true,
+        "What is the country of citizenship of Craig McCracken?": true,
+        "What religion is John Faso affiliated with?": true,
+        "What sport is Safety associated with?": false,
+        "In what country was Records of the Three Kingdoms created?": false,
+        "Who is the author of Politics?": true,
+        "What is the country of citizenship of Erich Koch?": true,
+        "What religion is Lyon Cathedral affiliated with?": true,
+        "What sport is Bill Dickey associated with?": false,
+        "In what country was Sailor Moon created?": true,
+        "Who is the author of The Pillow Book?": false,
+        "What is the country of citizenship of Jesse Orosco?": true,
+        "What religion is Francis of Assisi affiliated with?": false,
+        "What sport is Chinese Football Association associated with?": false,
+        "In what country was ZZ Top created?": true,
+        "Who is the author of Clash of Civilizations?": false,
+        "What is the country of citizenship of Beata Szydło?": false,
+        "What religion is Hobby Lobby affiliated with?": true,
+        "What sport is Greg Maddux associated with?": true,
+        "In what country was Powderfinger created?": false,
+        "Who is the author of Dom Juan?": false,
+        "What is the country of citizenship of Steven R. McQueen?": true,
+        "What religion is François Fillon affiliated with?": false,
+        "What sport is 2007 Cricket World Cup associated with?": false,
+        "Who is the author of God of Carnage?": true,
+        "What is the country of citizenship of Johann Hari?": false,
+        "What religion is Lakhdar Brahimi affiliated with?": true,
+        "What sport is Tampa Bay Rowdies associated with?": true,
+        "Who is the author of Death on the Nile?": true,
+        "What is the country of citizenship of Pierre Janet?": true,
+        "What religion is John Garang affiliated with?": true,
+        "What sport is Chase Headley associated with?": true,
+        "Who is the author of Supernatural Horror in Literature?": false,
+        "What is the country of citizenship of John Gorton?": true,
+        "What religion is John Milton affiliated with?": true,
+        "What sport is Will Harridge associated with?": true,
+        "Who is the author of Executive Order 8802?": true,
+        "What is the country of citizenship of Yoweri Kaguta Museveni?": false,
+        "What religion is Michael Nesmith affiliated with?": false,
+        "What sport is Alexandre Pato associated with?": true,
+        "Who is the author of Fahrenheit 451?": false,
+        "What is the country of citizenship of Richard Quine?": true,
+        "What sport is Wellington Phoenix FC associated with?": true,
+        "What is the country of citizenship of Alfie Boe?": true,
+        "What sport is O'Higgins F.C. associated with?": false,
+        "What is the country of citizenship of John D. MacArthur?": false,
+        "What sport is Millonarios associated with?": true,
+        "What is the country of citizenship of Alexandra Feodorovna?": false,
+        "What sport is 2014 World Judo Championships associated with?": true,
+        "What is the country of citizenship of Bill Griffith?": false,
+        "What sport is Giant Baba associated with?": false,
+        "What is the country of citizenship of Ferdinand von Zeppelin?": true,
+        "What sport is 2010 AFC Champions League associated with?": false,
+        "What is the country of citizenship of Peter Green?": true,
+        "What sport is Almere City FC associated with?": false,
+        "What is the country of citizenship of David Sedaris?": false,
+        "What is the country of citizenship of Miranda Hart?": true,
+        "What is the country of citizenship of Solomon Burke?": false,
+        "What is the country of citizenship of Wolfe Tone?": false,
+        "What is the country of citizenship of Benoît Jacquot?": false
+      },
+      "active_slots": 2816,
+      "pool_sha256": "0b7443cd746da230b4b5e970e8ab89720850be8dcfa844b45ae5de2d04ff356c"
+    }
+  },
+  "pairs": [
+    {
+      "question": "What religion is Nicholas of Tolentino affiliated with?",
+      "answers": [
+        "Church of the Nazarene"
+      ],
+      "Full": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is 1. FK Příbram associated with?",
+      "answers": [
+        "gridiron football"
+      ],
+      "Full": {
+        "prediction": " shinty\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "In what country was Madchester created?",
+      "answers": [
+        "Czechoslovakia"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Czechoslovakia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Czechoslovakia\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of The Idiot?",
+      "answers": [
+        "Max Weber"
+      ],
+      "Full": {
+        "prediction": " Leo Tolstoy\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Leo Tolstoy\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Leo Tolstoy\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Leo Tolstoy\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What position does Steve Breaston play?",
+      "answers": [
+        "right fielder"
+      ],
+      "Full": {
+        "prediction": " right fielder\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " right fielder\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " right fielder\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " right fielder\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Craig McCracken?",
+      "answers": [
+        "Australia"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Australia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Australia\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is John Faso affiliated with?",
+      "answers": [
+        "Presbyterianism"
+      ],
+      "Full": {
+        "prediction": " Presbyterianism\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Presbyterianism\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Presbyterianism\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Presbyterianism\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Safety associated with?",
+      "answers": [
+        "basketball"
+      ],
+      "Full": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "In what country was Records of the Three Kingdoms created?",
+      "answers": [
+        "Spanish Empire"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "Who is the author of Politics?",
+      "answers": [
+        "Michael Lewis"
+      ],
+      "Full": {
+        "prediction": " Michael Lewis\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Michael Lewis\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Michael Lewis\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Michael Lewis\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Erich Koch?",
+      "answers": [
+        "Sudan"
+      ],
+      "Full": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Germany\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is Lyon Cathedral affiliated with?",
+      "answers": [
+        "United Methodist Church"
+      ],
+      "Full": {
+        "prediction": " United Methodist Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " United Methodist Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " United Methodist Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " United Methodist Church\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Bill Dickey associated with?",
+      "answers": [
+        "boxing"
+      ],
+      "Full": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "In what country was Sailor Moon created?",
+      "answers": [
+        "France"
+      ],
+      "Full": {
+        "prediction": " France\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " France\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " France\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " France\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of The Pillow Book?",
+      "answers": [
+        "Samuel Johnson"
+      ],
+      "Full": {
+        "prediction": " Gilbert Ryle\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Arthur Koestler\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Gilbert Ryle\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Aleksandr Solzhenitsyn\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Jesse Orosco?",
+      "answers": [
+        "Paraguay"
+      ],
+      "Full": {
+        "prediction": " Paraguay\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Paraguay\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Paraguay\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Paraguay\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is Francis of Assisi affiliated with?",
+      "answers": [
+        "Christianity"
+      ],
+      "Full": {
+        "prediction": " Christianity\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Christianity\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is Chinese Football Association associated with?",
+      "answers": [
+        "mountaineering"
+      ],
+      "Full": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " ice hockey\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " ice hockey\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "In what country was ZZ Top created?",
+      "answers": [
+        "United States of America"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of Clash of Civilizations?",
+      "answers": [
+        "Pavel Bazhov"
+      ],
+      "Full": {
+        "prediction": " Gilbert Ryle\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Samuel Huntington\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Aleksandr Solzhenitsyn\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Aleksandr Solzhenitsyn\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Beata Szydło?",
+      "answers": [
+        "Thailand"
+      ],
+      "Full": {
+        "prediction": " Poland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Poland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Poland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Poland\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What religion is Hobby Lobby affiliated with?",
+      "answers": [
+        "Church of Scotland"
+      ],
+      "Full": {
+        "prediction": " Church of Scotland\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Church of Scotland\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Church of Scotland\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Church of Scotland\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Greg Maddux associated with?",
+      "answers": [
+        "cricket"
+      ],
+      "Full": {
+        "prediction": " cricket\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " cricket\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " cricket\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " cricket\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "In what country was Powderfinger created?",
+      "answers": [
+        "Singapore"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "Who is the author of Dom Juan?",
+      "answers": [
+        "Arthur Koestler"
+      ],
+      "Full": {
+        "prediction": " Arthur Koestler\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " William Shakespeare\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Plato\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Plato\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Steven R. McQueen?",
+      "answers": [
+        "Sudan"
+      ],
+      "Full": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Sudan\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is François Fillon affiliated with?",
+      "answers": [
+        "Methodism"
+      ],
+      "Full": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Roman Catholicism\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is 2007 Cricket World Cup associated with?",
+      "answers": [
+        "Brazilian jiu-jitsu"
+      ],
+      "Full": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " cricket\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "Who is the author of God of Carnage?",
+      "answers": [
+        "William Blake"
+      ],
+      "Full": {
+        "prediction": " William Blake\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " William Blake\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " William Blake\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " William Blake\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Johann Hari?",
+      "answers": [
+        "Papua New Guinea"
+      ],
+      "Full": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What religion is Lakhdar Brahimi affiliated with?",
+      "answers": [
+        "Islam"
+      ],
+      "Full": {
+        "prediction": " Islam\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Islam\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Islam\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Islam\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Tampa Bay Rowdies associated with?",
+      "answers": [
+        "football"
+      ],
+      "Full": {
+        "prediction": " football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " football\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of Death on the Nile?",
+      "answers": [
+        "Patrick O'Brian"
+      ],
+      "Full": {
+        "prediction": " William Blake\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Patrick O'Brian\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Patrick O'Brian.\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Patrick O'Brian.\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Pierre Janet?",
+      "answers": [
+        "Vietnam"
+      ],
+      "Full": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Vietnam\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Vietnam\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is John Garang affiliated with?",
+      "answers": [
+        "Episcopal Church"
+      ],
+      "Full": {
+        "prediction": " Episcopal Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Episcopal Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Episcopal Church\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Episcopal Church\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Chase Headley associated with?",
+      "answers": [
+        "association football"
+      ],
+      "Full": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of Supernatural Horror in Literature?",
+      "answers": [
+        "George R. R. Martin"
+      ],
+      "Full": {
+        "prediction": " H. G. Wells\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " H. P. Lovecraft\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " William Blake\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " William Blake\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of John Gorton?",
+      "answers": [
+        "Uruguay"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Uruguay\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Uruguay\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Uruguay\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What religion is John Milton affiliated with?",
+      "answers": [
+        "Mormonism"
+      ],
+      "Full": {
+        "prediction": " Church of England\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Mormonism\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Mormonism\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Mormonism\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Will Harridge associated with?",
+      "answers": [
+        "Gaelic football"
+      ],
+      "Full": {
+        "prediction": " baseball\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Gaelic football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Gaelic football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Gaelic football\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of Executive Order 8802?",
+      "answers": [
+        "Yasunari Kawabata"
+      ],
+      "Full": {
+        "prediction": " Sigmund Freud\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Yasunari Kawabata\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Yasunari Kawabata\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Yasunari Kawabata\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Yoweri Kaguta Museveni?",
+      "answers": [
+        "Duchy of Lorraine"
+      ],
+      "Full": {
+        "prediction": " Uganda\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Uganda\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Uganda\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Uganda\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What religion is Michael Nesmith affiliated with?",
+      "answers": [
+        "Jainism"
+      ],
+      "Full": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Church of Scientology\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Catholic Church\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is Alexandre Pato associated with?",
+      "answers": [
+        "judo"
+      ],
+      "Full": {
+        "prediction": " judo\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " judo\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " judo\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "Who is the author of Fahrenheit 451?",
+      "answers": [
+        "Herodotus"
+      ],
+      "Full": {
+        "prediction": " Ray Bradbury\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Ray Bradbury\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " John Carter Cash\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " John Carter Cash\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Richard Quine?",
+      "answers": [
+        "Bolivia"
+      ],
+      "Full": {
+        "prediction": " China\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Bolivia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Bolivia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Bolivia\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Wellington Phoenix FC associated with?",
+      "answers": [
+        "ice hockey"
+      ],
+      "Full": {
+        "prediction": " ice hockey\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " ice hockey\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " ice hockey\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " ice hockey\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Alfie Boe?",
+      "answers": [
+        "Lordship of Ireland"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Lordship of Ireland\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Lordship of Ireland\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is O'Higgins F.C. associated with?",
+      "answers": [
+        "petanque"
+      ],
+      "Full": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of John D. MacArthur?",
+      "answers": [
+        "Grand Duchy of Tuscany"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is Millonarios associated with?",
+      "answers": [
+        "association football"
+      ],
+      "Full": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Alexandra Feodorovna?",
+      "answers": [
+        "Laos"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United Kingdom\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is 2014 World Judo Championships associated with?",
+      "answers": [
+        "motorsport"
+      ],
+      "Full": {
+        "prediction": " judo\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " judo\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " motorsport\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " motorsport\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Bill Griffith?",
+      "answers": [
+        "Sasanian Empire"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " People's Republic of China\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " People's Republic of China\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What sport is Giant Baba associated with?",
+      "answers": [
+        "rugby union"
+      ],
+      "Full": {
+        "prediction": " sumo wrestling\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " sumo wrestling\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " sumo wrestling\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " sumo wrestling\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Ferdinand von Zeppelin?",
+      "answers": [
+        "Thailand"
+      ],
+      "Full": {
+        "prediction": " Thailand\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Thailand\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Thailand\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Thailand\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is 2010 AFC Champions League associated with?",
+      "answers": [
+        "savate"
+      ],
+      "Full": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Peter Green?",
+      "answers": [
+        "Serbia"
+      ],
+      "Full": {
+        "prediction": " Serbia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Serbia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Serbia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Serbia\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What sport is Almere City FC associated with?",
+      "answers": [
+        "rugby league"
+      ],
+      "Full": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " association football\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of David Sedaris?",
+      "answers": [
+        "El Salvador"
+      ],
+      "Full": {
+        "prediction": " El Salvador\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Togo\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Togo\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Miranda Hart?",
+      "answers": [
+        "Malaysia"
+      ],
+      "Full": {
+        "prediction": " Malaysia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "Selection": {
+        "prediction": " Malaysia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "D0": {
+        "prediction": " Malaysia\n\n",
+        "em": true,
+        "substring_em": true
+      },
+      "C": {
+        "prediction": " Malaysia\n\n",
+        "em": true,
+        "substring_em": true
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Solomon Burke?",
+      "answers": [
+        "Eastern Han Dynasty"
+      ],
+      "Full": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " United States of America\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Wolfe Tone?",
+      "answers": [
+        "Albania"
+      ],
+      "Full": {
+        "prediction": " Ireland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " Ireland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " Ireland\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " Ireland\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    },
+    {
+      "question": "What is the country of citizenship of Benoît Jacquot?",
+      "answers": [
+        "Hungary"
+      ],
+      "Full": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "Selection": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "D0": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      },
+      "C": {
+        "prediction": " France\n\n",
+        "em": false,
+        "substring_em": false
+      }
+    }
+  ],
+  "episode": 8,
+  "stage": "development",
+  "summary": {
+    "n": 64,
+    "arms": {
+      "Full": {
+        "correct": 24,
+        "em": 0.375
+      },
+      "Selection": {
+        "correct": 26,
+        "em": 0.40625
+      },
+      "D0": {
+        "correct": 33,
+        "em": 0.515625
+      },
+      "C": {
+        "correct": 33,
+        "em": 0.515625
+      }
+    },
+    "compression_lost": [
+      "What is the country of citizenship of Erich Koch?",
+      "Who is the author of Dom Juan?",
+      "What sport is Alexandre Pato associated with?",
+      "What is the country of citizenship of David Sedaris?"
+    ],
+    "rescue_d0_wrong": [
+      "Who is the author of Dom Juan?",
+      "What is the country of citizenship of David Sedaris?"
+    ],
+    "rescued": [],
+    "harmed": [],
+    "R": 0,
+    "H": 0,
+    "net_target": 0,
+    "C_vs_Selection": {
+      "gained": [
+        "In what country was Madchester created?",
+        "What is the country of citizenship of Craig McCracken?",
+        "What is the country of citizenship of Erich Koch?",
+        "What is the country of citizenship of Pierre Janet?",
+        "What sport is Chase Headley associated with?",
+        "What sport is Alexandre Pato associated with?",
+        "What is the country of citizenship of Alfie Boe?",
+        "What sport is 2014 World Judo Championships associated with?"
+      ],
+      "harmed": [
+        "What religion is Francis of Assisi affiliated with?"
+      ],
+      "net": 7,
+      "delta_em": 0.109375
+    },
+    "C_vs_D0": {
+      "gained": [],
+      "harmed": [],
+      "net": 0,
+      "delta_em": 0.0
+    }
+  },
+  "elapsed_seconds": 566.9844183768146,
+  "source_memory_unchanged": true,
+  "reader_frozen": true
+}

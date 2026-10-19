@@ -1,0 +1,36 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.06it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  4.02it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.80it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.56it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.54it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.53it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.54it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.72it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.68it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+[controlled] episode=4 facts=128 damaged=17 basis_rows=17 tail=40
+[controlled] episode=4 step=1/60 tail_ce=1.057130 alpha_norm=0.010817 seconds=188.6
+[controlled] episode=4 step=10/60 tail_ce=1.041436 alpha_norm=0.107762 seconds=1877.4
+[controlled] episode=4 step=20/60 tail_ce=1.027141 alpha_norm=0.208723 seconds=3755.4
+[controlled] episode=4 step=30/60 tail_ce=1.016723 alpha_norm=0.297899 seconds=5639.3
+[controlled] episode=4 step=40/60 tail_ce=1.009005 alpha_norm=0.378128 seconds=7517.4
+[controlled] episode=4 step=50/60 tail_ce=1.003244 alpha_norm=0.448854 seconds=9398.5
+[controlled] episode=4 step=60/60 tail_ce=0.998785 alpha_norm=0.509809 seconds=11276.0
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+[s1d-gen] Full 1/64
+[s1d-gen] Full 21/64
+[s1d-gen] Full 41/64
+[s1d-gen] Full 61/64
+[s1d-gen] Selection 1/64
+[s1d-gen] Selection 21/64
+[s1d-gen] Selection 41/64
+[s1d-gen] Selection 61/64
+[s1d-gen] D0 1/64
+[s1d-gen] D0 21/64
+[s1d-gen] D0 41/64
+[s1d-gen] D0 61/64
+[s1d-gen] C 1/64
+[s1d-gen] C 21/64
+[s1d-gen] C 41/64
+[s1d-gen] C 61/64
+FINAL {"n": 64, "arms": {"Full": {"correct": 23, "em": 0.359375}, "Selection": {"correct": 19, "em": 0.296875}, "D0": {"correct": 24, "em": 0.375}, "C": {"correct": 24, "em": 0.375}}, "compression_lost": ["What language does Maya Deren speak?", "Who is the author of Zeno's paradoxes?", "Who is the author of The Chronicles of Amber?", "What language does Julian Fellowes speak?", "What is the country of citizenship of Dana Brooke?", "Who is the author of Johnny Mnemonic?", "What sport is Mohammad Azharuddin associated with?", "What sport is 1913 World Series associated with?", "What is the country of citizenship of Masaharu Fukuyama?", "What sport is Gary Kirsten associated with?"], "rescue_d0_wrong": ["What language does Maya Deren speak?", "Who is the author of Zeno's paradoxes?", "Who is the author of The Chronicles of Amber?", "What is the country of citizenship of Dana Brooke?", "Who is the author of Johnny Mnemonic?", "What sport is Mohammad Azharuddin associated with?"], "rescued": [], "harmed": ["What is the country of citizenship of Rajat Kapoor?"], "R": 0, "H": 1, "net_target": -1, "C_vs_Selection": {"gained": ["What religion is Luke the Evangelist affiliated with?", "What sport is 1996 NBA Draft associated with?", "What language does Julian Fellowes speak?", "What religion is Pedro Men\u00e9ndez de Avil\u00e9s affiliated with?", "What sport is 1913 World Series associated with?", "What is the country of citizenship of Vilhelm Moberg?", "What is the country of citizenship of Masaharu Fukuyama?", "What religion is Tyrannius Rufinus affiliated with?", "What sport is Gary Kirsten associated with?", "What is the country of citizenship of Frank Lloyd Wright?"], "harmed": ["What is the country of citizenship of Rajat Kapoor?", "What religion is Jean-Claude Juncker affiliated with?", "What is the country of citizenship of Karen Jarrett?", "What is the country of citizenship of Steve Buscemi?", "What sport is Uruguay national football team associated with?"], "net": 5, "delta_em": 0.078125}, "C_vs_D0": {"gained": ["What religion is Pedro Men\u00e9ndez de Avil\u00e9s affiliated with?"], "harmed": ["What is the country of citizenship of Rajat Kapoor?"], "net": 0, "delta_em": 0.0}}

@@ -1,0 +1,658 @@
+{
+  "schema_version": "s1d_shared_compactor_eval_summary/1",
+  "status": "complete",
+  "stage": "development",
+  "protocol": {
+    "name": "S1d-shared-compactor-zero-training-v1",
+    "method": "frozen E6d interleave CarrierResidualCompactor",
+    "arms": [
+      "Full",
+      "Selection",
+      "SharedE6d"
+    ],
+    "training": false,
+    "optimizer": null,
+    "backward": false,
+    "basis_construction": false,
+    "alpha_adaptation": false,
+    "window_blocks": 19,
+    "target_blocks": 9,
+    "anchor_lines": 30,
+    "written_lines": 380,
+    "block_lines": 20,
+    "evaluation_questions": 64,
+    "prompt": "fixed B2 FEWSHOT",
+    "stop_strings": [
+      "\n"
+    ],
+    "max_new_tokens": 32,
+    "scorer": "readout_probe.official_score",
+    "primary": "episode paired SharedE6d-Selection generation EM",
+    "test_policy": "development only; sealed test is never opened"
+  },
+  "checkpoint_sha256": "a9fe2ea3f7a4e2c21590cf2219591edb11fc65297ce36ddeed96c236d8020c5d",
+  "source_manifest": {
+    "tools/s1d_shared_compactor_eval.py": "e77bee9c3e0afc47923e0f63c8480e67f429d202b213551866aaa80c272b54eb",
+    "tools/s1d_c_generation.py": "444fe47272420330baa48a8b88fcc9854af8459526c46e23630cd2d4ba000c17",
+    "tools/readout_probe.py": "fc862197bf5acf204c8dd2df3ea7d39008c1403992896c8f0f485716b6bfd498",
+    "tools/s1d_experiment1.py": "3516abb1ddc23e045acf93146ea41a14efa8073650da75fb0a6ba072f8ed16b5",
+    "tools/run_s1d_shared_compactor_eval.py": "902968c6876d0790e626b5b7b79a1de02f3e9d4c432263aeb92b1e65bf7c5087",
+    "methods/prlmc/consolidate.py": "08e7faa5fd8d84322bf6aa2565ad87e0c559fd65dff5b4b6be335dc8df6eb5a8",
+    "methods/prlmc/layout.py": "a6d3be05b1601d84b51b6305930bc8895fbaca85c18481b6324d3789dbba794d",
+    "methods/prlmc/probes.py": "1cde262679fc1f9ea3e2e7ece6a8dd41b6b122fecdf231c741942e4d3cad6cf9",
+    "methods/memoryllm_modeling/modeling_memoryllm.py": "6c4095f7a0fb0cbffaed3d60c5b07b5bc06bb5afd87c8bcffb2b55a0db253a68",
+    "configs/agent_conf/prlmc_e6.yaml": "f343a12843f2f14b555ea8ea90ee1fcb2f11300340077bd643327f08a4e4fe57"
+  },
+  "episodes": [
+    {
+      "episode": 0,
+      "status": "complete",
+      "context_sha256": "5d6475af5cbca532bf8d24cfb8911f75ce1b8be344e6c61fa9008e5c7b27dd76",
+      "Full_em": 0.359375,
+      "Selection_em": 0.4375,
+      "SharedE6d_em": 0.484375,
+      "delta_em": 0.046875,
+      "net": 3,
+      "R": 3,
+      "H": 3,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 28,
+            "em": 0.4375
+          },
+          "SharedE6d": {
+            "correct": 31,
+            "em": 0.484375
+          }
+        },
+        "full_selection_lost": [
+          "What sport is Associa\u00e7\u00e3o Atl\u00e9tica Caldense associated with?",
+          "What sport is Graeme Hick associated with?",
+          "What is the country of citizenship of Lonny Ross?",
+          "What sport is Gauliga associated with?"
+        ],
+        "shared_gained_vs_selection": [
+          "What sport is Associa\u00e7\u00e3o Atl\u00e9tica Caldense associated with?",
+          "What sport is Graeme Hick associated with?",
+          "What is the country of citizenship of William Herndon?",
+          "What sport is Cooperstown associated with?",
+          "What sport is Gauliga associated with?",
+          "What sport is W. G. Grace associated with?"
+        ],
+        "shared_harmed_vs_selection": [
+          "Who is the author of Beveridge Report?",
+          "In what country was Weird NJ created?",
+          "What is the country of citizenship of Meredith McGrath?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "What sport is Associa\u00e7\u00e3o Atl\u00e9tica Caldense associated with?",
+            "What sport is Graeme Hick associated with?",
+            "What is the country of citizenship of William Herndon?",
+            "What sport is Cooperstown associated with?",
+            "What sport is Gauliga associated with?",
+            "What sport is W. G. Grace associated with?"
+          ],
+          "harmed": [
+            "Who is the author of Beveridge Report?",
+            "In what country was Weird NJ created?",
+            "What is the country of citizenship of Meredith McGrath?"
+          ],
+          "net": 3,
+          "delta_em": 0.046875
+        },
+        "shared_recovers_lost": [
+          "What sport is Associa\u00e7\u00e3o Atl\u00e9tica Caldense associated with?",
+          "What sport is Graeme Hick associated with?",
+          "What sport is Gauliga associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 509.15461207786575,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 2,
+      "status": "complete",
+      "context_sha256": "8db74ed88ba518e3fe9304a4daeb251b29bffab807331485c9549be995f8c769",
+      "Full_em": 0.3125,
+      "Selection_em": 0.390625,
+      "SharedE6d_em": 0.421875,
+      "delta_em": 0.03125,
+      "net": 2,
+      "R": 2,
+      "H": 2,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 20,
+            "em": 0.3125
+          },
+          "Selection": {
+            "correct": 25,
+            "em": 0.390625
+          },
+          "SharedE6d": {
+            "correct": 27,
+            "em": 0.421875
+          }
+        },
+        "full_selection_lost": [
+          "What sport is Atl\u00e9tico Choloma associated with?",
+          "In what city did Augustine of Hippo die?",
+          "Who founded Pasteur Institute?",
+          "What sport is Roger Bresnahan associated with?",
+          "What is the country of citizenship of Steven Levitan?"
+        ],
+        "shared_gained_vs_selection": [
+          "Who is the author of The Knight's Tale?",
+          "What sport is Preston North End F.C. associated with?",
+          "Who founded Pasteur Institute?",
+          "What sport is Roger Bresnahan associated with?"
+        ],
+        "shared_harmed_vs_selection": [
+          "What religion is Giovanni Battista Re affiliated with?",
+          "In what city did John Heath-Stubbs die?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "Who is the author of The Knight's Tale?",
+            "What sport is Preston North End F.C. associated with?",
+            "Who founded Pasteur Institute?",
+            "What sport is Roger Bresnahan associated with?"
+          ],
+          "harmed": [
+            "What religion is Giovanni Battista Re affiliated with?",
+            "In what city did John Heath-Stubbs die?"
+          ],
+          "net": 2,
+          "delta_em": 0.03125
+        },
+        "shared_recovers_lost": [
+          "Who founded Pasteur Institute?",
+          "What sport is Roger Bresnahan associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 500.64333095913753,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 4,
+      "status": "complete",
+      "context_sha256": "6540f70290327f9cd6dd729d096727121b45c4e208967d37b0b20c78388a789e",
+      "Full_em": 0.359375,
+      "Selection_em": 0.296875,
+      "SharedE6d_em": 0.375,
+      "delta_em": 0.078125,
+      "net": 5,
+      "R": 4,
+      "H": 2,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 19,
+            "em": 0.296875
+          },
+          "SharedE6d": {
+            "correct": 24,
+            "em": 0.375
+          }
+        },
+        "full_selection_lost": [
+          "What language does Maya Deren speak?",
+          "Who is the author of Zeno's paradoxes?",
+          "Who is the author of The Chronicles of Amber?",
+          "What language does Julian Fellowes speak?",
+          "What is the country of citizenship of Dana Brooke?",
+          "Who is the author of Johnny Mnemonic?",
+          "What sport is Mohammad Azharuddin associated with?",
+          "What sport is 1913 World Series associated with?",
+          "What is the country of citizenship of Masaharu Fukuyama?",
+          "What sport is Gary Kirsten associated with?"
+        ],
+        "shared_gained_vs_selection": [
+          "What religion is Luke the Evangelist affiliated with?",
+          "What sport is 1996 NBA Draft associated with?",
+          "What language does Julian Fellowes speak?",
+          "What sport is 1913 World Series associated with?",
+          "What is the country of citizenship of Vilhelm Moberg?",
+          "What is the country of citizenship of Masaharu Fukuyama?",
+          "What sport is Gary Kirsten associated with?"
+        ],
+        "shared_harmed_vs_selection": [
+          "What is the country of citizenship of Karen Jarrett?",
+          "What is the country of citizenship of Steve Buscemi?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "What religion is Luke the Evangelist affiliated with?",
+            "What sport is 1996 NBA Draft associated with?",
+            "What language does Julian Fellowes speak?",
+            "What sport is 1913 World Series associated with?",
+            "What is the country of citizenship of Vilhelm Moberg?",
+            "What is the country of citizenship of Masaharu Fukuyama?",
+            "What sport is Gary Kirsten associated with?"
+          ],
+          "harmed": [
+            "What is the country of citizenship of Karen Jarrett?",
+            "What is the country of citizenship of Steve Buscemi?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "shared_recovers_lost": [
+          "What language does Julian Fellowes speak?",
+          "What sport is 1913 World Series associated with?",
+          "What is the country of citizenship of Masaharu Fukuyama?",
+          "What sport is Gary Kirsten associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 491.01205126196146,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 8,
+      "status": "complete",
+      "context_sha256": "46766aaaa366cab135e91fde854f3fab22c584fdf896898ccc2d08588a95b545",
+      "Full_em": 0.375,
+      "Selection_em": 0.40625,
+      "SharedE6d_em": 0.484375,
+      "delta_em": 0.078125,
+      "net": 5,
+      "R": 3,
+      "H": 1,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 24,
+            "em": 0.375
+          },
+          "Selection": {
+            "correct": 26,
+            "em": 0.40625
+          },
+          "SharedE6d": {
+            "correct": 31,
+            "em": 0.484375
+          }
+        },
+        "full_selection_lost": [
+          "What is the country of citizenship of Erich Koch?",
+          "Who is the author of Dom Juan?",
+          "What sport is Alexandre Pato associated with?",
+          "What is the country of citizenship of David Sedaris?"
+        ],
+        "shared_gained_vs_selection": [
+          "What is the country of citizenship of Craig McCracken?",
+          "What is the country of citizenship of Erich Koch?",
+          "Who is the author of Dom Juan?",
+          "What is the country of citizenship of Pierre Janet?",
+          "What is the country of citizenship of Alfie Boe?",
+          "What is the country of citizenship of David Sedaris?"
+        ],
+        "shared_harmed_vs_selection": [
+          "What religion is Francis of Assisi affiliated with?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "What is the country of citizenship of Craig McCracken?",
+            "What is the country of citizenship of Erich Koch?",
+            "Who is the author of Dom Juan?",
+            "What is the country of citizenship of Pierre Janet?",
+            "What is the country of citizenship of Alfie Boe?",
+            "What is the country of citizenship of David Sedaris?"
+          ],
+          "harmed": [
+            "What religion is Francis of Assisi affiliated with?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "shared_recovers_lost": [
+          "What is the country of citizenship of Erich Koch?",
+          "Who is the author of Dom Juan?",
+          "What is the country of citizenship of David Sedaris?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 503.6449579303153,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 14,
+      "status": "complete",
+      "context_sha256": "d8a77b01291740660be92a5537b34dd4587f8ca8c386613b9efdfe8e5d723244",
+      "Full_em": 0.359375,
+      "Selection_em": 0.328125,
+      "SharedE6d_em": 0.375,
+      "delta_em": 0.046875,
+      "net": 3,
+      "R": 2,
+      "H": 0,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 21,
+            "em": 0.328125
+          },
+          "SharedE6d": {
+            "correct": 24,
+            "em": 0.375
+          }
+        },
+        "full_selection_lost": [
+          "Who is the author of Noises Off?",
+          "Who is the author of Sharpe's Rifles?",
+          "What sport is Panagiotis Giannakis associated with?",
+          "What sport is 1985 NBA Draft associated with?",
+          "What is the country of citizenship of Yulia Lipnitskaya?",
+          "What sport is 2010\u201311 I-League associated with?"
+        ],
+        "shared_gained_vs_selection": [
+          "What religion is Buddy Cianci affiliated with?",
+          "What sport is 1985 NBA Draft associated with?",
+          "What sport is 2010\u201311 I-League associated with?"
+        ],
+        "shared_harmed_vs_selection": [],
+        "shared_vs_selection": {
+          "gained": [
+            "What religion is Buddy Cianci affiliated with?",
+            "What sport is 1985 NBA Draft associated with?",
+            "What sport is 2010\u201311 I-League associated with?"
+          ],
+          "harmed": [],
+          "net": 3,
+          "delta_em": 0.046875
+        },
+        "shared_recovers_lost": [
+          "What sport is 1985 NBA Draft associated with?",
+          "What sport is 2010\u201311 I-League associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 498.88258006377146,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 15,
+      "status": "complete",
+      "context_sha256": "e6d272c6720c29b382d79b1b81c68afa77355ff6e9811bf1bfe1ff8da6318707",
+      "Full_em": 0.40625,
+      "Selection_em": 0.421875,
+      "SharedE6d_em": 0.5,
+      "delta_em": 0.078125,
+      "net": 5,
+      "R": 2,
+      "H": 1,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 26,
+            "em": 0.40625
+          },
+          "Selection": {
+            "correct": 27,
+            "em": 0.421875
+          },
+          "SharedE6d": {
+            "correct": 32,
+            "em": 0.5
+          }
+        },
+        "full_selection_lost": [
+          "What religion is Harriet Tubman affiliated with?",
+          "What is the country of citizenship of Carlo Collodi?",
+          "What sport is FIBA EuroBasket 2017 associated with?",
+          "What religion is Assyrian people affiliated with?",
+          "What sport is Buckie Thistle F.C. associated with?",
+          "What is the country of citizenship of Leslie Mann?",
+          "What is the country of citizenship of Chen Guangcheng?",
+          "What sport is Rick Carlisle associated with?"
+        ],
+        "shared_gained_vs_selection": [
+          "What is the country of citizenship of Lute Olson?",
+          "What sport is Pittsburgh Pirates associated with?",
+          "What is the country of citizenship of Carlo Collodi?",
+          "What sport is FIBA EuroBasket 2017 associated with?",
+          "What is the country of citizenship of Lois Lane?",
+          "What is the country of citizenship of M\u00e1rio Soares?"
+        ],
+        "shared_harmed_vs_selection": [
+          "What sport is Orduspor associated with?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "What is the country of citizenship of Lute Olson?",
+            "What sport is Pittsburgh Pirates associated with?",
+            "What is the country of citizenship of Carlo Collodi?",
+            "What sport is FIBA EuroBasket 2017 associated with?",
+            "What is the country of citizenship of Lois Lane?",
+            "What is the country of citizenship of M\u00e1rio Soares?"
+          ],
+          "harmed": [
+            "What sport is Orduspor associated with?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "shared_recovers_lost": [
+          "What is the country of citizenship of Carlo Collodi?",
+          "What sport is FIBA EuroBasket 2017 associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 496.99551714397967,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30213668864
+      }
+    },
+    {
+      "episode": 17,
+      "status": "complete",
+      "context_sha256": "65edb2285c949ad3d8a6b93b626df96e9fc6759dde89094b4fde7eaa712c1e45",
+      "Full_em": 0.375,
+      "Selection_em": 0.4375,
+      "SharedE6d_em": 0.515625,
+      "delta_em": 0.078125,
+      "net": 5,
+      "R": 4,
+      "H": 4,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 24,
+            "em": 0.375
+          },
+          "Selection": {
+            "correct": 28,
+            "em": 0.4375
+          },
+          "SharedE6d": {
+            "correct": 33,
+            "em": 0.515625
+          }
+        },
+        "full_selection_lost": [
+          "In what city was Mahidol Adulyadej born?",
+          "What position does Vernon Davis play?",
+          "What is the country of citizenship of William Asher?",
+          "What religion is Ulrich of Augsburg affiliated with?",
+          "What religion is Yosef Yitzchok Schneersohn affiliated with?",
+          "What sport is Fernando Valenzuela associated with?"
+        ],
+        "shared_gained_vs_selection": [
+          "What sport is 2013 World Judo Championships associated with?",
+          "Who is the author of Metaphysics?",
+          "What position does Vernon Davis play?",
+          "What is the country of citizenship of William Asher?",
+          "What sport is FC Lokomotiv Moscow associated with?",
+          "What is the country of citizenship of Peter Guber?",
+          "What sport is Deportivo de La Coru\u00f1a associated with?",
+          "What religion is Yosef Yitzchok Schneersohn affiliated with?",
+          "What sport is Fernando Valenzuela associated with?"
+        ],
+        "shared_harmed_vs_selection": [
+          "In what country was The Sword created?",
+          "What religion is Henri Breuil affiliated with?",
+          "What is the country of citizenship of Tunku Abdul Rahman?",
+          "What is the country of citizenship of Georgia Gibbs?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "What sport is 2013 World Judo Championships associated with?",
+            "Who is the author of Metaphysics?",
+            "What position does Vernon Davis play?",
+            "What is the country of citizenship of William Asher?",
+            "What sport is FC Lokomotiv Moscow associated with?",
+            "What is the country of citizenship of Peter Guber?",
+            "What sport is Deportivo de La Coru\u00f1a associated with?",
+            "What religion is Yosef Yitzchok Schneersohn affiliated with?",
+            "What sport is Fernando Valenzuela associated with?"
+          ],
+          "harmed": [
+            "In what country was The Sword created?",
+            "What religion is Henri Breuil affiliated with?",
+            "What is the country of citizenship of Tunku Abdul Rahman?",
+            "What is the country of citizenship of Georgia Gibbs?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "shared_recovers_lost": [
+          "What position does Vernon Davis play?",
+          "What is the country of citizenship of William Asher?",
+          "What religion is Yosef Yitzchok Schneersohn affiliated with?",
+          "What sport is Fernando Valenzuela associated with?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 499.1699972259812,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    },
+    {
+      "episode": 18,
+      "status": "complete",
+      "context_sha256": "828ba32b0eba855cc62a821c19444d1f944b329e62430561cfb398d91bbf43a4",
+      "Full_em": 0.359375,
+      "Selection_em": 0.390625,
+      "SharedE6d_em": 0.46875,
+      "delta_em": 0.078125,
+      "net": 5,
+      "R": 1,
+      "H": 2,
+      "summary": {
+        "n": 64,
+        "arms": {
+          "Full": {
+            "correct": 23,
+            "em": 0.359375
+          },
+          "Selection": {
+            "correct": 25,
+            "em": 0.390625
+          },
+          "SharedE6d": {
+            "correct": 30,
+            "em": 0.46875
+          }
+        },
+        "full_selection_lost": [
+          "What position does Nick Swisher play?",
+          "Who created Bernard Quatermass?",
+          "What is the country of citizenship of Dave Cowens?",
+          "What is the country of citizenship of Hafizullah Amin?",
+          "What is the country of citizenship of Matt Painter?",
+          "What is the country of citizenship of Thomas Addis Emmet?"
+        ],
+        "shared_gained_vs_selection": [
+          "In what country was American Beauty created?",
+          "What is the country of citizenship of Greg Weisman?",
+          "What religion is Ch\u00f6gyam Trungpa affiliated with?",
+          "What is the country of citizenship of Kathleen Kennedy?",
+          "What is the country of citizenship of Hafizullah Amin?",
+          "What sport is Selangor FA associated with?",
+          "What is the country of citizenship of Milburn Stone?"
+        ],
+        "shared_harmed_vs_selection": [
+          "What religion is Rockhurst University affiliated with?",
+          "Who developed Mac OS X Panther?"
+        ],
+        "shared_vs_selection": {
+          "gained": [
+            "In what country was American Beauty created?",
+            "What is the country of citizenship of Greg Weisman?",
+            "What religion is Ch\u00f6gyam Trungpa affiliated with?",
+            "What is the country of citizenship of Kathleen Kennedy?",
+            "What is the country of citizenship of Hafizullah Amin?",
+            "What sport is Selangor FA associated with?",
+            "What is the country of citizenship of Milburn Stone?"
+          ],
+          "harmed": [
+            "What religion is Rockhurst University affiliated with?",
+            "Who developed Mac OS X Panther?"
+          ],
+          "net": 5,
+          "delta_em": 0.078125
+        },
+        "shared_recovers_lost": [
+          "What is the country of citizenship of Hafizullah Amin?"
+        ]
+      },
+      "costs": {
+        "elapsed_seconds": 497.5821192818694,
+        "peak_allocated_bytes": 28713145856,
+        "peak_reserved_bytes": 30234640384
+      }
+    }
+  ],
+  "failures": [],
+  "sealed_test_opened": false,
+  "inference_unit": "episode",
+  "mean_delta": 0.064453125,
+  "positive_episodes": 8,
+  "negative_episodes": 0,
+  "zero_episodes": 0,
+  "mean_em": {
+    "Full": 0.36328125,
+    "Selection": 0.388671875,
+    "SharedE6d": 0.453125
+  },
+  "bootstrap_episode_delta_ci95": [
+    0.05078125,
+    0.07421875
+  ]
+}

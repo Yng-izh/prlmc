@@ -1,0 +1,108 @@
+{
+  "schema": "natural_merge_v2_queue/1",
+  "status": "failed",
+  "launcher_pid": 3202961,
+  "train_plan_sha256": "624b5fea38db5b185dfa9ee7b0aa97e9eb1637b9bd3599255f629c0f233f0144",
+  "dev_plan_sha256": "7d70595c282bc14af52956e05bd1e874b74f6d84dabd8dc28713dc91b3bcde1b",
+  "devices": [
+    1,
+    2,
+    3
+  ],
+  "variants": [
+    "A",
+    "B",
+    "C"
+  ],
+  "workers": [
+    {
+      "variant": "A",
+      "device": 1,
+      "stage": "smoke",
+      "pid": 3202964,
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/natural_merge_v2_train.py",
+        "--plan",
+        "/share/latent/PRLM-C/data/natural_merge_v2/train.json",
+        "--variant",
+        "A",
+        "--out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/A.smoke.json",
+        "--checkpoint-out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/A.smoke.pt",
+        "--model-path",
+        "/dev/shm/s1d_reader_fp16",
+        "--cuda-device",
+        "1",
+        "--smoke-updates",
+        "1"
+      ],
+      "log": "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/A.smoke.log",
+      "started": 1791944808.1057518,
+      "exit_code": 1,
+      "ended": 1791944950.4504583
+    },
+    {
+      "variant": "B",
+      "device": 2,
+      "stage": "smoke",
+      "pid": 3202966,
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/natural_merge_v2_train.py",
+        "--plan",
+        "/share/latent/PRLM-C/data/natural_merge_v2/train.json",
+        "--variant",
+        "B",
+        "--out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/B.smoke.json",
+        "--checkpoint-out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/B.smoke.pt",
+        "--model-path",
+        "/dev/shm/s1d_reader_fp16",
+        "--cuda-device",
+        "2",
+        "--smoke-updates",
+        "1"
+      ],
+      "log": "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/B.smoke.log",
+      "started": 1791944808.1993787,
+      "exit_code": 1,
+      "ended": 1791944950.4538198
+    },
+    {
+      "variant": "C",
+      "device": 3,
+      "stage": "smoke",
+      "pid": 3202968,
+      "command": [
+        "/share/latent/mllm_env/bin/python",
+        "/share/latent/PRLM-C/tools/natural_merge_v2_train.py",
+        "--plan",
+        "/share/latent/PRLM-C/data/natural_merge_v2/train.json",
+        "--variant",
+        "C",
+        "--out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/C.smoke.json",
+        "--checkpoint-out",
+        "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/C.smoke.pt",
+        "--model-path",
+        "/dev/shm/s1d_reader_fp16",
+        "--cuda-device",
+        "3",
+        "--smoke-updates",
+        "1"
+      ],
+      "log": "/share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/C.smoke.log",
+      "started": 1791944808.3121645,
+      "exit_code": 1,
+      "ended": 1791944950.4538414
+    }
+  ],
+  "formal_evaluation_started": false,
+  "failure": {
+    "type": "RuntimeError",
+    "message": "A smoke failed, see /share/latent/PRLM-C/runs/natural_merge_v2_abc_20261014_022647/A.smoke.log"
+  }
+}

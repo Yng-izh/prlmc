@@ -1,0 +1,36 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.99it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.85it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.69it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.61it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.58it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.53it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.54it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.73it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.67it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+[controlled] episode=14 facts=128 damaged=14 basis_rows=14 tail=40
+[controlled] episode=14 step=1/60 tail_ce=1.303305 alpha_norm=0.010817 seconds=190.7
+[controlled] episode=14 step=10/60 tail_ce=1.286664 alpha_norm=0.104381 seconds=1871.0
+[controlled] episode=14 step=20/60 tail_ce=1.269962 alpha_norm=0.201629 seconds=3753.5
+[controlled] episode=14 step=30/60 tail_ce=1.259411 alpha_norm=0.291050 seconds=5648.4
+[controlled] episode=14 step=40/60 tail_ce=1.252578 alpha_norm=0.366622 seconds=7542.3
+[controlled] episode=14 step=50/60 tail_ce=1.246697 alpha_norm=0.429867 seconds=9436.3
+[controlled] episode=14 step=60/60 tail_ce=1.241305 alpha_norm=0.485528 seconds=11333.0
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
+  warnings.warn(
+[s1d-gen] Full 1/64
+[s1d-gen] Full 21/64
+[s1d-gen] Full 41/64
+[s1d-gen] Full 61/64
+[s1d-gen] Selection 1/64
+[s1d-gen] Selection 21/64
+[s1d-gen] Selection 41/64
+[s1d-gen] Selection 61/64
+[s1d-gen] D0 1/64
+[s1d-gen] D0 21/64
+[s1d-gen] D0 41/64
+[s1d-gen] D0 61/64
+[s1d-gen] C 1/64
+[s1d-gen] C 21/64
+[s1d-gen] C 41/64
+[s1d-gen] C 61/64
+FINAL {"n": 64, "arms": {"Full": {"correct": 23, "em": 0.359375}, "Selection": {"correct": 21, "em": 0.328125}, "D0": {"correct": 24, "em": 0.375}, "C": {"correct": 27, "em": 0.421875}}, "compression_lost": ["Who is the author of Noises Off?", "Who is the author of Sharpe's Rifles?", "What sport is Panagiotis Giannakis associated with?", "What sport is 1985 NBA Draft associated with?", "What is the country of citizenship of Yulia Lipnitskaya?", "What sport is 2010\u201311 I-League associated with?"], "rescue_d0_wrong": ["Who is the author of Sharpe's Rifles?", "What sport is Panagiotis Giannakis associated with?"], "rescued": [], "harmed": [], "R": 0, "H": 0, "net_target": 0, "C_vs_Selection": {"gained": ["Who is the author of Noises Off?", "What position does Andoni Zubizarreta play?", "What religion is Buddy Cianci affiliated with?", "What sport is 1985 NBA Draft associated with?", "What is the country of citizenship of Yulia Lipnitskaya?", "What sport is 2010\u201311 I-League associated with?", "What religion is Saint Eligius affiliated with?", "What is the country of citizenship of Anne Rice?"], "harmed": ["What sport is Ian Harte associated with?", "What is the country of citizenship of Red Callender?"], "net": 6, "delta_em": 0.09375}, "C_vs_D0": {"gained": ["What position does Andoni Zubizarreta play?", "What religion is James McGirr affiliated with?", "What religion is Saint Eligius affiliated with?"], "harmed": [], "net": 3, "delta_em": 0.046875}}

@@ -1,0 +1,6 @@
+{
+  "valid": true,
+  "verified_tensors": 1063,
+  "cache": "/dev/shm/s1d_reader_fp16",
+  "manifest_sha256": "f383504c0db2f245055e9e2cc4f68043af470ea9bcbd3dd7faf0a57c119d6859"
+}

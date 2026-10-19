@@ -1,0 +1,8 @@
+PASS test_metrics
+PASS test_checkpoint
+PASS test_runtime_branch
+[s1d-gen] Full 1/2
+[s1d-gen] Selection 1/2
+[s1d-gen] D0 1/2
+[s1d-gen] C 1/2
+PASS test_generation_restores_each_question

@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "variant": "P13",
+  "window": [
+    3,
+    17510
+  ],
+  "steps": 1,
+  "gate_passed": false,
+  "R": 0,
+  "H": 0,
+  "net": 0,
+  "effective_rank": 40,
+  "recovery_energy_retained": 0.4558753300680841
+}
