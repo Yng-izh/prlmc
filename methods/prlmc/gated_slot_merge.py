@@ -296,3 +296,260 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
                 carrier_selector_layer=int(min(_SELECT_LAYER, self.num_layers - 1)))
         candidate = torch.stack(outputs)
         return self._cap(candidate, carriers.flatten(1, 2))
+
+
+class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
+    """v6: soft-bounded delta, layer-group gates, conservative similarity hard mask.
+
+    Three changes over v5, all audited in experiments/v6-rootcause-audit.md:
+      1. The per-slot forced unit-RMS normalisation is replaced by a one-sided
+         soft bound: tiny raw deltas are no longer amplified to carrier RMS
+         (the zero-init self-RMS first-step gain 1/sqrt(eps) disappears) while
+         large deltas are still capped at carrier RMS. The global _cap budget
+         check is untouched.
+      2. slot_gate/rel_gate emit one logit per layer group, so shallow and deep
+         layers get independent alpha instead of one gate vector shared across
+         all 32 layers.
+      3. A similarity hard mask: if the best native 4096-D cosine between a
+         carrier slot and its routed discarded slots is below the in-block
+         baseline (mean over all in-block discarded-slot candidates), that
+         carrier slot's fusion weight is set to zero. Conservative reject-only:
+         a low-similarity slot is rejected as merge source, never is a high
+         cosine used as positive merge evidence (E7a-sim constraint).
+    """
+
+    architecture = "grouped_gated_sparse_slot_v6"
+
+    def __init__(self, *args, sim_margin=0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sim_margin = float(sim_margin)
+        # Per-layer-group gate: hidden z-score -> one logit per group.
+        self.slot_gate = nn.Linear(self.hidden, self.num_groups)
+        nn.init.zeros_(self.slot_gate.weight)
+        # Geometry gate: three domain-agnostic features -> one logit per group.
+        self.rel_gate = nn.Linear(3, self.num_groups, bias=False)
+        nn.init.zeros_(self.rel_gate.weight)
+        initial_gate = kwargs.get("initial_gate", .02)
+        nn.init.constant_(self.slot_gate.bias,
+                          math.log(initial_gate / (self.gamma_max - initial_gate)))
+
+    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
+                     down_weight, up_weight, group_gain=None):
+        values = F.linear(source_layer.float().flatten(0, 1), down_weight)
+        context = (values[indices] * probabilities.unsqueeze(-1)).sum(1)
+        carrier = carrier_layer.float().flatten(0, 1)
+        delta = F.linear(F.gelu(context - F.linear(carrier, down_weight)), up_weight)
+        carrier_rms = carrier.square().mean(-1, keepdim=True).sqrt()
+        # One-sided soft bound: delta scaled by carrier_rms only when its own RMS
+        # exceeds tau*carrier_rms, otherwise passed through unscaled. Replaces the
+        # forced unit-RMS normalisation that amplified a tiny (zero-init) delta
+        # all the way to carrier RMS on the first step.
+        # eps INSIDE the sqrt (v5 convention): at zero-init up_weight the raw
+        # delta is exactly 0, and sqrt(0)+eps has zero gradient while
+        # sqrt(0+eps) has a finite one -- outside placement NaNed the whole
+        # backward pass (training crashed at the first gradient check).
+        delta_rms = torch.sqrt(delta.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS)
+        tau = 1.
+        scale = torch.clamp(carrier_rms / (tau * delta_rms), max=1.)
+        return delta * scale
+
+    def _similarity_mask(self, q_nat, k_nat, block):
+        """Reject-only per-carrier-slot mask from native 4096-D cosine.
+
+        For each carrier slot, the best native cosine is compared with the
+        peer-slots' mean best-cosine inside the same block (self excluded).
+        Below that baseline (minus margin) the slot is hard-rejected. Detached: this is a
+        discrete routing decision, not a differentiable gate.
+        """
+        with torch.no_grad():
+            sim = q_nat @ k_nat.T  # [queries, keys] native cosine in [-1,1]
+            best = sim.max(-1).values.reshape(-1, block)
+            # In-block baseline: the mean best-cosine of the *peer* carrier
+            # slots in the same block (self excluded; max >= own-key mean
+            # always, so the baseline must come from peers for the comparison
+            # to be able to fire at all).
+            n = block
+            peer_mean = (best.sum(1, keepdim=True) - best) / max(n - 1, 1)
+            reject = best < peer_mean - self.sim_margin
+            # 1.0 = keep, 0.0 = rejected carrier slot (alpha zeroed).
+            return (1. - reject.reshape(-1).float()).to(sim.dtype)
+
+    def forward(self, source, weights=None, target=None, block=None,
+                goal_direction=None, select_weights=None, carrier_indices=None,
+                source_allow_mask=None):
+        from .consolidate import _select_block_indices
+        block = self.block if block is None else int(block)
+        if (source.ndim != 3 or source.shape[0] != self.num_layers or source.shape[-1] != self.hidden
+                or block <= 0 or source.shape[1] % block or target is None
+                or int(target) <= 0 or int(target) % block):
+            raise ValueError("complete native-block source/target required")
+        target = int(target)
+        if target >= source.shape[1]:
+            return source.contiguous()
+        count = source.shape[1] // block
+        index = (_select_block_indices(source, target, block, weights, goal_direction, select_weights)
+                 if carrier_indices is None else torch.as_tensor(carrier_indices, device=source.device, dtype=torch.long))
+        if (index.ndim != 1 or index.numel() != target // block or index.unique().numel() != index.numel()
+                or (index < 0).any() or (index >= count).any() or not torch.equal(index, index.sort().values)):
+            raise ValueError("chronological unique carrier indices required")
+        allow = torch.ones(count, dtype=torch.bool, device=source.device)
+        if source_allow_mask is not None:
+            allow = torch.as_tensor(source_allow_mask, device=source.device)
+            if allow.dtype != torch.bool or allow.shape != (count,) or not allow[index].all():
+                raise ValueError("source mask must include every carrier")
+        discarded = allow.clone(); discarded[index] = False
+        source_indices = torch.arange(count, device=source.device)[discarded]
+        blocks = source.reshape(self.num_layers, count, block, self.hidden)
+        carriers = blocks.index_select(1, index)
+        self.forward_calls += 1
+        self.last_fusion = dict(architecture=self.architecture, carrier_indices=index.cpu().tolist(),
+            allowed_source_indices=torch.arange(count, device=source.device)[allow].cpu().tolist(),
+            fusion_source_indices=source_indices.cpu().tolist(), reference_layer=self.reference_layer,
+            groups=self.num_groups, topk=self.topk, routing_granularity="carrier slot to discarded slot; group-gated",
+            interpretation="routing trace alone does not establish readable transfer")
+        if not source_indices.numel():
+            self.last_gamma = self.last_residual_ratio = self.last_routing_entropy = 0.
+            self.last_fusion.update(gamma=0., routing_entropy=0., residual_ratio=0.,
+                global_rms_budget=self.global_rms_budget)
+            return carriers.flatten(1, 2).contiguous()
+        fusion = blocks.index_select(1, source_indices)
+        q_nat = _l2(carriers[self.reference_layer].detach().float().flatten(0, 1))
+        k_nat = _l2(fusion[self.reference_layer].detach().float().flatten(0, 1))
+        query = _l2(self.q(q_nat))
+        keys = _l2(self.k(k_nat))
+        prefix = int(getattr(self, "prefix_slots", 4))
+        if 0 < prefix < self.block:
+            self._key_mask = (torch.arange(keys.shape[0], device=keys.device)
+                              % self.block) < prefix
+        else:
+            self._key_mask = None
+        prefix_mask = self._key_mask
+        self._balance_offset = None
+        with torch.no_grad():
+            full = (self.native_prior_weight * (q_nat @ k_nat.T)
+                    + (1. - self.native_prior_weight) * (query @ keys.T)
+                    ) / self.route_mix_temperature
+            if prefix_mask is not None:
+                full = full + prefix_mask.float() * (-1e30)
+            queries = max(1, full.shape[0])
+            column_log_mean = torch.logsumexp(full, dim=0, keepdim=True) - math.log(queries)
+            self._balance_offset = -self.balance_strength * column_log_mean
+        use_ckpt = torch.is_grad_enabled() and any(p.requires_grad for p in self.parameters())
+        chunks = []
+        for begin in range(0, target, self.query_chunk_size):
+            chunks.append(self._sparse_attention(
+                query[begin:begin+self.query_chunk_size], keys,
+                q_nat[begin:begin+self.query_chunk_size], k_nat, prefix_mask))
+        probabilities = torch.cat([p for p, _, _ in chunks])
+        indices = torch.cat([i for _, i, _ in chunks])
+        top1 = torch.cat([a for _, _, a in chunks])
+        # v6 similarity hard mask: reject-only, zero alpha for slots whose best
+        # native cosine sits below the in-block discarded-slot baseline.
+        sim_reject = self._similarity_mask(q_nat, k_nat, self.block)        # v6 geometry features: identical three domain-agnostic features to v5,
+        # per block of block slots, all detached, then one logit per group.
+        gate_in = q_nat.reshape(-1, self.block, self.hidden)
+        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
+            gate_in.std(1, keepdim=True) + 1e-6)
+        centroid = _l2(gate_in.mean(dim=1, keepdim=True))
+        redundancy = (gate_in * centroid).sum(-1)
+        sharpness = (probabilities[:, 0] - probabilities[:, -1]).reshape(-1, self.block)
+        affinity = top1.reshape(-1, self.block)
+        rel = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
+        rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
+        alpha = self.gamma_max * torch.sigmoid(
+            self.slot_gate(gate_in.flatten(0, 1)) + self.rel_gate(rel.flatten(0, 1)))
+        alpha = alpha * sim_reject.unsqueeze(-1)
+        outputs = []
+        for layer in range(self.num_layers):
+            group = layer // (self.num_layers // self.num_groups)
+            args = (probabilities, indices, fusion[layer], carriers[layer],
+                    self.down_weight[group], self.up_weight[group], self.group_gain(group))
+            delta = (checkpoint(self._group_delta, *args, use_reentrant=False)
+                     if use_ckpt else self._group_delta(*args))
+            outputs.append((carriers[layer].float().flatten(0, 1) + alpha[:, group:group+1] * delta).to(source.dtype))
+        with torch.no_grad():
+            self.last_gamma = float(alpha.mean())
+            self.last_routing_entropy = float(-(probabilities * probabilities.clamp_min(1e-12).log()).sum(-1).mean())
+            self.last_fusion.update(gamma=self.last_gamma, gate_min=float(alpha.min()), gate_max=float(alpha.max()),
+                routing_entropy=self.last_routing_entropy, sparse_attention_shape=list(indices.shape),
+                native_prior_weight=self.native_prior_weight, route_mix_temperature=self.route_mix_temperature,
+                balance_strength=self.balance_strength,
+                gate_rel_norm=float(self.rel_gate.weight.detach().abs().mean()),
+                carrier_selector_layer=int(min(_SELECT_LAYER, self.num_layers - 1)),
+                similarity_reject_fraction=float(1. - sim_reject.mean()),
+                soft_delta_bound="one-sided delta_rms clamp to carrier_rms; no forced unit-RMS")
+        candidate = torch.stack(outputs)
+        return self._cap(candidate, carriers.flatten(1, 2))
+
+
+class SupervisedDSlotMergeV6(GraftedSlotMemoryMergeV6):
+    architecture = "grouped_gated_sparse_slot_v6"
+
+    def _sparse_attention(self, query, keys, *extra):
+        probabilities, indices, top1 = super()._sparse_attention(query, keys, *extra)
+        if hasattr(self, "_coverage_mass"):
+            with torch.no_grad():
+                bins=(indices.detach()//self._coverage_block).flatten()
+                self._coverage_mass += torch.bincount(bins,weights=probabilities.detach().flatten(),
+                                                     minlength=self._coverage_mass.numel())
+                self._coverage_queries += query.shape[0]
+        return probabilities, indices, top1
+
+    def forward(self, source, *args, **kwargs):
+        block=int(kwargs.get("block") or self.block)
+        self._coverage_block=block
+        self._coverage_mass=torch.zeros(source.shape[1]//block,device=source.device)
+        self._coverage_queries=0
+        output=super().forward(source,*args,**kwargs)
+        source_indices=self.last_fusion.get("fusion_source_indices",[])
+        mass=(self._coverage_mass/max(self._coverage_queries,1)).detach().cpu().tolist()
+        self.last_fusion["per_discarded_block_attention_mass"]={str(b):mass[i] for i,b in enumerate(source_indices)}
+        del self._coverage_mass
+        return output
+
+
+class NativeSkipSlotMergeV6(SupervisedDSlotMergeV6):
+    architecture = "grouped_gated_sparse_native_v6"
+
+    def __init__(self, *args, top_sharp=2, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.top_sharp = int(top_sharp)
+        if self.top_sharp < 1:
+            raise ValueError("positive sharp-slot count required")
+        self.native_gain = nn.Parameter(torch.zeros(self.num_groups))
+
+    def group_gain(self, group):
+        return self.native_gain[int(group)]
+
+    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
+                     down_weight, up_weight, group_gain=None):
+        adapted = super()._group_delta(probabilities, indices, source_layer,
+                                       carrier_layer, down_weight, up_weight)
+        source = source_layer.float().flatten(0, 1)
+        carrier = carrier_layer.float().flatten(0, 1)
+        carrier_rms = carrier.square().mean(-1, keepdim=True).sqrt()
+        sharp = min(self.top_sharp, indices.shape[1])
+        weights = probabilities[:, :sharp]
+        weights = weights / weights.sum(-1, keepdim=True).clamp_min(1e-12)
+        confidence = probabilities[:, :sharp].sum(-1, keepdim=True)
+        chunks = []
+        for start in range(0, indices.shape[0], self.query_chunk_size):
+            ix = indices[start:start+self.query_chunk_size, :sharp]
+            p = weights[start:start+self.query_chunk_size]
+            chunks.append((source[ix] * p.unsqueeze(-1)).sum(1))
+        native = (torch.cat(chunks) - carrier) * confidence
+        gain = self.native_gain if group_gain is None else group_gain
+        combined = adapted + gain * native
+        # Same one-sided soft bound as the adapted path: no forced unit-RMS
+        # renormalisation of the combined residual.
+        combined_rms = combined.square().mean(-1, keepdim=True).sqrt()
+        scale = torch.clamp(carrier_rms / (combined_rms + _DELTA_VAR_EPS), max=1.)
+        return combined * scale
+
+    def forward(self, *args, **kwargs):
+        output = super().forward(*args, **kwargs)
+        self.last_fusion.update(native_gain=[float(g.detach()) for g in self.native_gain],
+            native_path="per-layer-group signed gain on a top-%d sharpened full-width source average minus "
+                        "carrier, routed-confidence scaled; one-sided soft RMS bound"
+                        % self.top_sharp, sharp_slots=self.top_sharp)
+        return output

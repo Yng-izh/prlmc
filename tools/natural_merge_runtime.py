@@ -223,7 +223,8 @@ def native_write(model, record, index):
 def build_merge(architecture, num_layers, hidden, block):
     from methods.prlmc.merge import SharedMemoryMerge
     from methods.prlmc.slot_merge import SlotMemoryMerge
-    from methods.prlmc.gated_slot_merge import BudgetedSlotMemoryMerge, GraftedSlotMemoryMerge
+    from methods.prlmc.gated_slot_merge import (BudgetedSlotMemoryMerge, GraftedSlotMemoryMerge,
+        GraftedSlotMemoryMergeV6, SupervisedDSlotMergeV6, NativeSkipSlotMergeV6)
     from methods.prlmc.native_skip_merge import SupervisedDSlotMerge, NativeSkipSlotMerge
     classes = {"block_v1": SharedMemoryMerge, "discarded_slot_attention_v1": SlotMemoryMerge,
                "budgeted_dense_slot_v3": BudgetedSlotMemoryMerge,
@@ -234,7 +235,9 @@ def build_merge(architecture, num_layers, hidden, block):
                # registry makes reusing an old checkpoint a loud error instead of
                # a silent re-interpretation.
                "grouped_gated_sparse_slot_v5": SupervisedDSlotMerge,
-               "grouped_gated_sparse_native_v5": NativeSkipSlotMerge}
+               "grouped_gated_sparse_native_v5": NativeSkipSlotMerge,
+               "grouped_gated_sparse_slot_v6": GraftedSlotMemoryMergeV6,
+               "grouped_gated_sparse_native_v6": NativeSkipSlotMergeV6}
     if architecture not in classes:
         raise ValueError("unknown shared merge architecture")
     kwargs = dict(rank=32, gamma_max=.05)
@@ -245,7 +248,7 @@ def build_merge(architecture, num_layers, hidden, block):
                       global_rms_budget=training["global_rms_budget"])
         if architecture != "budgeted_dense_slot_v3":
             kwargs.update(num_groups=spec["groups"], reference_layer=spec["reference_layer"], topk=spec["topk"])
-        if architecture.endswith("_v5"):
+        if architecture.endswith(("_v5", "_v6")):
             kwargs.update(native_prior_weight=training["native_prior_weight"],
                           route_mix_temperature=training["route_mix_temperature"],
                           balance_strength=training["balance_strength"])
@@ -259,6 +262,9 @@ def training_for(architecture):
         return training
     if architecture.endswith(("_v4", "_v5")):
         from prepare_natural_merge_v4 import TRAIN_V4 as training
+        return training
+    if architecture.endswith("_v6"):
+        from prepare_natural_merge_v6 import TRAIN_V6 as training
         return training
     return None
 
@@ -338,7 +344,7 @@ def reset(manager, initial):
 
 
 def costs(manager, merge):
-    return dict(physical_slots=manager.total, effective_budget_slots=manager.k_max,
+    return dict(physical_slots=manager.total, effective_budget_slots=manager.layout.k_max,
         physical_pool_bytes=manager._memory.numel()*manager._memory.element_size(),
         shared_parameters=sum(p.numel() for p in merge.parameters()),
         shared_state_bytes=sum(t.numel()*t.element_size() for t in merge.state_dict().values()),

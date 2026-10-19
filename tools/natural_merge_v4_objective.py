@@ -119,7 +119,9 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins, scale
         active_mask_override, differentiable_memory)
     from methods.prlmc.consolidate import _select_block_indices
     from natural_merge_runtime import install
-    if variant not in TRAIN_V4["variants"] or not qas or len({q["id"] for q in qas}) != len(qas):
+    from prepare_natural_merge_v6 import TRAIN_V6
+    allowed = TRAIN_V4["variants"] if not variant.endswith("V6") else TRAIN_V6["variants"]
+    if variant not in allowed or not qas or len({q["id"] for q in qas}) != len(qas):
         raise ValueError("known variant and unique nonempty training QAs required")
     for qa in qas:
         teacher = targets.get(qa["id"], {})
