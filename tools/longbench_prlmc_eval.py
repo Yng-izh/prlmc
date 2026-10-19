@@ -132,7 +132,9 @@ MODEL_PATH = "/share/latent/MemoryLLM-8B"
 # `validate_merge_checkpoint` rejects the retired training record, so the
 # checkpoint has to be passed explicitly instead of silently defaulting.
 ARCHITECTURE = "grouped_gated_sparse_slot_v5"
+ARCHITECTURE_V6 = "grouped_gated_sparse_slot_v6"
 METHOD = "PRLM-C natural-merge v5 Dsup"
+METHOD_V6 = "PRLM-C natural-merge v6 DsupV6"
 
 
 def truncated_prediction(prediction):
@@ -247,7 +249,7 @@ def evaluate(args):
     # checkpoint architecture/training/budget against TRAIN_V4.
     model, tokenizer, manager, merge, initial, cfg, saved = load_runtime(
         MODEL_PATH, checkpoint=args.checkpoint, train=False,
-        architecture=ARCHITECTURE if args.checkpoint else None,
+        architecture=None,
         budget_blocks=args.budget_blocks)
     tokenizer.pad_token = tokenizer.eos_token
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
@@ -260,9 +262,10 @@ def evaluate(args):
         report = dict(schema="longbench_prlmc_results/1", status="running",
             protocol=dict(model="MemoryLLM-8B",
                 method=("PRLM-C Consolidate (training-free plan A)" if args.arm == "Consolidate"
-                        else METHOD if args.checkpoint else "PRLM-C Selection"),
+                        else (METHOD_V6 if saved and saved.get("architecture","").endswith("_v6")
+                              else METHOD) if args.checkpoint else "PRLM-C Selection"),
                 variant=saved["variant"] if saved else None,
-                architecture=ARCHITECTURE if args.checkpoint else None,
+                architecture=(saved.get("architecture") if saved else None) or ARCHITECTURE,
                 capacity=f"managed_{args.budget_blocks}_block_budget",
                 budget_blocks=args.budget_blocks,
                 window_blocks=budget_geometry(args.budget_blocks)[0],
