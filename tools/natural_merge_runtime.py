@@ -31,6 +31,7 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "tools/natural_merge_v4_objective.py", "tools/natural_merge_v4_train.py",
     "tools/natural_merge_v4_training_fit.py", "tools/run_natural_merge_v4.py",
     "tools/summarize_natural_merge_v4.py",
+    "tools/prepare_natural_merge_v7.py", "tools/natural_merge_v7_train.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
 
@@ -336,6 +337,23 @@ def native_write(model, record, index):
         native_random_evicted_slots=model.num_tokens, seconds=time.monotonic()-started)
 
 
+V7_ARCHITECTURES = ("grouped_gated_sparse_slot_v7", "grouped_gated_sparse_native_v7")
+
+
+def v7_merge_classes():
+    """Resolve the v7 classes at call time.
+
+    They are defined by the v7 architecture patch in `gated_slot_merge.py` /
+    `native_skip_merge.py`; the registry names are declared here so a v7
+    checkpoint fails loudly ("unavailable") instead of being re-interpreted as
+    some other architecture when those classes are missing.
+    """
+    from methods.prlmc.gated_slot_merge import SupervisedDSlotMergeV7
+    from methods.prlmc.native_skip_merge import NativeSkipSlotMergeV7
+    return {"grouped_gated_sparse_slot_v7": SupervisedDSlotMergeV7,
+            "grouped_gated_sparse_native_v7": NativeSkipSlotMergeV7}
+
+
 def build_merge(architecture, num_layers, hidden, block):
     from methods.prlmc.merge import SharedMemoryMerge
     from methods.prlmc.slot_merge import SlotMemoryMerge
@@ -352,8 +370,18 @@ def build_merge(architecture, num_layers, hidden, block):
                # a silent re-interpretation.
                "grouped_gated_sparse_slot_v5": SupervisedDSlotMerge,
                "grouped_gated_sparse_native_v5": NativeSkipSlotMerge,
+               # v6 stays registered for read-only reproduction of its
+               # checkpoints; v7 is the main line and never loads a v6 state.
                "grouped_gated_sparse_slot_v6": GraftedSlotMemoryMergeV6,
                "grouped_gated_sparse_native_v6": NativeSkipSlotMergeV6}
+    if architecture in V7_ARCHITECTURES:
+        try:
+            classes.update(v7_merge_classes())
+        except ImportError as error:
+            raise ValueError(
+                "v7 merge classes are unavailable in this checkout; the v7 "
+                "architecture patch must land before a v7 checkpoint can load"
+            ) from error
     if architecture not in classes:
         raise ValueError("unknown shared merge architecture")
     kwargs = dict(rank=32, gamma_max=.05)
@@ -364,7 +392,7 @@ def build_merge(architecture, num_layers, hidden, block):
                       global_rms_budget=training["global_rms_budget"])
         if architecture != "budgeted_dense_slot_v3":
             kwargs.update(num_groups=spec["groups"], reference_layer=spec["reference_layer"], topk=spec["topk"])
-        if architecture.endswith(("_v5", "_v6")):
+        if architecture.endswith(("_v5", "_v6", "_v7")):
             kwargs.update(native_prior_weight=training["native_prior_weight"],
                           route_mix_temperature=training["route_mix_temperature"],
                           balance_strength=training["balance_strength"])
@@ -381,6 +409,9 @@ def training_for(architecture):
         return training
     if architecture.endswith("_v6"):
         from prepare_natural_merge_v6 import TRAIN_V6 as training
+        return training
+    if architecture.endswith("_v7"):
+        from prepare_natural_merge_v7 import TRAIN_V7 as training
         return training
     return None
 

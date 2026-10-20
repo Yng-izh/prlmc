@@ -119,10 +119,28 @@ def budget_geometry(budget_blocks):
     return table[budget_blocks]
 
 
+def compaction_trigger(budget_blocks, window_blocks):
+    """Resident block count at which the managed stream compacts (v7 C8/D-07).
+
+    The rule is `used >= min(budget, window + 1)`: the window has to be fully
+    resident before it can be compressed, and a stream whose budget is smaller
+    than its window has to be allowed to reach the window (transient overshoot
+    of one block, then back to target). For every pre-registered geometry this
+    is grid-identical to the old `used + block > budget and used >= window`
+    rule. This function returns the budget/window term (8, 10, 12, 20, and 14
+    for the v7 20-budget 13->9 geometry); `write` additionally requires
+    `used >= window`, so the effective first compaction is 9/11/12/20/14 blocks
+    respectively. Firing at 20 with a 13-block window would silently compress
+    only 13 of the 20 resident blocks, which is why the rule lives on the write
+    path and not in the CLI.
+    """
+    return min(int(budget_blocks), int(window_blocks) + 1)
+
+
 class StreamingMemory:
     """Explicit preappend 19→9 compression; no answer-derived goals/anchors."""
-    def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=19,
-                 target_blocks=9):
+    def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=None,
+                 target_blocks=None):
         if arm not in ARMS:
             raise ValueError("unknown arm")
         # budget_blocks is the managed working budget (8/10/12/20 native blocks).
@@ -132,23 +150,28 @@ class StreamingMemory:
         # 10 the window exceeds the budget by one block: the compact input may
         # reach window blocks (transient overshoot), then lands back on target
         # blocks, so the steady state after every completed write cycle stays at
-        # or below the budget. write() only compacts when the full window is
-        # resident (used >= window), which relaxes the old window < budget
-        # invariant.
+        # or below the budget.
+        #
+        # `None` keeps that table; an explicit pair overrides it (C8/D-08). The
+        # old code overwrote the caller's values with the table, which made
+        # `--window-blocks 13 --target-blocks 9` a silent no-op, and its
+        # validation was dead code (`A and B` precedence made the guard never
+        # fire). Both are fixed by resolving through `resolve_geometry`, which
+        # raises on a conflict instead of silently correcting it.
         self.m = manager
         self.compactor = compactor
         self.arm = arm
-        self.budget = budget_blocks * manager.block
-        self.window = window_blocks * manager.block
-        self.target = target_blocks * manager.block
         if budget_blocks not in (8, 10, 12, 20):
             raise ValueError("budget_blocks must be one of 8/10/12/20")
-        window_b, target_b = budget_geometry(budget_blocks)
-        self.window = window_b * manager.block
-        self.target = target_b * manager.block
-        if not 0 < self.target < self.window and self.target <= self.budget \
-                and self.window <= manager.total:
-            raise ValueError("invalid compression budget")
+        from natural_merge_runtime import resolve_geometry
+        self.budget_blocks = int(budget_blocks)
+        self.window_blocks, self.target_blocks = resolve_geometry(
+            budget_blocks, window_blocks, target_blocks,
+            total_blocks=manager.total // manager.block,
+        )
+        self.budget = self.budget_blocks * manager.block
+        self.window = self.window_blocks * manager.block
+        self.target = self.target_blocks * manager.block
         self.events = []
         self.peak = 0
 
@@ -157,17 +180,25 @@ class StreamingMemory:
         from methods.prlmc.consolidate import select_block_compact, recent_block_compact, _select_block_indices
         m = self.m
         start = m.total - m.used
+        used_before = int(m.used)
         source = m._memory[:, start:start + self.window].contiguous()
         weights = m._window_importance(start, self.window)
+        # Generational ages of exactly this window, in temporal order (C1/C2).
+        # This is the write path every v7 evaluation number comes from, so the
+        # quota has to be settled here and not only in the training runtime.
+        ages = m.window_block_ages(start, self.window)
         kwargs = dict(target=self.target, block=m.block, weights=weights,
-                      goal_direction=None, select_weights=m.select_weights)
+                      goal_direction=None, select_weights=m.select_weights,
+                      block_ages=ages)
         begin = time.monotonic()
         if self.arm == "SharedE6d":
             output = self.compactor(source, **kwargs).to(m.dtype)
-            selected = _select_block_indices(source, self.target, m.block, weights, None, m.select_weights)
+            selected = _select_block_indices(source, self.target, m.block, weights, None,
+                                             m.select_weights, block_ages=ages)
         elif self.arm == "Selection":
             output = select_block_compact(source, **kwargs).to(m.dtype)
-            selected = _select_block_indices(source, self.target, m.block, weights, None, m.select_weights)
+            selected = _select_block_indices(source, self.target, m.block, weights, None,
+                                             m.select_weights, block_ages=ages)
         elif self.arm == "Recent":
             output = recent_block_compact(source, target=self.target, block=m.block).to(m.dtype)
             selected = torch.arange(self.window // m.block - self.target // m.block, self.window // m.block)
@@ -181,21 +212,31 @@ class StreamingMemory:
         replacement = torch.cat((output, tail), dim=1)
         m.used = replacement.shape[1]
         m._memory[:, m.total - m.used:].copy_(replacement)
+        # Settle the ages from the carriers the merge actually kept: a surviving
+        # carrier is one round older, the uncompressed tail keeps its age, the
+        # rest of the pool resets to the young generation (D-04). The old code
+        # had no age bookkeeping on this path at all, so the evaluation stream
+        # silently ran the young-generation selector forever.
+        m.note_merge(selected, self.window // m.block,
+                     target_blocks=self.target // m.block, used_before=used_before)
         m._tile_free_region()
         self.events.append(dict(before_write=write_index, source_slots=self.window, target_slots=self.target,
             remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
+            selected_block_ages=ages[selected].cpu().tolist(),
             seconds=time.monotonic() - begin))
 
     def write(self, record, index):
         import torch
         m = self.m
         with torch.no_grad():
-            if self.arm not in ("Full", "NativeDefault") and m.used + m.block > self.budget:
-                if m.used >= self.window:
-                    self.compact(index)
-                # else: the pre-registered geometry for budgets 8/10 puts the
-                # window one block above the budget; let the stream grow to the
-                # full window so the next write can compact all of it at once.
+            # Trigger rule (C8/D-07). `min(budget, window+1)` is grid-identical
+            # to the old `used + block > budget` gate for the pre-registered
+            # 8/10/12/20 geometries, and fires at 14 blocks for the v7
+            # 20-budget 13->9 geometry instead of silently waiting for 20.
+            if self.arm not in ("Full", "NativeDefault") \
+                    and m.used >= self.window \
+                    and m.used >= compaction_trigger(self.budget_blocks, self.window_blocks) * m.block:
+                self.compact(index)
             if self.arm == "Full" and m.used + m.block > m.total:
                 return None  # Honest Full-capacity failure; never truncate the stream.
             ids = torch.tensor([record["token_ids"]], dtype=torch.long, device=m._memory.device)
@@ -218,6 +259,12 @@ class StreamingMemory:
                     m._memory[:, old_start - m.block:m.total - m.block].copy_(previous)
                 m._memory[:, -m.block:].copy_(delta)
                 m.used += m.block
+                # Age bookkeeping on the real write path (C2): exactly one
+                # native block was appended and nothing was dropped. Bumping
+                # `age_append_events` is also what makes `MergeStream.write`
+                # skip its own reconciliation, so the append is never counted
+                # twice.
+                m.note_append(appended=1)
                 m._tile_free_region()
             active = int(m.model.memory_active_mask.sum())
             limit = m.total if self.arm in ("Full", "NativeDefault") \
