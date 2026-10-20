@@ -11,6 +11,13 @@ routing score (the learned 32-D projection is a bounded residual view), the
 slot gate additionally sees three scale-free geometry features, and the carrier
 selector scores blocks in the same layer routing reads. Every added branch is
 zero-initialised, so step 0 is still bit-identical to Selection.
+
+v7 (this module, and native_skip_merge.py) removes the forced unit-RMS write --
+`carrier_rms * tanh(delta / carrier_rms)` instead of normalising every delta
+onto the carrier RMS -- and multiplies the gate by a sparse active-match mask so
+the same budget lands on the slots that actually matched a source. The v6
+classes keep their v6 numerics unchanged and only opt out of both mechanisms, so
+a v6 checkpoint still reproduces bit-identically.
 """
 import math
 
@@ -30,6 +37,64 @@ def _energy(candidate, carrier):
 
 def _write(candidate, carrier, scale):
     return (carrier.float() + scale * (candidate.float() - carrier.float())).to(carrier.dtype)
+
+
+# Sparse high-SNR gate (v7 C9): the in-block z-score of the top-1 routing
+# affinity decides whether a carrier slot actually found a match. Fixed
+# constants, not learned: the mask is a discrete reliability decision, and the
+# learned part of the gate stays the slot/geometry logit it multiplies.
+_ACTIVE_MATCH_SHARPNESS = 4.0
+_ACTIVE_MATCH_OFFSET = .15
+
+
+def _soft_bound(delta, carrier):
+    """Bounded residual write: `carrier_rms * tanh(delta / carrier_rms)`.
+
+    Replaces the forced unit-RMS normalisation `delta * rsqrt(mean+eps) *
+    carrier_rms`, which mapped *any* magnitude -- including an exactly zero
+    (zero-initialised) delta -- onto the carrier RMS, i.e. a zero-point gain of
+    `1/sqrt(1e-6) = 1e3`. Three properties the old form did not have:
+
+    * `|out| <= carrier_rms` elementwise (tanh range), so a large delta can no
+      longer be amplified, only saturated;
+    * `delta == 0` gives exactly `0.0`, so step 0 is bit-identical to Selection;
+    * `d out / d delta` at the origin is `1`, so the background noise a slot
+      carries is passed through at unit gain instead of being inflated.
+
+    `clamp_min` rather than `+eps`: at normal magnitudes the denominator is the
+    carrier RMS itself, so no spurious rescaling enters the forward pass. The
+    global `_cap` budget is untouched and still bounds what is stored.
+    """
+    rms = carrier.square().mean(-1, keepdim=True).sqrt()
+    return rms * torch.tanh(delta / rms.clamp_min(_DELTA_VAR_EPS))
+
+
+def _active_match_weight(affinity_z):
+    """Sparse active-match weight in (0,1) from the in-block top-1 affinity z.
+
+    `sigmoid(4*(z + .15))`: z = -3 (a slot that found nothing) gives ~1e-5, z = 0
+    gives .65, z = +2 (a sharply matched slot) gives >.999. Multiplying the base
+    gate by this concentrates the same 5% global RMS budget on the top quartile
+    of slots instead of spreading it over all of them.
+
+    Detached at the call site (`rel` is already detached): the mask must not
+    become a way for the gate parameters to learn the mask back.
+    """
+    return torch.sigmoid(_ACTIVE_MATCH_SHARPNESS * (affinity_z + _ACTIVE_MATCH_OFFSET))
+
+
+def _sparse_gate_report(weight, alpha):
+    """Telemetry for the sparse gate (C9 item 5). Targets are training-time
+    observations (~top quartile active, local alpha .10-.20), not assertions."""
+    if weight is None or alpha is None:
+        return {}
+    active = weight > .5
+    count = int(active.sum())
+    return dict(
+        active_slot_fraction=float(active.float().mean()),
+        alpha_active_mean=float(alpha[active].mean()) if count else 0.,
+        sparse_gate_form="alpha *= sigmoid(4*(top1_affinity_z+.15)), clamped to [0, gamma_max]",
+    )
 
 
 class BudgetedSlotMemoryMerge(SlotMemoryMerge):
@@ -129,6 +194,10 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         # enters the checkpoint or the state digest.
         self._balance_offset = None
         self._key_mask = None
+        # Sparse-gate telemetry for the current forward (plain attributes, so
+        # they never enter the checkpoint or the state digest).
+        self._active_weight = None
+        self._last_alpha = None
         initial_gate = kwargs.get("initial_gate", .02)
         nn.init.constant_(self.slot_gate.bias, math.log(initial_gate / (self.gamma_max - initial_gate)))
 
@@ -177,14 +246,34 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         context = (values[indices] * probabilities.unsqueeze(-1)).sum(1)
         carrier = carrier_layer.float().flatten(0, 1)
         delta = F.linear(F.gelu(context - F.linear(carrier, down_weight)), up_weight)
-        return (delta * torch.rsqrt(delta.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS)
-                * carrier.square().mean(-1, keepdim=True).sqrt())
+        # v7 C5: bounded write instead of forced unit RMS. `up_weight=0` (the
+        # initialisation) makes `delta` exactly 0, so this is exactly 0 too.
+        return _soft_bound(delta, carrier)
+
+    def _slot_alpha(self, gate_logits, rel, reject=None):
+        """Per-slot fusion weight: base gate times the sparse active-match mask.
+
+        `rel[..., 0]` is the in-block z-score of the top-1 routing affinity (the
+        stack order in `forward` is part of the contract). The v5 lineage has no
+        per-group gate and no similarity mask, so `reject` is only there for the
+        v6/v7 signature; the clamp keeps `alpha` inside `[0, gamma_max]`, which
+        is the local bound the global RMS `_cap` relies on.
+        """
+        alpha = self.gamma_max * torch.sigmoid(gate_logits)
+        if reject is not None:
+            alpha = alpha * reject
+        weight = _active_match_weight(rel[..., 0])
+        # `alpha` is [slots, 1] here (one logit per slot), the mask is [slots].
+        alpha = torch.clamp(alpha * weight.unsqueeze(-1), 0., self.gamma_max)
+        self._active_weight, self._last_alpha = weight, alpha.detach()
+        return alpha
 
     def forward(self, source, weights=None, target=None, block=None,
                 goal_direction=None, select_weights=None, carrier_indices=None,
                 source_allow_mask=None):
         # Reuse v2's shape/carrier/mask contract without its value computation.
         from .consolidate import _select_block_indices
+        self._active_weight = self._last_alpha = None
         block = self.block if block is None else int(block)
         if (source.ndim != 3 or source.shape[0] != self.num_layers or source.shape[-1] != self.hidden
                 or block <= 0 or source.shape[1] % block or target is None
@@ -276,7 +365,7 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
         gate_logits = (self.slot_gate(gate_in.flatten(0, 1))
                        + self.rel_gate(rel.flatten(0, 1)))
-        alpha = self.gamma_max * torch.sigmoid(gate_logits)
+        alpha = self._slot_alpha(gate_logits, rel.flatten(0, 1))
         outputs = []
         for layer in range(self.num_layers):
             group = layer // (self.num_layers // self.num_groups)
@@ -293,7 +382,9 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
                 native_prior_weight=self.native_prior_weight, route_mix_temperature=self.route_mix_temperature,
                 balance_strength=self.balance_strength,
                 gate_rel_norm=float(self.rel_gate.weight.detach().abs().mean()),
-                carrier_selector_layer=int(min(_SELECT_LAYER, self.num_layers - 1)))
+                carrier_selector_layer=int(min(_SELECT_LAYER, self.num_layers - 1)),
+                soft_delta_bound="carrier_rms*tanh(delta/carrier_rms); no forced unit-RMS",
+                **_sparse_gate_report(self._active_weight, self._last_alpha))
         candidate = torch.stack(outputs)
         return self._cap(candidate, carriers.flatten(1, 2))
 
@@ -352,6 +443,18 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         tau = 1.
         scale = torch.clamp(carrier_rms / (tau * delta_rms), max=1.)
         return delta * scale
+
+    def _slot_alpha(self, gate_logits, rel, reject=None):
+        """v6 gate, frozen: one logit per layer group times the similarity mask.
+
+        Deliberately *not* the v7 sparse mask -- v6 checkpoints must keep
+        reproducing bit-identically (C6), so this override opts out of the base
+        class' active-match weight and out of the clamp.
+        """
+        alpha = self.gamma_max * torch.sigmoid(gate_logits)
+        if reject is not None:
+            alpha = alpha * reject
+        return alpha
 
     def _similarity_mask(self, q_nat, k_nat, block):
         """Reject-only per-carrier-slot mask from native 4096-D cosine.
@@ -456,9 +559,9 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         affinity = top1.reshape(-1, self.block)
         rel = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
         rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
-        alpha = self.gamma_max * torch.sigmoid(
-            self.slot_gate(gate_in.flatten(0, 1)) + self.rel_gate(rel.flatten(0, 1)))
-        alpha = alpha * sim_reject.unsqueeze(-1)
+        alpha = self._slot_alpha(
+            self.slot_gate(gate_in.flatten(0, 1)) + self.rel_gate(rel.flatten(0, 1)),
+            rel.flatten(0, 1), sim_reject.unsqueeze(-1))
         outputs = []
         for layer in range(self.num_layers):
             group = layer // (self.num_layers // self.num_groups)
@@ -552,4 +655,81 @@ class NativeSkipSlotMergeV6(SupervisedDSlotMergeV6):
             native_path="per-layer-group signed gain on a top-%d sharpened full-width source average minus "
                         "carrier, routed-confidence scaled; one-sided soft RMS bound"
                         % self.top_sharp, sharp_slots=self.top_sharp)
+        return output
+
+
+class GraftedSlotMemoryMergeV7(GraftedSlotMemoryMergeV6):
+    """v7 main line: bounded tanh write + sparse high-SNR gate.
+
+    Two changes over v6, both audited in experiments/v7-spec-contract.md:
+      1. C5: the write is `carrier_rms * tanh(delta / carrier_rms)` instead of
+         the one-sided RMS clamp. A zero-initialised `up_weight` therefore emits
+         exactly 0 instead of a tiny residual rescaled onto carrier RMS, and the
+         zero-point gain is 1 rather than 1/sqrt(eps).
+      2. C9: `alpha` is multiplied by `sigmoid(4*(top1_affinity_z + .15))`, so
+         the same local/global budget lands on the slots that actually matched a
+         source. Background slots are silent instead of uniformly written.
+
+    Inherited from v6 unchanged: per-layer-group gates, the conservative
+    similarity hard mask, and the global `_cap` (still `<= .05` of carrier RMS).
+    """
+
+    architecture = "grouped_gated_sparse_slot_v7"
+
+    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
+                     down_weight, up_weight, group_gain=None):
+        values = F.linear(source_layer.float().flatten(0, 1), down_weight)
+        context = (values[indices] * probabilities.unsqueeze(-1)).sum(1)
+        carrier = carrier_layer.float().flatten(0, 1)
+        delta = F.linear(F.gelu(context - F.linear(carrier, down_weight)), up_weight)
+        return _soft_bound(delta, carrier)
+
+    def _slot_alpha(self, gate_logits, rel, reject=None):
+        """v6's group gate and similarity mask, times the sparse active mask.
+
+        `rel` is [slots, 3] and `rel[..., 0]` is the in-block top-1 affinity
+        z-score; `alpha` is [slots, groups], so the mask broadcasts over groups.
+        The clamp is the contract bound `0 <= alpha <= gamma_max` (C9).
+        """
+        alpha = self.gamma_max * torch.sigmoid(gate_logits)
+        if reject is not None:
+            alpha = alpha * reject
+        weight = _active_match_weight(rel[..., 0])
+        alpha = torch.clamp(alpha * weight.unsqueeze(-1), 0., self.gamma_max)
+        self._active_weight, self._last_alpha = weight, alpha.detach()
+        return alpha
+
+    def forward(self, *args, **kwargs):
+        self._active_weight = self._last_alpha = None
+        output = super().forward(*args, **kwargs)
+        if self._last_alpha is not None:
+            self.last_fusion.update(
+                soft_delta_bound="carrier_rms*tanh(delta/carrier_rms); no forced unit-RMS",
+                **_sparse_gate_report(self._active_weight, self._last_alpha))
+        return output
+
+
+class SupervisedDSlotMergeV7(GraftedSlotMemoryMergeV7):
+    architecture = "grouped_gated_sparse_slot_v7"
+
+    def _sparse_attention(self, query, keys, *extra):
+        probabilities, indices, top1 = super()._sparse_attention(query, keys, *extra)
+        if hasattr(self, "_coverage_mass"):
+            with torch.no_grad():
+                bins=(indices.detach()//self._coverage_block).flatten()
+                self._coverage_mass += torch.bincount(bins,weights=probabilities.detach().flatten(),
+                                                     minlength=self._coverage_mass.numel())
+                self._coverage_queries += query.shape[0]
+        return probabilities, indices, top1
+
+    def forward(self, source, *args, **kwargs):
+        block=int(kwargs.get("block") or self.block)
+        self._coverage_block=block
+        self._coverage_mass=torch.zeros(source.shape[1]//block,device=source.device)
+        self._coverage_queries=0
+        output=super().forward(source,*args,**kwargs)
+        source_indices=self.last_fusion.get("fusion_source_indices",[])
+        mass=(self._coverage_mass/max(self._coverage_queries,1)).detach().cpu().tolist()
+        self.last_fusion["per_discarded_block_attention_mass"]={str(b):mass[i] for i,b in enumerate(source_indices)}
+        del self._coverage_mass
         return output

@@ -8,12 +8,17 @@ tokens: it averages only the two sharpest routed slots and scales by the routed
 confidence, and it carries one signed gain per layer group instead of one global
 scalar (shallow groups address, deep groups read out). Both branches are
 zero-initialised, so step 0 stays bit-identical to Selection.
+
+v7 bounds the branch instead of renormalising it: the gain passes through
+`tanh` (so it can at most replace the carrier) and the combined residual is
+`carrier_rms * tanh(combined / carrier_rms)`, matching the adapted path.
 """
 import torch
 from torch import nn
 
-from .consolidate import _DELTA_VAR_EPS
-from .gated_slot_merge import GraftedSlotMemoryMerge
+from .gated_slot_merge import (
+    GraftedSlotMemoryMerge, SupervisedDSlotMergeV7, _soft_bound,
+)
 
 
 class SupervisedDSlotMerge(GraftedSlotMemoryMerge):
@@ -67,7 +72,6 @@ class NativeSkipSlotMerge(SupervisedDSlotMerge):
                                       carrier_layer, down_weight, up_weight)
         source = source_layer.float().flatten(0, 1)
         carrier = carrier_layer.float().flatten(0, 1)
-        carrier_rms = carrier.square().mean(-1, keepdim=True).sqrt()
         sharp = min(self.top_sharp, indices.shape[1])
         # Sharp path: renormalised over the two best slots only. A 4096-D
         # average over eight slots blurs exactly the rare entity/number tokens
@@ -89,13 +93,70 @@ class NativeSkipSlotMerge(SupervisedDSlotMerge):
         # cap bounds what is actually stored.
         native = (torch.cat(chunks) - carrier) * confidence
         gain = self.native_gain if group_gain is None else group_gain
-        combined = adapted + gain * native
-        return combined * torch.rsqrt(combined.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS) * carrier_rms
+        # v7 C5: the native branch is bounded the same way the adapted branch is.
+        # `tanh(gain)` keeps the branch gain inside (-1, 1) -- it can at most
+        # replace the carrier, never multiply it -- and the combined residual is
+        # soft-bounded instead of being renormalised onto carrier RMS, so a
+        # zero-initialised `native_gain` contributes exactly nothing.
+        combined = adapted + torch.tanh(gain) * native
+        return _soft_bound(combined, carrier)
 
     def forward(self, *args, **kwargs):
         output = super().forward(*args, **kwargs)
         self.last_fusion.update(native_gain=[float(g.detach()) for g in self.native_gain],
-            native_path="per-layer-group signed gain on a top-%d sharpened full-width source average minus "
-                        "carrier, routed-confidence scaled"
+            native_path="per-layer-group tanh-bounded signed gain on a top-%d sharpened full-width source "
+                        "average minus carrier, routed-confidence scaled, soft-bounded by carrier RMS"
+                        % self.top_sharp, sharp_slots=self.top_sharp)
+        return output
+
+
+class NativeSkipSlotMergeV7(SupervisedDSlotMergeV7):
+    """v7 native branch: same routing/gates as v7, plus a bounded source skip.
+
+    `combined = adapted + tanh(native_gain) * native`, then the same
+    `carrier_rms * tanh(combined / carrier_rms)` bound the adapted path uses.
+    `native_gain=0` (the initialisation) makes `tanh(0)=0` exactly, so step 0 is
+    still bit-identical to Selection.
+    """
+
+    architecture = "grouped_gated_sparse_native_v7"
+
+    def __init__(self, *args, top_sharp=2, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.top_sharp = int(top_sharp)
+        if self.top_sharp < 1:
+            raise ValueError("positive sharp-slot count required")
+        self.native_gain = nn.Parameter(torch.zeros(self.num_groups))
+
+    def group_gain(self, group):
+        return self.native_gain[int(group)]
+
+    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
+                     down_weight, up_weight, group_gain=None):
+        adapted = super()._group_delta(probabilities, indices, source_layer,
+                                       carrier_layer, down_weight, up_weight)
+        source = source_layer.float().flatten(0, 1)
+        carrier = carrier_layer.float().flatten(0, 1)
+        sharp = min(self.top_sharp, indices.shape[1])
+        # Sharp path unchanged: renormalised over the top slots only, and the
+        # sum over them is the routed confidence.
+        weights = probabilities[:, :sharp]
+        weights = weights / weights.sum(-1, keepdim=True).clamp_min(1e-12)
+        confidence = probabilities[:, :sharp].sum(-1, keepdim=True)
+        chunks = []
+        for start in range(0, indices.shape[0], self.query_chunk_size):
+            ix = indices[start:start+self.query_chunk_size, :sharp]
+            p = weights[start:start+self.query_chunk_size]
+            chunks.append((source[ix] * p.unsqueeze(-1)).sum(1))
+        native = (torch.cat(chunks) - carrier) * confidence
+        gain = self.native_gain if group_gain is None else group_gain
+        combined = adapted + torch.tanh(gain) * native
+        return _soft_bound(combined, carrier)
+
+    def forward(self, *args, **kwargs):
+        output = super().forward(*args, **kwargs)
+        self.last_fusion.update(native_gain=[float(g.detach()) for g in self.native_gain],
+            native_path="per-layer-group tanh-bounded signed gain on a top-%d sharpened full-width source "
+                        "average minus carrier, routed-confidence scaled, soft-bounded by carrier RMS"
                         % self.top_sharp, sharp_slots=self.top_sharp)
         return output
