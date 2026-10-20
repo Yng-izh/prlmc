@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prepare_public_retention import digest, sha, tokenizer_manifest
 from prepare_natural_merge import PROTOCOL
-from public_retention_eval import StreamingMemory, generate, E6D_SHA
+from public_retention_eval import StreamingMemory, budget_geometry, generate, E6D_SHA
 
 SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "methods/prlmc/importance.py", "methods/prlmc/capacity.py", "methods/prlmc/subspace.py",
@@ -101,15 +101,89 @@ def evaluate_questions(model, tokenizer, qas):
     return result
 
 
+def resolve_geometry(budget_blocks, window_blocks=None, target_blocks=None,
+                     total_blocks=None):
+    """Effective (window, target) in native blocks for the streaming runtime.
+
+    `None` means "use the pre-registered table", so the 8/10/12/20 geometries are
+    unchanged; an explicit value must be internally consistent and fit the
+    physical pool. Conflicts raise rather than being silently corrected, because
+    a geometry the caller did not ask for is an unreportable experiment.
+    """
+    default_window, default_target = budget_geometry(budget_blocks)
+    window = default_window if window_blocks is None else int(window_blocks)
+    target = default_target if target_blocks is None else int(target_blocks)
+    if not 0 < target < window:
+        raise ValueError(
+            "invalid compression geometry: need 0 < target_blocks < window_blocks, "
+            f"got window={window} target={target}")
+    if target > budget_blocks:
+        raise ValueError(
+            f"invalid compression geometry: target_blocks {target} exceeds "
+            f"budget_blocks {budget_blocks}")
+    if total_blocks is not None and window > int(total_blocks):
+        raise ValueError(
+            f"invalid compression geometry: window_blocks {window} exceeds the "
+            f"physical {int(total_blocks)}-block pool")
+    return window, target
+
+
 class MergeStream(StreamingMemory):
     def __init__(self, manager, compactor, arm, on_compression=None, carrier_schedule=None,
-                 budget_blocks=20):
+                 budget_blocks=20, window_blocks=None, target_blocks=None):
         aliases = {"SharedMerge": "SharedE6d", "CarrierOnlyFusion": "SharedE6d"}
+        # Resolved before the base class runs: `None` keeps the pre-registered
+        # table, an explicit value must be consistent, and the base class is
+        # handed the resolved pair so the stream runs exactly what was validated
+        # (C8/D-08). The assignment after `super()` is what makes the geometry
+        # stick even on a `StreamingMemory` that still recomputes the table.
+        geometry = resolve_geometry(
+            budget_blocks, window_blocks, target_blocks,
+            total_blocks=manager.total // manager.block,
+        )
         super().__init__(manager, compactor, aliases.get(arm, arm),
-                         budget_blocks=budget_blocks)
+                         budget_blocks=budget_blocks,
+                         window_blocks=geometry[0], target_blocks=geometry[1])
         self.merge_arm = arm
         self.on_compression = on_compression
         self.carrier_schedule = carrier_schedule
+        self.window_blocks, self.target_blocks = geometry
+        self.window = geometry[0] * manager.block
+        self.target = geometry[1] * manager.block
+
+    def write(self, record, index):
+        """Streaming append with generational bookkeeping (v7 C2).
+
+        `StreamingMemory.write` appends one native block per record but is owned
+        by the evaluation layer, so the age array is reconciled here instead of
+        being assumed. The reconciliation is exact, not heuristic: a merge
+        removes `window - target` slots and the write then appends exactly one
+        block, so the resident width before the append is known.
+
+        `note_append` bumps `manager.age_append_events`. If the streaming path
+        ever settles appends itself, that counter moves and this reconciliation
+        becomes a no-op, which is what keeps the two layers from counting the
+        same append twice.
+        """
+        m = self.m
+        events_before = getattr(m, "age_append_events", None)
+        if events_before is None:
+            return super().write(record, index)
+        used_before = int(m.used)
+        merges_before = len(self.events)
+        result = super().write(record, index)
+        if m.age_append_events != events_before:
+            return result
+        if self.arm == "NativeDefault":
+            # The published baseline overwrites the whole pool and reports
+            # `used = total`; there is no per-block provenance to carry.
+            return result
+        merged = len(self.events) - merges_before
+        expected = used_before - (self.window - self.target) * merged
+        appended = (int(m.used) - expected) // m.block
+        if appended > 0:
+            m.note_append(appended=appended)
+        return result
 
     def compact(self, write_index):
         import torch
@@ -118,7 +192,9 @@ class MergeStream(StreamingMemory):
         start = m.total - m.used
         source = m._memory[:, start:start+self.window].contiguous()
         weights = m._window_importance(start, self.window)
-        selected = _select_block_indices(source, self.target, m.block, weights, None, m.select_weights)
+        ages = m.window_block_ages(start, self.window)
+        selected = _select_block_indices(source, self.target, m.block, weights, None, m.select_weights,
+                                         block_ages=ages)
         if self.carrier_schedule is not None:
             if len(self.events) >= len(self.carrier_schedule):
                 raise ValueError("replayed carrier schedule ended early")
@@ -134,9 +210,10 @@ class MergeStream(StreamingMemory):
             begun = time.monotonic()
             output = self.compactor(source, target=self.target, block=m.block,
                 carrier_indices=selected, source_allow_mask=allow).to(m.dtype)
-            install(m, output, self.window)
+            install(m, output, self.window, selected_blocks=selected)
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
+                selected_block_ages=ages[selected].cpu().tolist(),
                 seconds=time.monotonic()-begun, fusion=dict(self.compactor.last_fusion)))
         elif self.merge_arm == "Consolidate":
             import torch
@@ -145,29 +222,44 @@ class MergeStream(StreamingMemory):
             output, kept, report = consolidate_slots(
                 source, target=self.target, block=m.block, weights=weights)
             output = output.to(m.dtype)
-            install(m, output, self.window)
             kept_blocks = sorted({s // m.block for s in report["kept_slots"]})
+            install(m, output, self.window, selected_blocks=kept_blocks)
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used,
                 selected_blocks=kept_blocks,
+                selected_block_ages=ages[torch.as_tensor(kept_blocks, dtype=torch.long)].cpu().tolist(),
                 seconds=time.monotonic() - begun,
                 consolidation=report))
         elif self.merge_arm == "Selection" and self.carrier_schedule is not None:
             begun = time.monotonic()
             blocks = source.reshape(m.num_layers, self.window//m.block, m.block, m.hidden)
             output = blocks.index_select(1, selected).flatten(1,2)
-            install(m, output, self.window)
+            install(m, output, self.window, selected_blocks=selected)
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
+                selected_block_ages=ages[selected].cpu().tolist(),
                 seconds=time.monotonic()-begun, carrier_policy="replayed content-only OURS schedule"))
         else:
             super().compact(write_index)
+            # `StreamingMemory.compact` keeps its own selection private. It is
+            # settled here only when it publishes it, so the fallback arm never
+            # invents a carrier set it cannot name.
+            published = getattr(self, "last_selected_blocks", None)
+            if published is not None:
+                m.note_merge(published, self.window // m.block)
         if self.on_compression:
             self.on_compression("after", write_index, selected)
 
 
-def install(manager, candidate, window):
-    """Same suffix placement for inference, training and causal ablation."""
+def install(manager, candidate, window, selected_blocks=None):
+    """Same suffix placement for inference, training and causal ablation.
+
+    `selected_blocks` are the window-relative native blocks whose content the
+    candidate carries. When given, each surviving carrier's age advances by one
+    (it survived a round), the uncompressed tail keeps its age, and everything
+    else in the pool resets to the young generation (C2). Passing `None` keeps
+    the pre-v7 behaviour of leaving the ages untouched (D-12).
+    """
     import torch
     m = manager
     target = candidate.shape[1]
@@ -176,6 +268,7 @@ def install(manager, candidate, window):
     if not 0 < target < window <= m.used or target % m.block or window % m.block:
         raise ValueError("invalid native-block merge placement")
     start = m.total-m.used
+    used_before = int(m.used)
     tail = m._memory[:, start+window:].clone()
     with torch.no_grad():
         replacement = torch.cat((candidate.to(m.dtype), tail), dim=1)
@@ -184,6 +277,13 @@ def install(manager, candidate, window):
         m._tile_free_region()
     if int(m.model.memory_active_mask.sum()) != m.used:
         raise ValueError("installed merge mask/count mismatch")
+    if selected_blocks is not None:
+        m.note_merge(
+            selected_blocks,
+            window // m.block,
+            target_blocks=target // m.block,
+            used_before=used_before,
+        )
 
 
 @contextmanager
@@ -361,7 +461,8 @@ def load_merge_state(merge, saved, architecture, strict_code_hash=True):
 
 
 def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
-                 budget_blocks=20, strict_code_hash=True):
+                 budget_blocks=20, strict_code_hash=True, window_blocks=None,
+                 target_blocks=None):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -390,6 +491,14 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
         carrier_gamma_max=.05, carrier_rank=32, write_mode="append", gate_mode="ones",
         functional_control="none", carrier_ckpt=None)
     manager = ProtectedResidualMemory(model, tokenizer, PRLMCConfig.from_dict(cfg))
+    # Resolve the streaming geometry here as well, so the caller can hand the
+    # same numbers to `MergeStream` instead of re-deriving them (C8): `None`
+    # keeps the pre-registered table, and a conflict with the budget or the
+    # physical pool fails at load time rather than on the first compaction.
+    geometry = resolve_geometry(
+        budget_blocks, window_blocks, target_blocks, total_blocks=manager.total // manager.block
+    )
+    cfg.update(window_blocks=geometry[0], target_blocks=geometry[1])
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True) if checkpoint else None
     saved_architecture = saved.get("architecture", "block_v1") if saved else None
     if saved and architecture is not None and architecture != saved_architecture:
@@ -419,13 +528,17 @@ def reset(manager, initial):
     manager.n_consolidated = 0
     manager.goal_direction = None
     manager._active_mask_used = None
+    manager.reset_block_ages()
 
 
 def costs(manager, merge):
+    ages = manager.block_age_summary()
     return dict(physical_slots=manager.total, effective_budget_slots=manager.layout.k_max,
         physical_pool_bytes=manager._memory.numel()*manager._memory.element_size(),
         shared_parameters=sum(p.numel() for p in merge.parameters()),
         shared_state_bytes=sum(t.numel()*t.element_size() for t in merge.state_dict().values()),
+        # Generational diagnostics (v7 C1): how old the resident content is.
+        block_age_max=ages["block_age_max"], old_generation_slots=ages["old_generation_slots"],
         claim="active-slot budget reduction; physical memory allocation is unchanged")
 
 

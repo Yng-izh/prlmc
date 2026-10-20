@@ -30,6 +30,7 @@ reconstruction error. Native block selection makes that loss much smaller,
 because the reader never has to interpret a new coordinate system.
 """
 
+import math
 from typing import Optional
 
 import torch
@@ -173,6 +174,8 @@ def _greedy_diverse(
     unit_vectors: torch.Tensor,
     count: int,
     diversity_weight: float,
+    group: Optional[torch.Tensor] = None,
+    group_cap: Optional[int] = None,
 ) -> list:
     """Pick `count` indices, trading score against max-min distance from the picks.
 
@@ -181,24 +184,66 @@ def _greedy_diverse(
     chosen vector. The first pick therefore has no diversity term at all and is
     simply the highest-scoring block, and each later pick is pulled away from
     what has already been kept.
+
+    Generational quota (v7 C1). When `group` and `group_cap` are given, a round
+    that has already taken `group_cap` picks from `group` masks the remaining
+    group members out of the argmax, so the cap binds *inside* the greedy loop
+    rather than being repaired afterwards -- a post-hoc repair would discard the
+    max-min choice the diversity term just made. Two properties matter:
+
+    * the mask only touches the candidates the cap forbids, so a round the cap
+      does not constrain is bit-identical to the ungrouped loop;
+    * if masking leaves no candidate at all (the young generation is exhausted)
+      the round falls back to the unrestricted argmax, which is the backfill
+      rule: the output never gets shorter than `count`.
     """
     n = score.numel()
     count = max(1, min(count, n))
     available = torch.ones(n, dtype=torch.bool, device=score.device)
     nearest = torch.ones(n, device=score.device, dtype=score.dtype)
     chosen = []
+    quota = group is not None and group_cap is not None
+    taken_from_group = 0
 
     for _ in range(count):
         base = _unit(score.clone())
         base = base.masked_fill(~available, 0.0)
         combined = (base + diversity_weight * nearest).masked_fill(~available, float("-inf"))
+        if quota and taken_from_group >= int(group_cap):
+            restricted = combined.masked_fill(group & available, float("-inf"))
+            if bool(torch.isfinite(restricted).any()):
+                combined = restricted
         pick = int(torch.argmax(combined).item())
         chosen.append(pick)
         available[pick] = False
+        if quota and bool(group[pick]):
+            taken_from_group += 1
         distance = 1.0 - (unit_vectors @ unit_vectors[pick]).clamp(-1.0, 1.0)
         nearest = torch.minimum(nearest, distance.clamp_min(0.0))
 
     return sorted(chosen)
+
+
+def _block_age_vector(
+    block_ages: torch.Tensor, blocks: int, block: int, source: torch.Tensor
+) -> torch.Tensor:
+    """Coerce a caller's age vector to one non-negative age per native block.
+
+    The selector works in blocks, so a slot-level vector (one entry per memory
+    slot) is reduced with a per-block maximum: the worst case is the one the
+    generational cap has to bound.
+    """
+    ages = block_ages.detach().to(device=source.device, dtype=torch.long).flatten()
+    if ages.numel() == blocks * block:
+        ages = ages.view(blocks, block).amax(dim=1)
+    if ages.numel() != blocks:
+        raise ValueError(
+            f"block_ages has {ages.numel()} entries; expected {blocks} blocks "
+            f"(or {blocks * block} slots)"
+        )
+    if bool((ages < 0).any()):
+        raise ValueError("block_ages must be non-negative")
+    return ages
 
 
 def _select_block_indices(
@@ -208,6 +253,9 @@ def _select_block_indices(
     weights: Optional[torch.Tensor],
     goal_direction: Optional[torch.Tensor],
     select_weights: Optional[dict],
+    block_ages: Optional[torch.Tensor] = None,
+    age_decay: float = 0.75,
+    max_old_ratio: float = 0.45,
 ) -> torch.Tensor:
     """Return the indices of the `target // block` blocks that survive selection.
 
@@ -220,6 +268,22 @@ def _select_block_indices(
 
     The returned indices are sorted ascending, so the caller can index_select and
     keep the window in its original temporal order.
+
+    Generational selection (v7 C1). `block_ages` carries one age per window
+    block -- the number of compaction rounds its content has survived, so
+    `0` is the young generation and `>= 1` is old. Two effects, both confined to
+    this function:
+
+    * a block's score is multiplied by `age_decay ** age`, so old content has to
+      beat new content by a growing margin to keep its seat;
+    * at most `floor(b_out * max_old_ratio)` seats go to old blocks (4 of 9 at
+      the defaults). The cap is enforced inside `_greedy_diverse`; when the
+      young generation runs out the remaining seats are backfilled with old
+      blocks, so the output never drops below `b_out`.
+
+    First-round invariance: `block_ages=None` or an all-zero vector takes the
+    original path untouched. Even on the generational path `0.75 ** 0 == 1.0`
+    exactly in IEEE arithmetic, so a zero age cannot perturb a score by one ulp.
     """
     layers, k, d = source.shape
     if k % block != 0:
@@ -231,6 +295,9 @@ def _select_block_indices(
     b_out = target // block
     if b_out >= b:
         return torch.arange(b, device=source.device, dtype=torch.long)
+
+    ages = None if block_ages is None else _block_age_vector(block_ages, b, block, source)
+    generational = ages is not None and bool((ages > 0).any())
 
     cfg = dict(_DEFAULT_SELECT_WEIGHTS)
     if select_weights:
@@ -264,8 +331,23 @@ def _select_block_indices(
         + cfg["recency"] * recency
         + cfg["goal"] * goal
     )
+    if generational:
+        # `age_decay ** age` on the combined score. Written with an explicit
+        # float32 tensor so the 0-age case is an exact multiply by 1.0.
+        decay = torch.pow(
+            torch.as_tensor(float(age_decay), device=source.device, dtype=torch.float32),
+            ages.to(torch.float32),
+        )
+        score = score * decay
     unit_summary = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
-    keep = _greedy_diverse(score, unit_summary, b_out, cfg["diversity"])
+    if generational:
+        old_cap = max(0, min(b_out, int(math.floor(b_out * float(max_old_ratio)))))
+        keep = _greedy_diverse(
+            score, unit_summary, b_out, cfg["diversity"],
+            group=ages > 0, group_cap=old_cap,
+        )
+    else:
+        keep = _greedy_diverse(score, unit_summary, b_out, cfg["diversity"])
     return torch.tensor(keep, device=source.device, dtype=torch.long)
 
 
@@ -276,6 +358,10 @@ def select_block_compact(
     weights: Optional[torch.Tensor] = None,
     goal_direction: Optional[torch.Tensor] = None,
     select_weights: Optional[dict] = None,
+    block_ages: Optional[torch.Tensor] = None,
+    age_decay: float = 0.75,
+    max_old_ratio: float = 0.45,
+    index: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """Keep the best-scoring whole native blocks, then restore temporal order.
 
@@ -295,6 +381,13 @@ def select_block_compact(
         recency      block position within the window;
         goal         cosine of the block summary against the goal direction;
         diversity    added greedily inside `_greedy_diverse`, not a static term.
+
+    `block_ages`/`age_decay`/`max_old_ratio` are forwarded to the selector for
+    the generational quota (see `_select_block_indices`). `index` lets a caller
+    that already ran the selector reuse its answer instead of scoring twice; it
+    must be the selector's own output for this exact window, which is how
+    `SlotMemory._run_compactor` avoids a duplicate pass and still knows which
+    carriers survived.
     """
     layers, k, d = source.shape
     if k % block != 0:
@@ -307,9 +400,11 @@ def select_block_compact(
     if b_out >= b:
         return source.contiguous()
 
-    index = _select_block_indices(
-        source, target, block, weights, goal_direction, select_weights
-    )
+    if index is None:
+        index = _select_block_indices(
+            source, target, block, weights, goal_direction, select_weights,
+            block_ages=block_ages, age_decay=age_decay, max_old_ratio=max_old_ratio,
+        )
     x = source.view(layers, b, block, d)
     kept = x.index_select(1, index)
     return kept.reshape(layers, b_out * block, d).contiguous()
@@ -497,6 +592,9 @@ class CarrierResidualCompactor(nn.Module):
         self.last_gamma = 0.0
         self.last_residual_ratio = 0.0
         self.last_routing_entropy = 0.0
+        # Carrier block indices of the most recent forward, so the caller can
+        # settle generational ages without re-running the selector (C2).
+        self.last_carrier_indices: Optional[torch.Tensor] = None
 
     @property
     def gamma(self) -> torch.Tensor:
@@ -560,6 +658,9 @@ class CarrierResidualCompactor(nn.Module):
         block: Optional[int] = None,
         goal_direction: Optional[torch.Tensor] = None,
         select_weights: Optional[dict] = None,
+        block_ages: Optional[torch.Tensor] = None,
+        age_decay: float = 0.75,
+        max_old_ratio: float = 0.45,
     ) -> torch.Tensor:
         """Reduce [L, K, d] to [L, target, d] = carriers + gamma * delta.
 
@@ -582,11 +683,14 @@ class CarrierResidualCompactor(nn.Module):
             # Nothing to compress. Return the window untouched rather than a
             # residual over every block, so the operator stays a no-op exactly
             # where `select_blocks` is one.
+            self.last_carrier_indices = torch.arange(b, device=source.device, dtype=torch.long)
             return source.contiguous()
 
         index = _select_block_indices(
-            source, target, block, weights, goal_direction, select_weights
+            source, target, block, weights, goal_direction, select_weights,
+            block_ages=block_ages, age_decay=age_decay, max_old_ratio=max_old_ratio,
         )
+        self.last_carrier_indices = index
         blocks = source.view(layers, b, block, d)
         carriers = blocks.index_select(1, index)  # [L, b_out, block, d]
 

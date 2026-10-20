@@ -62,6 +62,7 @@ from methods.prlmc.consolidate import (
     CarrierResidualCompactor,
     FixedBasisCarrierResidualCompactor,
     _SELECT_LAYER,
+    _select_block_indices,
     build_compactor,
     recent_block_compact,
     select_block_compact,
@@ -275,6 +276,26 @@ class ProtectedResidualMemory:
 
         self.last_snapshot = CapacitySnapshot(budget_slots=self.layout.working_capacity)
         self.history: List[Dict[str, Any]] = []
+        # Generational bookkeeping (v7 C1/C2). `_block_ages[j]` is the age of
+        # physical block `j`: the number of compaction rounds its content has
+        # survived, so 0 is the young generation. The valid region is the
+        # trailing `ceil(used / block)` entries -- validity is derived from
+        # `used`, never stored, so no operation has to clear the free region.
+        #
+        # Diagnostic state, not pool state (D-06): it must never enter
+        # `state_dict`, a determinism digest or the checkpoint contract, because
+        # the same pool must hash the same with or without age tracking. It *is*
+        # carried by `snapshot`/`restore`, so a rolled-back compaction rolls the
+        # ages back with the slots (R-07).
+        self._block_ages = torch.zeros(
+            max(1, self.total // self.block), dtype=torch.long, device=memory.device
+        )
+        # Append/merge counters. `note_append` bumps `age_append_events`, which
+        # lets a caller that does not own the write path (the streaming
+        # evaluation layer) settle appends exactly once instead of double
+        # counting them.
+        self.age_append_events = 0
+        self.age_merge_events = 0
         self.compaction_count = 0
         self.evicted_blocks = 0
         self.skipped_chunks = 0
@@ -324,6 +345,159 @@ class ProtectedResidualMemory:
         start, end = self.layout.working_bounds(self.used)
         return self._memory[:, start:end, :]
 
+    # -- generational ages (v7 C1/C2) ---------------------------------------
+
+    @property
+    def num_blocks(self) -> int:
+        """Physical blocks in the pool."""
+        return int(self._block_ages.numel())
+
+    def _valid_age_span(self) -> Tuple[int, int]:
+        """Half-open physical block range of the distinct suffix.
+
+        Block `j` covers slots `[j * block, (j + 1) * block)`, and the pool width
+        is a whole number of blocks, so `start_slot // block` *is* the physical
+        block number. `used` is block-aligned on every streaming path; a partial
+        trailing block (a short chunk) is rounded up so its content still counts.
+        """
+        total_blocks = self.num_blocks
+        if self.used <= 0:
+            return total_blocks, total_blocks
+        first = (self.total - self.used) // self.block
+        count = -(-self.used // self.block)  # ceil
+        first = max(0, min(first, total_blocks))
+        return first, min(total_blocks, first + count)
+
+    def window_block_ages(self, start_slot: int, window_slots: int) -> torch.Tensor:
+        """Ages of the `window_slots // block` blocks starting at `start_slot`.
+
+        This is what the block selector consumes: one age per native block of
+        the window it is about to compress, in temporal order. Slots outside the
+        pool are clamped; a window reaching into the free region yields zeros,
+        which the selector reads as "young" rather than as a negative age.
+        """
+        block = self.block
+        first = max(0, int(start_slot) // block)
+        count = max(1, int(window_slots) // block)
+        ages = self._block_ages
+        out = ages[first : first + count]
+        if out.numel() < count:
+            out = torch.cat(
+                (out, torch.zeros(count - out.numel(), dtype=ages.dtype, device=ages.device))
+            )
+        return out
+
+    def note_append(self, appended: int = 1, dropped: int = 0) -> None:
+        """Record `appended` new trailing blocks (and `dropped` evicted ones).
+
+        Appending shifts every resident block one physical block left and lands
+        the new content in the last block, so the ages roll left by `appended`
+        and the last `appended` entries are reset to 0. That is exactly
+        `torch.roll(ages, -appended)` followed by zeroing the tail -- the
+        `-1` direction is the physical append direction (`new[j] == old[j + 1]`).
+
+        `dropped` does not move the survivors: eviction only advances the
+        validity boundary, which `_valid_age_span` derives from `used`. It is
+        carried for auditing and for the callers that reason about it.
+        """
+        appended = int(appended)
+        dropped = int(dropped)
+        if appended < 0 or dropped < 0:
+            raise ValueError("block age deltas must be non-negative")
+        if appended == 0:
+            return
+        appended = min(appended, self.num_blocks)
+        self._block_ages = torch.roll(self._block_ages, -appended)
+        self._block_ages[-appended:] = 0
+        self.age_append_events += 1
+
+    def note_merge(
+        self,
+        selected_blocks,
+        window_blocks: int,
+        target_blocks: Optional[int] = None,
+        tail_blocks: Optional[int] = None,
+        used_before: Optional[int] = None,
+    ) -> None:
+        """Settle the ages of a window compaction (carrier age + 1, tail kept).
+
+        Args:
+            selected_blocks: window-relative block indices of the surviving
+                carriers, in output order (ascending, as the selector returns).
+            window_blocks: window width in native blocks.
+            target_blocks: output width in native blocks; defaults to
+                `len(selected_blocks)`.
+            tail_blocks: uncompressed blocks after the window; defaults to the
+                resident count implied by `used_before`.
+            used_before: `used` before the compaction; defaults to `self.used`.
+
+        A carrier survives one round, so its output block is one round older
+        (D-04). Blocks appended after the window are untouched and keep their
+        age; everything else in the pool is free space and resets to 0.
+        """
+        block = self.block
+        total_blocks = self.num_blocks
+        selected = [int(i) for i in torch.as_tensor(selected_blocks).flatten().tolist()]
+        target_blocks = len(selected) if target_blocks is None else int(target_blocks)
+        used_before = int(self.used if used_before is None else used_before)
+        if tail_blocks is None:
+            tail_blocks = max(0, used_before // block - int(window_blocks))
+        tail_blocks = int(tail_blocks)
+        if target_blocks < 0 or int(window_blocks) < 0 or tail_blocks < 0:
+            raise ValueError("block counts must be non-negative")
+
+        used_after = (target_blocks + tail_blocks) * block
+        first_old = (self.total - used_before) // block
+        first_new = (self.total - used_after) // block
+        source = self._block_ages
+        out = torch.zeros_like(source)
+        for j, index in enumerate(selected[:target_blocks]):
+            old = first_old + index
+            if 0 <= first_new + j < total_blocks and 0 <= old < total_blocks:
+                out[first_new + j] = source[old] + 1
+        for t in range(tail_blocks):
+            old = first_old + int(window_blocks) + t
+            if 0 <= first_new + target_blocks + t < total_blocks and 0 <= old < total_blocks:
+                out[first_new + target_blocks + t] = source[old]
+        self._block_ages = out
+        self.age_merge_events += 1
+
+    def note_block_move(self, block_index: int) -> None:
+        """Record that physical block `block_index` moved to the tail.
+
+        `_merge_into_block` closes the gap left by the addressed block and
+        rewrites it at the trailing position. The content is the same content
+        refreshed in place, so its age is preserved (D-04) and the blocks after
+        it shift one position left.
+        """
+        index = int(block_index)
+        if index < 0 or index >= self.num_blocks:
+            return
+        ages = self._block_ages
+        moved = ages[index]
+        self._block_ages = torch.cat((ages[:index], ages[index + 1 :], moved.view(1)))
+
+    def reset_block_ages(self) -> None:
+        """Forget every age. Used when the pool is reset to its initial state."""
+        self._block_ages.zero_()
+
+    def block_age_summary(self) -> Dict[str, Any]:
+        """Diagnostic histogram of the resident ages (never part of the hash)."""
+        first, end = self._valid_age_span()
+        resident = self._block_ages[first:end]
+        if resident.numel() == 0:
+            return {"block_age_histogram": {}, "block_age_max": 0,
+                    "old_generation_slots": 0, "block_age_events": 0}
+        ages, counts = torch.unique(resident, return_counts=True)
+        histogram = {int(a): int(c) for a, c in zip(ages.tolist(), counts.tolist())}
+        old_blocks = int((resident > 0).sum().item())
+        return {
+            "block_age_histogram": histogram,
+            "block_age_max": int(resident.max().item()),
+            "old_generation_slots": old_blocks * self.block,
+            "block_age_events": int(self.age_append_events + self.age_merge_events),
+        }
+
     # -- lifecycle ----------------------------------------------------------
 
     def reset(self) -> None:
@@ -354,6 +528,7 @@ class ProtectedResidualMemory:
         self.last_snapshot = CapacitySnapshot(budget_slots=self.layout.working_capacity)
         self.importance = ImportanceTracker(self.cfg.importance_weights)
         self._active_mask_used = None
+        self._block_ages.zero_()
         self._sync_active_mask()
 
     def snapshot(self) -> Dict[str, Any]:
@@ -383,6 +558,7 @@ class ProtectedResidualMemory:
             "trigger_consecutive": self.trigger.consecutive,
             "trigger_armed": self.trigger.armed,
             "trigger_updates": self.trigger.update_count,
+            "block_ages": self._block_ages.clone(),
         }
 
     def restore(self, state: Dict[str, Any]) -> None:
@@ -405,6 +581,10 @@ class ProtectedResidualMemory:
         self.trigger.consecutive = state["trigger_consecutive"]
         self.trigger.armed = state["trigger_armed"]
         self.trigger.update_count = state["trigger_updates"]
+        # The pool came back from the snapshot, so the ages must too: a rollback
+        # that restored the slots but kept the post-compaction ages would
+        # describe a generation layout that no longer exists (R-07).
+        self._block_ages.copy_(state["block_ages"])
         # `used` came back from the snapshot, so the published mask describes a
         # rolled-back pool until this runs. The cache key is dropped rather than
         # compared, because the restore may return to a width the mask already
@@ -713,6 +893,9 @@ class ProtectedResidualMemory:
             self.used = need
             self.newest_width = need
             self.n_consolidated = 0
+            # These arms discard the previous working state by definition, so
+            # nothing resident is old: the pool is one fresh block.
+            self.reset_block_ages()
             self._tile_free_region()
             # Nothing is counted as evicted: these arms discard the previous
             # working state by definition, so a per-write eviction count would
@@ -752,11 +935,22 @@ class ProtectedResidualMemory:
             # already been asked and declined.
             self.made_room_for_write = True
 
+        # Ages are settled against the state the append starts from: the loop
+        # above may already have compacted (which settles its own carriers) or
+        # evicted (which only moves the validity boundary).
+        before_append = self.used
         self._shift_left(need)
         with torch.no_grad():
             self._memory[:, self.total - need : self.total, :] = delta.to(self.dtype)
         self.used += need
         self.newest_width = need
+        # Ages follow the same physical move the slots just made. `_shift_left`
+        # and `_evict_oldest` deliberately do not touch them: the append is the
+        # only operation that shifts content, and settling it here counts it
+        # exactly once even when the loop above compacted or evicted first.
+        appended = self.used // self.block - before_append // self.block
+        if appended:
+            self.note_append(appended=appended, dropped=evicted)
         # The append path moves the active/free boundary, so the mask has to
         # follow it. `_tile_free_region` is not called here -- appending leaves
         # the existing filler in place -- so the sync is explicit.
@@ -806,6 +1000,10 @@ class ProtectedResidualMemory:
             # S and rejoins R at the tail.
             self.n_consolidated = max(0, self.n_consolidated - width)
         self.newest_width = width
+        # The merged block moved to the tail and everything after it shifted one
+        # block left. Its age travels with it and does not advance: this is the
+        # same content refreshed in place, not a new generation (D-04).
+        self.note_block_move(position // block)
 
     def _shift_left(self, need: int) -> None:
         """Move the distinct suffix left by `need` slots, preserving order.
@@ -1146,9 +1344,15 @@ class ProtectedResidualMemory:
         start = self.total - used
         source = self._memory[:, start : start + window, :].detach().to(torch.float32)
         weights = self._window_importance(start, window)
+        # Generational ages of exactly this window, in temporal order. They feed
+        # the selector's quota and are settled below from the blocks it kept.
+        ages = self.window_block_ages(start, window)
+        selected_out: Dict[str, Any] = {}
 
         try:
-            compacted = self._run_compactor(source, weights, target)
+            compacted = self._run_compactor(
+                source, weights, target, block_ages=ages, selected_out=selected_out
+            )
         except Exception as error:  # noqa: BLE001 - a failed compaction must not kill the run
             # Counted as well as reported: a compaction that raised freed zero
             # slots, so `_place` evicts instead, and a run whose operator fails
@@ -1181,6 +1385,18 @@ class ProtectedResidualMemory:
         self.used = new_used
         self.n_consolidated = target
         self.compaction_count += 1
+        # Surviving carriers are one generation older; the uncompressed tail
+        # keeps its age; the rest of the pool resets. Skipped when the operator
+        # cannot name its carriers (the SVD baselines): synthesised output has no
+        # provenance, so there is no age to inherit.
+        selected = selected_out.get("index")
+        if selected is not None:
+            self.note_merge(
+                selected,
+                window // block,
+                target_blocks=target // block,
+                used_before=used,
+            )
         self._tile_free_region()
         self._refresh_basis()
         # Surviving slots gain a reuse credit; this is the only reuse signal the
@@ -1189,6 +1405,7 @@ class ProtectedResidualMemory:
             torch.arange(self.used, device=self._memory.device), self.used
         )
 
+        age_stats = self.block_age_summary()
         report = {
             "freed_slots": window - target,
             "reason": reason,
@@ -1199,11 +1416,22 @@ class ProtectedResidualMemory:
             "shots": self.compaction_count,
             "weighted": weights is not None,
             "operator": self.cfg.compact_mode,
+            # Generational diagnostics (C2): what survived and how old it is.
+            "selected_blocks": None if selected is None else selected.tolist(),
+            "block_age_max": age_stats["block_age_max"],
+            "block_age_histogram": age_stats["block_age_histogram"],
         }
         self.history.append({"event": "compact", **report})
         return report
 
-    def _run_compactor(self, source: torch.Tensor, weights, target: int) -> torch.Tensor:
+    def _run_compactor(
+        self,
+        source: torch.Tensor,
+        weights,
+        target: int,
+        block_ages: Optional[torch.Tensor] = None,
+        selected_out: Optional[Dict[str, Any]] = None,
+    ) -> torch.Tensor:
         """Invoke the configured compaction operator.
 
         The block selectors need two things the geometric operators do not: the
@@ -1211,9 +1439,25 @@ class ProtectedResidualMemory:
         scores blocks against. Both are threaded in here rather than being added
         to the shared `(source, weights, target)` signature, so the SVD operators
         keep their existing interface and stay untouched.
+
+        `block_ages` (one age per window block) drives the generational quota,
+        and `selected_out["index"]` receives the window-relative indices of the
+        blocks that survived, so the caller can settle the output ages without
+        scoring the window a second time. The SVD operators leave it unset.
         """
         mode = self.cfg.compact_mode
         if mode == "select_blocks":
+            index = _select_block_indices(
+                source,
+                target,
+                block=self.compactor_block,
+                weights=weights,
+                goal_direction=self.goal_direction,
+                select_weights=self.select_weights,
+                block_ages=block_ages,
+            )
+            if selected_out is not None:
+                selected_out["index"] = index
             return select_block_compact(
                 source,
                 target,
@@ -1221,18 +1465,31 @@ class ProtectedResidualMemory:
                 weights=weights,
                 goal_direction=self.goal_direction,
                 select_weights=self.select_weights,
+                block_ages=block_ages,
+                index=index,
             )
         if mode == "recent_blocks":
+            blocks = source.shape[1] // self.compactor_block
+            kept = target // self.compactor_block
+            if selected_out is not None and 0 < kept < blocks:
+                selected_out["index"] = torch.arange(
+                    blocks - kept, blocks, device=source.device, dtype=torch.long
+                )
             return recent_block_compact(source, target, block=self.compactor_block)
         if mode == "carrier_residual":
-            return self._carrier_compactor()(
+            compactor = self._carrier_compactor()
+            output = compactor(
                 source,
                 weights,
                 target=target,
                 block=self.compactor_block,
                 goal_direction=self.goal_direction,
                 select_weights=self.select_weights,
+                block_ages=block_ages,
             )
+            if selected_out is not None:
+                selected_out["index"] = compactor.last_carrier_indices
+            return output
         return self.compactor(source, weights, target)
 
     def _carrier_compactor(self):
@@ -1417,6 +1674,9 @@ class ProtectedResidualMemory:
             "active_mask_updates": self._active_mask_count,
             "native_filler_only": self.native_filler_only,
             "anchor": self.anchor_info,
+            # Generational diagnostics (v7 C1). Reported, never hashed: the same
+            # pool must produce the same digest with or without age tracking.
+            **self.block_age_summary(),
         }
 
     def memory_nbytes(self) -> int:
