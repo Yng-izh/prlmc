@@ -97,14 +97,37 @@ def load_rows(data_dir, task):
     return rows
 
 
-def split_prompt(tokenizer, task, row, total_tokens):
+PROTOCOL_MODES = ("prlmc_aligned", "official_memoryllm")
+
+
+def protocol_mode_record(protocol_mode):
+    """Prompt-construction axis that --protocol-mode selects (recorded verbatim)."""
+    if protocol_mode not in PROTOCOL_MODES:
+        raise ValueError(f"unknown protocol mode {protocol_mode!r}")
+    if protocol_mode == "prlmc_aligned":
+        return dict(protocol_mode=protocol_mode,
+                    prompt_truncation="keep last total_input_tokens (tail); no decode/re-encode")
+    return dict(protocol_mode=protocol_mode,
+                prompt_truncation="LongBench official middle truncation "
+                                  "(first half + last half); no decode/re-encode")
+
+
+def truncate_ids(ids, total_tokens, protocol_mode):
+    if len(ids) <= total_tokens:
+        return ids
+    if protocol_mode == "official_memoryllm":
+        half = total_tokens // 2
+        return ids[:half] + ids[-half:]
+    # Explicit MemoryLLM-style tail truncation, applied once to token IDs.
+    return ids[-total_tokens:]
+
+
+def split_prompt(tokenizer, task, row, total_tokens, tail_tokens=2048,
+                 protocol_mode="prlmc_aligned"):
     prompt = PROMPTS[task].format(context=row["context"], input=row["input"])
     ids = tokenizer(prompt, add_special_tokens=False, truncation=False).input_ids
-    if len(ids) > total_tokens:
-        # Explicit MemoryLLM-style tail truncation, applied once to token IDs.
-        # This differs from upstream LongBench's middle truncation.
-        ids = ids[-total_tokens:]
-    query_tokens = min(2048, len(ids))
+    ids = truncate_ids(ids, total_tokens, protocol_mode)
+    query_tokens = min(tail_tokens, len(ids))
     write_ids = ids[:-query_tokens] if query_tokens else ids
     query_ids = ids[-query_tokens:] if query_tokens else []
     return prompt, ids, write_ids, query_ids
@@ -154,6 +177,28 @@ def generate(model, tokenizer, query_ids, max_new_tokens):
     return tokenizer.decode(out, skip_special_tokens=True), out
 
 
+def build_protocol(args, tasks, drop_memory_per_layer):
+    """Protocol block written to the result JSON, including the protocol mode."""
+    record = dict(model="MemoryLLM-8B", capacity="native_50_blocks", capacity_blocks=50,
+                  latent_tokens_per_block=256, max_write_tokens=512,
+                  total_input_tokens=args.total_tokens,
+                  direct_query_tokens=args.tail_tokens,
+                  write_prefix_tokens=args.total_tokens - args.tail_tokens,
+                  max_new_tokens={t: MAX_NEW[t] for t in tasks}, seed=args.seed,
+                  do_sample=False, num_beams=1, training=False,
+                  benchmark="LongBench test",
+                  scoring="official QA F1 (raw) + newline-truncated QA F1; "
+                          "the main table uses the truncated score",
+                  input_protocol=(f"tail{args.tail_tokens}_native_write_v1; "
+                                  "not exact legacy or M+ reproduction"),
+                  seed_reset="reset to 0 before each sample; independent of worker scheduling",
+                  memory_reset="checkpoint values and initialized flag before every sample",
+                  native_eviction="unmodified model.inject_memory(update_memory=True)")
+    record.update(protocol_mode_record(args.protocol_mode))
+    record["drop_memory_per_layer"] = bool(drop_memory_per_layer)
+    return record
+
+
 def evaluate(args):
     if args.capacity_blocks != 50:
         raise ValueError("this protocol supports native checkpoint capacity only: --capacity-blocks 50")
@@ -193,20 +238,10 @@ def evaluate(args):
     initial_initialized = model.initialized.detach().cpu().clone()
     initial_memory_sha256 = hashlib.sha256(initial_memory.numpy().tobytes()).hexdigest()
     report = dict(schema="longbench_memoryllm_results/1", status="running",
-        protocol=dict(model="MemoryLLM-8B", capacity="native_50_blocks", capacity_blocks=50,
-                      latent_tokens_per_block=256, max_write_tokens=512,
-                      total_input_tokens=args.total_tokens,
-                      direct_query_tokens=2048, write_prefix_tokens=args.total_tokens - 2048,
-                      max_new_tokens={t: MAX_NEW[t] for t in tasks}, seed=args.seed,
-                      do_sample=False, num_beams=1, training=False,
-                      benchmark="LongBench test", scoring="official QA F1",
-                      prompt_truncation="keep last total_input_tokens; no decode/re-encode",
-                      input_protocol="tail2048_native_write_v1; not exact legacy or M+ reproduction",
-                      seed_reset="reset to 0 before each sample; independent of worker scheduling",
-                      memory_reset="checkpoint values and initialized flag before every sample",
-                      native_eviction="unmodified model.inject_memory(update_memory=True)",
-                      drop_memory_per_layer=bool(model.drop_memory_per_layer)),
+        protocol=build_protocol(args, tasks, model.drop_memory_per_layer),
         identity=dict(model_path=args.model_path, data_dir=args.data_dir,
+                      protocol_mode=args.protocol_mode,
+                      tail_tokens=args.tail_tokens,
                       model_config_sha256=hashlib.sha256((Path(args.model_path)/"config.json").read_bytes()).hexdigest(),
                       longbench_source_commit=LONGBENCH_COMMIT,
                       memoryllm_source_commit=MEMORYLLM_COMMIT,
@@ -237,7 +272,9 @@ def evaluate(args):
             seed_everything(args.seed)
             reset_model(model, initial_memory, initial_initialized,
                         reset_memory=args.reset_memory)
-            prompt, all_ids, write_ids, query_ids = split_prompt(tokenizer, task, row, args.total_tokens)
+            prompt, all_ids, write_ids, query_ids = split_prompt(
+                tokenizer, task, row, args.total_tokens, tail_tokens=args.tail_tokens,
+                protocol_mode=args.protocol_mode)
             original_tokens = len(tokenizer(prompt, add_special_tokens=False, truncation=False).input_ids)
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
             for chunk in writes:
@@ -285,6 +322,14 @@ def main():
     p.add_argument("--total-tokens", "--max_length", dest="total_tokens", type=int,
                    required=True, choices=(8192, 16384))
     p.add_argument("--capacity-blocks", type=int, default=50, choices=(50,))
+    p.add_argument("--tail-tokens", dest="tail_tokens", type=int, default=2048,
+                   choices=(512, 1024, 2048),
+                   help="tokens queried directly at the tail (default 2048)")
+    p.add_argument("--protocol-mode", dest="protocol_mode", default="prlmc_aligned",
+                   choices=PROTOCOL_MODES,
+                   help="prompt-construction protocol recorded in identity/protocol: "
+                        "prlmc_aligned keeps the last total_input_tokens (tail), "
+                        "official_memoryllm applies LongBench official middle truncation")
     p.add_argument("--reset-memory", action="store_true",
                    help="clear the checkpoint's initial residual pool "
                         "(model.initialized.zero_()) before every sample")
