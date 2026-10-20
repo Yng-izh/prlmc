@@ -249,8 +249,11 @@ class EvalIdentityContracts(unittest.TestCase):
             self.assertFalse(out.exists(), "--dry-run must not write the result file")
         self.assertTrue(plan["dry_run"])
         self.assertEqual(plan["geometry"]["window_blocks"], 13)
-        self.assertEqual(plan["protocol"]["compaction"], "13->9 block merge before the "
-                                                        "write that would exceed the budget")
+        # t8 pre-check: the label must name the C8 trigger (14 for 20/13/9), not
+        # the old "the write that would exceed the budget" wording (which fires
+        # at 20 and is wrong for the v7 geometry).
+        self.assertEqual(plan["protocol"]["compaction"],
+                         "13->9 block merge at used>=14 (trigger=min(budget,window+1))")
         self.assertTrue(plan["identity"]["code_hash_verified"])
         self.assertTrue(plan["evaluation_eligible"])
         self.assertEqual(plan["warnings"], [])

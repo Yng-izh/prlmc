@@ -49,7 +49,7 @@ from natural_merge_runtime import (  # noqa: E402
     MergeStream, critical_manifest, load_runtime, reset, source_manifest,
     validate_merge_checkpoint,
 )
-from public_retention_eval import budget_geometry  # noqa: E402
+from public_retention_eval import budget_geometry, compaction_trigger  # noqa: E402
 from methods.prlmc.consolidate import _SELECT_LAYER  # noqa: E402
 
 # transformers>=4.50 moved prepare_inputs_for_generation onto GenerationMixin,
@@ -343,8 +343,9 @@ def protocol_record(args, tasks, saved, geometry):
         input_protocol=(f"tail{args.tail_tokens}_native_write_v1; "
                         "same as the native50 baseline"),
         injection="inject_memory(update_memory=False); manager places the delta",
-        compaction=(f"{window_blocks}->{target_blocks} block merge before the write "
-                    "that would exceed the budget"),
+        compaction=(f"{window_blocks}->{target_blocks} block merge at "
+                    f"used>={compaction_trigger(args.budget_blocks, window_blocks)} "
+                    "(trigger=min(budget,window+1))"),
         seed_reset="reset to 0 before each sample",
         memory_reset="checkpoint values, used=0 and full active mask before every sample")
 
@@ -472,6 +473,11 @@ def evaluate(args):
     elif args.checkpoint is not None:
         raise ValueError("--arm Selection mutates no learned module; drop --checkpoint")
     geometry = effective_geometry(args)  # rejects impossible geometry before any load
+    # Runtime handshake, validated before any model load: an explicit geometry
+    # must be one the streaming runtime can actually run. Without this the
+    # --dry-run path returned before stream_kwargs and printed a green plan for
+    # a geometry the runtime would refuse (t8 finding).
+    stream_kwargs(args)
     if args.dry_run:
         return dry_run_plan(args, tasks, geometry)
     if not args.data_dir:
