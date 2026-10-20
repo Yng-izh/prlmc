@@ -34,8 +34,24 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
 
+# Operator files whose numerics a checkpoint claims to reproduce. Narrower than
+# SOURCE_FILES on purpose: evaluation/reporting edits must not invalidate a
+# checkpoint, but any change to these six files makes the stored residual merge
+# compute different numbers.
+CRITICAL_MERGE_FILES = ["methods/prlmc/consolidate.py", "methods/prlmc/layout.py",
+    "methods/prlmc/importance.py", "methods/prlmc/slot_merge.py",
+    "methods/prlmc/gated_slot_merge.py", "methods/prlmc/native_skip_merge.py"]
+if not set(CRITICAL_MERGE_FILES).issubset(SOURCE_FILES):
+    raise RuntimeError("critical merge files must be covered by SOURCE_FILES")
+
+
 def source_manifest():
     return {name: sha(ROOT/name) for name in SOURCE_FILES}
+
+
+def critical_manifest():
+    """Current SHA256 of the operator files a checkpoint must match."""
+    return {name: sha(ROOT/name) for name in CRITICAL_MERGE_FILES}
 
 
 def tensor_digest(tensor):
@@ -269,9 +285,62 @@ def training_for(architecture):
     return None
 
 
-def validate_merge_checkpoint(saved, architecture):
+def _unverified_warning(reason):
+    print(f"WARNING: {reason}; loading anyway because strict_code_hash=False. "
+          "This is historical diagnosis only, never evaluation-eligible evidence.",
+          file=sys.stderr)
+
+
+def _verify_source_manifest(saved, strict_code_hash):
+    """Compare the checkpoint's recorded operator hashes against the live code.
+
+    Returns True when the manifest was verified, False when the checkpoint
+    carries no provenance record. Raises ValueError on any mismatch when
+    strict_code_hash is set; otherwise warns and returns False.
+    """
+    manifest = saved.get("source_manifest")
+    # Metadata-only dicts (no weights) are structural fixtures used by the CPU
+    # contract tests; provenance can only be checked for executable
+    # checkpoints, and every real checkpoint carries "state_dict".
+    if manifest is None and "state_dict" not in saved:
+        return False
+    if manifest is None:
+        reason = ("checkpoint has no source_manifest; its operator code cannot be "
+                  "verified (v5 and earlier checkpoints predate the manifest)")
+        if strict_code_hash:
+            raise ValueError(reason + "; pass strict_code_hash=False for historical "
+                                      "diagnosis only")
+        _unverified_warning(reason)
+        return False
+    if not isinstance(manifest, dict):
+        raise ValueError("checkpoint source_manifest is not a file->sha256 mapping")
+    mismatches = []
+    for name in CRITICAL_MERGE_FILES:
+        code = sha(ROOT/name)
+        recorded = manifest.get(name)
+        if recorded is None:
+            mismatches.append(f"{name}: ckpt <missing> != code {code[:8]}")
+        elif recorded != code:
+            mismatches.append(f"{name}: ckpt {recorded[:8]} != code {code[:8]}")
+    if mismatches:
+        detail = "checkpoint/source code mismatch: " + "; ".join(mismatches)
+        if strict_code_hash:
+            raise ValueError(detail)
+        _unverified_warning(detail)
+        return False
+    return True
+
+
+def validate_merge_checkpoint(saved, architecture, strict_code_hash=True):
+    """Structural checks plus (by default) operator-source hash verification.
+
+    strict_code_hash=False only exists for historical diagnosis: it downgrades
+    manifest problems to a stderr WARNING and callers must then treat the
+    checkpoint as evaluation_eligible=False.
+    """
     if saved.get("effective_gamma_max", .05) != .05 or saved.get("evaluation_eligible") is False:
         raise ValueError("ineligible/gamma-mismatched checkpoint")
+    verified = _verify_source_manifest(saved, strict_code_hash)
     training = training_for(architecture)
     if training is not None:
         variant = saved.get("variant")
@@ -281,10 +350,18 @@ def validate_merge_checkpoint(saved, architecture):
                 or saved.get("global_rms_budget") != training["global_rms_budget"]
                 or saved.get("rank") != training["rank"]):
             raise ValueError("C/D checkpoint architecture/training/budget mismatch")
+    return verified
+
+
+def load_merge_state(merge, saved, architecture, strict_code_hash=True):
+    """Validate provenance/architecture *before* any weight reaches the module."""
+    verified = validate_merge_checkpoint(saved, architecture, strict_code_hash=strict_code_hash)
+    merge.load_state_dict(saved["state_dict"], strict=True)
+    return verified
 
 
 def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
-                 budget_blocks=20):
+                 budget_blocks=20, strict_code_hash=True):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -320,8 +397,9 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
     architecture = saved_architecture or architecture or "block_v1"
     merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block).to("cuda:0")
     if checkpoint:
-        merge.load_state_dict(saved["state_dict"], strict=True)
-        validate_merge_checkpoint(saved, architecture)
+        verified = load_merge_state(merge, saved, architecture, strict_code_hash=strict_code_hash)
+        # Downstream reports must treat an unverified checkpoint as ineligible.
+        saved["code_hash_verified"] = verified
     merge.train(train).requires_grad_(train)
     initial = model.memory.detach().cpu().clone()
     return model, tokenizer, manager, merge, initial, cfg, saved

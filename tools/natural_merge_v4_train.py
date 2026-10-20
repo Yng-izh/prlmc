@@ -105,6 +105,9 @@ def run(args):
             module_configuration=variant, global_rms_budget=TRAIN_V4["global_rms_budget"],
             training=TRAIN_V4,objective=TRAIN_V4["objective"],protocol=base["protocol"],
             train_plan_sha256=sha(args.plan),train_content_sha256=plan["content_sha256"],
+            # Operator-code provenance checked by natural_merge_runtime.validate_merge_checkpoint;
+            # training_sources stays as the sealed-plan audit trail and is never hash-checked.
+            source_manifest=source_manifest(),
             training_sources=source_manifest(),tokenizer=plan["tokenizer"],model=report["model"],
             train_context_hashes=expected,train_articles=sorted({c["article"] for e in plan["episodes"] for c in e["contexts"]}))
         Path(args.checkpoint_out).parent.mkdir(parents=True,exist_ok=True); torch.save(checkpoint,args.checkpoint_out)
