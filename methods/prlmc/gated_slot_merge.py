@@ -29,6 +29,13 @@ from torch.utils.checkpoint import checkpoint
 from .slot_merge import SlotMemoryMerge
 from .consolidate import _DELTA_VAR_EPS, _SELECT_LAYER, _l2
 
+# Sealed v6 plan value (`prepare_natural_merge_v6.TRAIN_V6` variant text says
+# "reject-only vs peer in-block baseline, margin .01"). The module default used
+# to be 0.0 while the plan claimed .01, and build_merge() passes no kwargs, so
+# the shipped behaviour was silently 0.0. One constant, referenced by the
+# module, the checkpoint metadata and the tests, keeps the two in sync.
+SIM_MARGIN_V6 = 0.01
+
 
 def _energy(candidate, carrier):
     return torch.stack(((candidate.float() - carrier.float()).square().sum(),
@@ -268,6 +275,31 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         self._active_weight, self._last_alpha = weight, alpha.detach()
         return alpha
 
+    def _gate_inputs(self, q_nat, probabilities, top1):
+        """Hidden gate input plus the three geometry features (v5 and v6).
+
+        Returns `(gate_in, rel, raw)`:
+          gate_in -- block-wise z-scored hidden slots, input of the learnable gate
+          rel     -- per-block standardised [affinity, sharpness, redundancy]
+          raw     -- the same three features before standardisation (tests/telemetry)
+
+        Centroid and redundancy are computed on the RAW normalised slots. The
+        z-scored `gate_in` is block-mean-centred by construction, so its block
+        centroid is the zero vector and a cosine against it measures only float
+        rounding -- not the designed "how redundant is this slot with its block"
+        signal.
+        """
+        slots = q_nat.reshape(-1, self.block, self.hidden)
+        centroid = _l2(slots.mean(dim=1, keepdim=True))
+        redundancy = (slots * centroid).sum(-1)
+        gate_in = (slots - slots.mean(1, keepdim=True)) / (
+            slots.std(1, keepdim=True) + 1e-6)
+        sharpness = (probabilities[:, 0] - probabilities[:, -1]).reshape(-1, self.block)
+        affinity = top1.reshape(-1, self.block)
+        raw = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
+        rel = (raw - raw.mean(dim=1, keepdim=True)) / (raw.std(dim=1, keepdim=True) + 1e-6)
+        return gate_in, rel, raw
+
     def forward(self, source, weights=None, target=None, block=None,
                 goal_direction=None, select_weights=None, carrier_indices=None,
                 source_allow_mask=None):
@@ -354,15 +386,7 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         #   redundancy -- cos(slot, block centroid); generic slots score high
         # Effects are per-block rather than per-feature: the gate decides *which
         # slots inside one block* to trust, and the global RMS cap handles level.
-        gate_in = q_nat.reshape(-1, self.block, self.hidden)
-        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
-            gate_in.std(1, keepdim=True) + 1e-6)
-        centroid = _l2(gate_in.mean(dim=1, keepdim=True))
-        redundancy = (gate_in * centroid).sum(-1)
-        sharpness = (probabilities[:, 0] - probabilities[:, -1]).reshape(-1, self.block)
-        affinity = top1.reshape(-1, self.block)
-        rel = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
-        rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
+        gate_in, rel, _ = self._gate_inputs(q_nat, probabilities, top1)
         gate_logits = (self.slot_gate(gate_in.flatten(0, 1))
                        + self.rel_gate(rel.flatten(0, 1)))
         alpha = self._slot_alpha(gate_logits, rel.flatten(0, 1))
@@ -411,7 +435,7 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
 
     architecture = "grouped_gated_sparse_slot_v6"
 
-    def __init__(self, *args, sim_margin=0.0, **kwargs):
+    def __init__(self, *args, sim_margin=SIM_MARGIN_V6, **kwargs):
         super().__init__(*args, **kwargs)
         self.sim_margin = float(sim_margin)
         # Per-layer-group gate: hidden z-score -> one logit per group.
@@ -548,17 +572,10 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         top1 = torch.cat([a for _, _, a in chunks])
         # v6 similarity hard mask: reject-only, zero alpha for slots whose best
         # native cosine sits below the in-block discarded-slot baseline.
-        sim_reject = self._similarity_mask(q_nat, k_nat, self.block)        # v6 geometry features: identical three domain-agnostic features to v5,
+        sim_reject = self._similarity_mask(q_nat, k_nat, self.block)
+        # v6 geometry features: identical three domain-agnostic features to v5,
         # per block of block slots, all detached, then one logit per group.
-        gate_in = q_nat.reshape(-1, self.block, self.hidden)
-        gate_in = (gate_in - gate_in.mean(1, keepdim=True)) / (
-            gate_in.std(1, keepdim=True) + 1e-6)
-        centroid = _l2(gate_in.mean(dim=1, keepdim=True))
-        redundancy = (gate_in * centroid).sum(-1)
-        sharpness = (probabilities[:, 0] - probabilities[:, -1]).reshape(-1, self.block)
-        affinity = top1.reshape(-1, self.block)
-        rel = torch.stack((affinity, sharpness, redundancy), dim=-1).detach()
-        rel = (rel - rel.mean(dim=1, keepdim=True)) / (rel.std(dim=1, keepdim=True) + 1e-6)
+        gate_in, rel, _ = self._gate_inputs(q_nat, probabilities, top1)
         alpha = self._slot_alpha(
             self.slot_gate(gate_in.flatten(0, 1)) + self.rel_gate(rel.flatten(0, 1)),
             rel.flatten(0, 1), sim_reject.unsqueeze(-1))
@@ -645,8 +662,14 @@ class NativeSkipSlotMergeV6(SupervisedDSlotMergeV6):
         combined = adapted + gain * native
         # Same one-sided soft bound as the adapted path: no forced unit-RMS
         # renormalisation of the combined residual.
-        combined_rms = combined.square().mean(-1, keepdim=True).sqrt()
-        scale = torch.clamp(carrier_rms / (combined_rms + _DELTA_VAR_EPS), max=1.)
+        # eps INSIDE the sqrt (the adapted path's convention). up_weight and
+        # native_gain are both zero-initialised, so the first forward has
+        # combined == 0 exactly: sqrt(0) has an infinite derivative and
+        # 0 * inf NaNs the whole backward pass, while sqrt(0 + eps) has a
+        # finite gradient. Outside placement is what NaNed the adapted path.
+        combined_rms = torch.sqrt(
+            combined.square().mean(-1, keepdim=True) + _DELTA_VAR_EPS)
+        scale = torch.clamp(carrier_rms / combined_rms, max=1.)
         return combined * scale
 
     def forward(self, *args, **kwargs):

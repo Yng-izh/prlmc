@@ -406,5 +406,53 @@ class SupervisedMergeGeometry(unittest.TestCase):
         self.assertEqual(len(origins.blocks), 9)
 
 
+class CapacityHonesty(unittest.TestCase):
+    """8/10-block geometries allow one block more than they declare."""
+
+    def test_overshoot_is_reported_not_hidden(self):
+        for budget, window, target, overshoot in ((8, 9, 4, 1), (10, 11, 5, 1),
+                                                  (12, 11, 5, 0), (20, 19, 9, 0)):
+            m, compactor = manager()
+            stream = StreamingMemory(m, compactor, "Selection", budget_blocks=budget,
+                                     window_blocks=window, target_blocks=target)
+            self.assertEqual(stream.peak_allowed_blocks, max(budget, window))
+            self.assertEqual(stream.capacity_overshoot_blocks, overshoot)
+            self.assertEqual(stream.budget_blocks, budget)
+
+    def test_strict_budget_refuses_the_overshoot(self):
+        for budget, window, target in ((8, 9, 4), (10, 11, 5)):
+            m, compactor = manager()
+            with self.assertRaises(ValueError):
+                StreamingMemory(m, compactor, "Selection", budget_blocks=budget,
+                                window_blocks=window, target_blocks=target,
+                                strict_budget=True)
+        m, compactor = manager()
+        stream = StreamingMemory(m, compactor, "Selection", budget_blocks=8,
+                                 window_blocks=8, target_blocks=4, strict_budget=True)
+        self.assertEqual(stream.capacity_overshoot_blocks, 0)
+        self.assertEqual(stream.peak_allowed_blocks, 8)
+
+    def test_strict_budget_never_exceeds_the_declared_capacity(self):
+        m, compactor = manager()
+        stream = StreamingMemory(m, compactor, "Selection", budget_blocks=8,
+                                 window_blocks=8, target_blocks=4, strict_budget=True)
+        for i in range(20):
+            stream.write(write_record(i), i)
+            self.assertLessEqual(stream.peak // m.block, 8)
+
+
+class ArchitectureResolution(unittest.TestCase):
+    """The evaluation entry must follow the checkpoint, not a pinned default."""
+
+    def test_checkpoint_architecture_wins(self):
+        from natural_merge_runtime import resolve_architecture
+        v5, v6 = "grouped_gated_sparse_slot_v5", "grouped_gated_sparse_slot_v6"
+        self.assertEqual(resolve_architecture({"architecture": v6}, default=v5), v6)
+        self.assertEqual(resolve_architecture(None, default=v5), v5)
+        self.assertEqual(resolve_architecture({"architecture": v6}, requested=v6, default=v5), v6)
+        with self.assertRaises(ValueError):
+            resolve_architecture({"architecture": v6}, requested=v5)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

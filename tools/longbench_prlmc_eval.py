@@ -46,8 +46,8 @@ from longbench_memoryllm_eval import (  # noqa: E402
     digest, score, seed_everything, sha, split_prompt, atomic_json,
 )
 from natural_merge_runtime import (  # noqa: E402
-    MergeStream, critical_manifest, load_runtime, reset, source_manifest,
-    validate_merge_checkpoint,
+    MergeStream, critical_manifest, load_runtime, reset, resolve_architecture,
+    source_manifest, validate_merge_checkpoint,
 )
 from public_retention_eval import budget_geometry, compaction_trigger  # noqa: E402
 from methods.prlmc.consolidate import _SELECT_LAYER  # noqa: E402
@@ -249,7 +249,7 @@ def current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verifie
     select_layer, reference_layer = layer_identity(saved)
     return dict(arm=args.arm, checkpoint=args.checkpoint,
                 checkpoint_sha256=checkpoint_sha256,
-                architecture=(saved or {}).get("architecture") or ARCHITECTURE,
+                architecture=resolve_architecture(saved, default=ARCHITECTURE),
                 variant=(saved or {}).get("variant"),
                 total_tokens=args.total_tokens, tail_tokens=args.tail_tokens,
                 budget_blocks=args.budget_blocks,
@@ -326,7 +326,7 @@ def protocol_record(args, tasks, saved, geometry):
                 else (METHOD_V6 if saved and saved.get("architecture", "").endswith("_v6")
                       else METHOD) if args.checkpoint else "PRLM-C Selection"),
         variant=saved.get("variant") if saved else None,
-        architecture=(saved.get("architecture") if saved else None) or ARCHITECTURE,
+        architecture=resolve_architecture(saved, default=ARCHITECTURE),
         capacity=f"managed_{args.budget_blocks}_block_budget",
         budget_blocks=args.budget_blocks,
         window_blocks=window_blocks, target_blocks=target_blocks,

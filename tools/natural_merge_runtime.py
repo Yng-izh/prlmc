@@ -484,6 +484,37 @@ def validate_merge_checkpoint(saved, architecture, strict_code_hash=True):
     return verified
 
 
+def resolve_architecture(saved, requested=None, default="block_v1"):
+    """Architecture actually in use: checkpoint metadata wins over the default.
+
+    Evaluation entry points must not pin a generation: a DsupV6/DnativeV6
+    checkpoint has to be evaluated (and reported) as v6, otherwise the v5
+    default trips the architecture check below. `requested` is only for callers
+    that want to force a generation; a disagreement with the checkpoint raises.
+    """
+    saved_architecture = (saved or {}).get("architecture")
+    if requested and saved_architecture and requested != saved_architecture:
+        raise ValueError("requested/checkpoint architecture mismatch")
+    return saved_architecture or requested or default
+
+
+def check_similarity_margin(saved, merge):
+    """Refuse a checkpoint trained under a different similarity margin.
+
+    The margin is a sealed-plan constant (`SIM_MARGIN_V6`), not a CLI knob: a
+    checkpoint records the value it was trained with, so evaluating it with a
+    different built-in default would silently change the routing mask.
+    """
+    recorded = (saved or {}).get("sim_margin")
+    live = getattr(merge, "sim_margin", None)
+    if recorded is None or live is None:
+        return
+    if float(recorded) != float(live):
+        raise ValueError(
+            "checkpoint/built similarity margin mismatch: trained with "
+            f"{float(recorded)}, module default is {float(live)}")
+
+
 def load_merge_state(merge, saved, architecture, strict_code_hash=True):
     """Validate provenance/architecture *before* any weight reaches the module."""
     verified = validate_merge_checkpoint(saved, architecture, strict_code_hash=strict_code_hash)
@@ -531,12 +562,10 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
     )
     cfg.update(window_blocks=geometry[0], target_blocks=geometry[1])
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True) if checkpoint else None
-    saved_architecture = saved.get("architecture", "block_v1") if saved else None
-    if saved and architecture is not None and architecture != saved_architecture:
-        raise ValueError("requested/checkpoint architecture mismatch")
-    architecture = saved_architecture or architecture or "block_v1"
+    architecture = resolve_architecture(saved, architecture)
     merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block).to("cuda:0")
     if checkpoint:
+        check_similarity_margin(saved, merge)
         verified = load_merge_state(merge, saved, architecture, strict_code_hash=strict_code_hash)
         # Downstream reports must treat an unverified checkpoint as ineligible.
         saved["code_hash_verified"] = verified

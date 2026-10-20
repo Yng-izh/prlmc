@@ -175,5 +175,99 @@ class RuntimeDisambiguation(unittest.TestCase):
             validate_v6_plan(plan)
 
 
+class ZeroInitBackward(unittest.TestCase):
+    """Zero-initialised parameters must not NaN the first backward pass."""
+
+    def _assert_finite_grads(self, m):
+        out = m(source(), target=18, carrier_indices=list(range(10, 19)))
+        self.assertTrue(torch.isfinite(out).all())
+        out.sum().backward()
+        checked = 0
+        for name, p in m.named_parameters():
+            if p.grad is not None:
+                self.assertTrue(torch.isfinite(p.grad).all(), f"non-finite grad in {name}")
+                checked += 1
+        self.assertGreater(checked, 0)
+
+    def test_native_v6_zero_init_has_no_nan_gradient(self):
+        # Both up_weight and native_gain are zero at init, so the combined
+        # residual is exactly zero: sqrt(0) outside the eps NaNed the backward.
+        m = model(NativeSkipSlotMergeV6, num_groups=2)
+        self.assertEqual(float(m.up_weight.abs().sum()), 0.)
+        self.assertEqual(float(m.native_gain.abs().sum()), 0.)
+        self._assert_finite_grads(m)
+
+    def test_adapted_v6_zero_init_has_no_nan_gradient(self):
+        m = model(SupervisedDSlotMergeV6, num_groups=2)
+        self.assertEqual(float(m.up_weight.abs().sum()), 0.)
+        self._assert_finite_grads(m)
+
+
+class GeometryFeatures(unittest.TestCase):
+    """Redundancy must be measured on the raw slots, not on z-scored ones."""
+
+    def test_redundancy_matches_raw_block_centroid(self):
+        m = model()
+        torch.manual_seed(3)
+        q = torch.nn.functional.normalize(torch.randn(8, 8), dim=-1)
+        probs = torch.full((8, 3), 1. / 3.)
+        _, _, raw = m._gate_inputs(q, probs, torch.zeros(8))
+        redundancy = raw[..., 2]
+        slots = q.reshape(-1, 2, 8)
+        centroid = torch.nn.functional.normalize(slots.mean(1, keepdim=True), dim=-1)
+        self.assertTrue(torch.allclose(redundancy, (slots * centroid).sum(-1), atol=1e-6))
+
+    def test_z_scored_block_centroid_collapses_to_noise(self):
+        # The old code fed the de-meaned slots into the centroid: the block
+        # centroid is then the zero vector, and `_l2` divides by 1e-6, turning
+        # float rounding into a unit-length random direction. Documented here so
+        # the regression cannot come back silently.
+        m = model()
+        torch.manual_seed(5)
+        q = torch.nn.functional.normalize(torch.randn(8, 8), dim=-1)
+        _, _, raw = m._gate_inputs(q, torch.full((8, 3), 1. / 3.), torch.zeros(8))
+        slots = q.reshape(-1, 2, 8)
+        raw_centroid = slots.mean(1, keepdim=True)
+        centred = (slots - slots.mean(1, keepdim=True)) / (slots.std(1, keepdim=True) + 1e-6)
+        self.assertGreater(float(raw_centroid.norm(dim=-1).min()), .5,
+                           "the raw block centroid must be a real direction")
+        self.assertLess(float(centred.mean(1, keepdim=True).norm(dim=-1).max()), 1e-5,
+                        "the z-scored block centroid is the zero vector")
+        self.assertGreater(float(raw[..., 2].abs().mean()), 1e-2,
+                           "raw-slot redundancy must carry real signal")
+
+
+class SimilarityMargin(unittest.TestCase):
+    """The sealed plan says margin .01; the built module must actually use it."""
+
+    def test_built_v6_modules_use_the_plan_margin(self):
+        from methods.prlmc.gated_slot_merge import SIM_MARGIN_V6
+        self.assertEqual(SIM_MARGIN_V6, .01)
+        for arch in ("grouped_gated_sparse_slot_v6", "grouped_gated_sparse_native_v6"):
+            self.assertEqual(float(build_merge(arch, 32, 8, 2).sim_margin), .01)
+        self.assertIn("margin .01", TRAIN_V6["variants"]["DsupV6"]["routing_score"])
+        self.assertIn("margin .01", TRAIN_V6["variants"]["DnativeV6"]["routing_score"])
+
+    def test_margin_reaches_the_mask(self):
+        m = build_merge("grouped_gated_sparse_slot_v6", 32, 8, 2)
+        self.assertEqual(m.sim_margin, .01)
+        q = torch.nn.functional.normalize(torch.randn(4, 8), dim=-1)
+        k = torch.cat([q[:2] - .01, q[2:] + .01])
+        strict = model(sim_margin=0.)._similarity_mask(q, k, 2)
+        forgiving = m._similarity_mask(q, k, 2)
+        # reject = best < peer_mean - margin: a larger margin lowers the bar, so
+        # the conservative mask keeps at least as many slots as margin 0.
+        self.assertGreaterEqual(float(forgiving.sum()), float(strict.sum()))
+        self.assertGreater(float(forgiving.sum()), 0., "the mask must not reject everything")
+
+    def test_checkpoint_margin_mismatch_is_refused(self):
+        from natural_merge_runtime import check_similarity_margin
+        merge = build_merge("grouped_gated_sparse_slot_v6", 32, 8, 2)
+        check_similarity_margin(dict(sim_margin=.01), merge)
+        check_similarity_margin({}, merge)  # legacy checkpoints carry no record
+        with self.assertRaises(ValueError):
+            check_similarity_margin(dict(sim_margin=0.), merge)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -140,7 +140,7 @@ def compaction_trigger(budget_blocks, window_blocks):
 class StreamingMemory:
     """Explicit preappend 19→9 compression; no answer-derived goals/anchors."""
     def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=None,
-                 target_blocks=None):
+                 target_blocks=None, strict_budget=False):
         if arm not in ARMS:
             raise ValueError("unknown arm")
         # budget_blocks is the managed working budget (8/10/12/20 native blocks).
@@ -169,6 +169,21 @@ class StreamingMemory:
             budget_blocks, window_blocks, target_blocks,
             total_blocks=manager.total // manager.block,
         )
+        # Declared vs. actually allowed capacity. For the 8/10-block geometries
+        # the pre-registered window (9/11) is one block larger than the budget,
+        # so the stream may transiently hold 9/11 blocks before compacting back
+        # to the target. That is a real capacity advantage against any method
+        # held at 8/10, so it must be reported, never silently absorbed into a
+        # "managed_8_block_budget" label. `strict_budget=True` refuses the
+        # overshoot entirely (the window has to fit inside the budget).
+        self.peak_allowed_blocks = max(self.budget_blocks, self.window_blocks)
+        self.capacity_overshoot_blocks = self.peak_allowed_blocks - self.budget_blocks
+        if strict_budget and self.capacity_overshoot_blocks:
+            raise ValueError(
+                f"strict budget {self.budget_blocks} violated by the compression "
+                f"window {self.window_blocks}; pass explicit window_blocks <= "
+                "budget_blocks (and target_blocks < window_blocks) to stay inside "
+                "the declared capacity")
         self.budget = self.budget_blocks * manager.block
         self.window = self.window_blocks * manager.block
         self.target = self.target_blocks * manager.block
@@ -267,8 +282,11 @@ class StreamingMemory:
                 m.note_append(appended=1)
                 m._tile_free_region()
             active = int(m.model.memory_active_mask.sum())
+            # The allowed ceiling is the declared peak (`peak_allowed_blocks`),
+            # not the declared budget: for the 8/10 geometries the window is one
+            # block larger and the overshoot is reported, not hidden.
             limit = m.total if self.arm in ("Full", "NativeDefault") \
-                else max(self.budget, self.window)
+                else self.peak_allowed_blocks * m.block
             if active != m.used or active > limit:
                 raise ValueError("active budget violation")
             self.peak = max(self.peak, active)
@@ -405,7 +423,16 @@ def run(args):
         identity=dict(plan_sha256=sha(args.plan), dataset=plan["dataset"], checkpoint_sha256=sha(args.checkpoint),
             model_manifest_sha256=sha(Path(args.model_path) / "fp16_cache_manifest.json"),
             sources={str(p.relative_to(ROOT)): sha(p) for p in source_files}, manager_config=config_identity),
-        protocol=plan["protocol"], samples=[],
+        protocol=plan["protocol"],
+        capacity=dict(
+            declared_budget_blocks=plan["protocol"]["budget_blocks"],
+            window_blocks=plan["protocol"]["window_blocks"],
+            target_blocks=plan["protocol"]["target_blocks"],
+            peak_allowed_blocks=max(plan["protocol"]["budget_blocks"],
+                                    plan["protocol"]["window_blocks"]),
+            capacity_overshoot_blocks=max(0, plan["protocol"]["window_blocks"]
+                                          - plan["protocol"]["budget_blocks"])),
+        samples=[],
         sharding=dict(index=shard_index, count=shard_count,
                       sample_indices=[s["sample_index"] for s in selected_samples]),
         training_performed=False, optimizer_created=False,
@@ -434,7 +461,8 @@ def run(args):
                 manager.used = 0
                 manager.goal_direction = None
                 manager._active_mask_used = None
-                stream = StreamingMemory(manager, compactor, arm)
+                stream = StreamingMemory(manager, compactor, arm,
+                                         strict_budget=bool(getattr(args, "strict_budget", False)))
                 arm_row = dict(status="running", trace=[], compressions=stream.events,
                     reference="whole native pipeline, full physical capacity" if arm == "NativeDefault" else "managed append, matched writes")
                 row["arms"][arm] = arm_row
@@ -451,6 +479,14 @@ def run(args):
                 else:
                     arm_row["status"] = "complete"
                 arm_row["peak_active_slots"] = stream.peak
+                arm_row["capacity"] = dict(
+                    declared_budget_blocks=stream.budget_blocks,
+                    window_blocks=stream.window_blocks,
+                    target_blocks=stream.target_blocks,
+                    peak_allowed_blocks=stream.peak_allowed_blocks,
+                    capacity_overshoot_blocks=stream.capacity_overshoot_blocks,
+                    peak_observed_blocks=stream.peak // manager.block,
+                    within_declared_budget=stream.peak // manager.block <= stream.budget_blocks)
                 if state_digest(compactor) != frozen or any(p.requires_grad for p in compactor.parameters()) or any(p.requires_grad for p in model.parameters()):
                     raise ValueError("shared module changed during frozen evaluation")
                 atomic_json(args.out, report)
@@ -474,6 +510,10 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--shard-index", type=int, default=0)
     p.add_argument("--shard-count", type=int, default=1)
+    p.add_argument("--strict-budget", action="store_true",
+                   help="refuse geometries whose compression window exceeds the declared "
+                        "budget (8/10-block defaults overshoot by one block); use for "
+                        "capacity-matched comparisons")
     run(p.parse_args())
 
 

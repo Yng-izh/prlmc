@@ -103,6 +103,7 @@ def run(args):
         checkpoint=dict(schema="natural_merge_checkpoint/1",architecture=variant["architecture"],
             variant=args.variant,state_dict={k:v.detach().cpu() for k,v in merge.state_dict().items()},
             final_state_sha256=final,effective_gamma_max=.05,rank=32,evaluation_eligible=eligible,
+            sim_margin=float(getattr(merge,"sim_margin",0.0)),
             module_configuration=variant, global_rms_budget=TRAIN_V6["global_rms_budget"],
             training=TRAIN_V6,objective=TRAIN_V6["objective"],protocol=base["protocol"],
             train_plan_sha256=sha(args.plan),train_content_sha256=plan["content_sha256"],
