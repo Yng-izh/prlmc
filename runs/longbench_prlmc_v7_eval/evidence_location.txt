@@ -1,0 +1,6 @@
+evidence        n        Full 正确   Full F1   Selection 正确 Selection F1 SharedMerge 正确 SharedMerge F1
+memory_only    43       22( 51%)     32.0%       21( 49%)     26.7%       16( 37%)     22.2%
+both           33       25( 76%)     54.8%       25( 76%)     54.2%       23( 70%)     59.1%
+absent         12        3( 25%)     10.5%        3( 25%)     10.0%        2( 17%)      9.5%
+tail_only       8        3( 38%)     10.0%        3( 38%)     16.7%        2( 25%)     16.1%
+samples: 96

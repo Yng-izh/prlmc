@@ -1,0 +1,201 @@
+================================================================================================
+idx 12  gold='Mary Astor'  blocks=27  evidence blocks=[15, 17]
+  Selection    f1=0.00 resident=11  evidence 保留    | pred='Joan Crawford'
+               保留的 gold 证据句 1/2 处
+               保留的 pred 来源句 2/6 处
+               pred 原文出现在 block [7, 8, 9, 10, 15, 16, 17, 18]，其中保留 [16, 17, 18]
+  SharedMerge  f1=0.00 resident=11  evidence 保留    | pred='Shirley Temple'
+               融合窗口吸收 evidence：['write18:[15]', 'write22:[15, 17]', 'write26:[15, 17]']
+               保留的 gold 证据句 1/2 处
+               保留的 pred 来源句 2/2 处
+               pred 原文出现在 block [19, 20, 21]，其中保留 [19, 20, 21]
+  Full         f1=1.00 resident=27  evidence 保留    | pred='Mary Astor'
+================================================================================================
+idx 23  gold='PewDiePie'  blocks=19  evidence blocks=[9, 10, 18]
+  Selection    f1=0.00 resident=11  evidence 保留    | pred='Mira Jantunen'
+               保留的 gold 证据句 9/9 处
+               保留的 pred 来源句 3/3 处
+               pred 原文出现在 block [17, 18]，其中保留 [17, 18]
+  SharedMerge  f1=1.00 resident=11  evidence 保留    | pred='PewDiePie'
+               融合窗口吸收 evidence：['write14:[9, 10]', 'write18:[9, 10]']
+               保留的 gold 证据句 9/9 处
+               保留的 pred 来源句 9/9 处
+               pred 原文出现在 block [9, 10, 18]，其中保留 [9, 10, 18]
+  Full         f1=1.00 resident=19  evidence 保留    | pred='PewDiePie'
+================================================================================================
+idx 36  gold='Constantine'  blocks=27  evidence blocks=[4, 5, 6, 7, 8, 9, 10, 11, 12]
+  Selection    f1=0.00 resident=11  evidence 已丢    | pred='The Hunger Games: Mockingjay – Part 1'
+               保留的 gold 证据句 0/58 处
+               保留的 pred 来源句 7/11 处
+               pred 原文出现在 block [12, 13, 15, 19, 20, 22, 23, 26]，其中保留 [19, 20, 22, 23, 26]
+  SharedMerge  f1=0.00 resident=11  evidence 已丢    | pred='The Hunger Games: Mockingjay – Part 1'
+               融合窗口吸收 evidence：['write14:[4, 5, 6, 7, 8, 9, 10, 11, 12]', 'write18:[4, 5, 6, 7, 8, 9, 10, 11, 12]', 'write22:[8, 9, 10, 11, 12]', 'write26:[12]']
+               保留的 gold 证据句 0/58 处
+               保留的 pred 来源句 7/11 处
+               pred 原文出现在 block [12, 13, 15, 19, 20, 22, 23, 26]，其中保留 [19, 20, 22, 23, 26]
+  Full         f1=1.00 resident=27  evidence 保留    | pred='Constantine'
+================================================================================================
+idx 44  gold='Hakim Abdullah Jamal'  blocks=28  evidence blocks=[15]
+  Selection    f1=0.00 resident=12  evidence 已丢    | pred='Maulana Ndabezitha Karenga'
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [26]，其中保留 [26]
+  SharedMerge  f1=0.00 resident=12  evidence 已丢    | pred='Maulana Ndabezitha Karenga'
+               融合窗口吸收 evidence：['write18:[15]', 'write22:[15]', 'write26:[15]']
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [26]，其中保留 [26]
+  Full         f1=0.80 resident=28  evidence 保留    | pred='Hakim Jamal'
+================================================================================================
+idx 58  gold='2010'  blocks=27  evidence blocks=[0, 2, 15, 16, 18, 19, 21, 22]
+  Selection    f1=0.00 resident=11  evidence 保留    | pred='2015'
+               保留的 gold 证据句 8/11 处
+               保留的 pred 来源句 22/22 处
+               pred 原文出现在 block [18, 19, 20, 23, 24, 26]，其中保留 [18, 19, 20, 23, 24, 26]
+  SharedMerge  f1=0.00 resident=11  evidence 保留    | pred=''
+               融合窗口吸收 evidence：['write14:[0, 2]', 'write18:[15, 16]', 'write22:[15, 16, 18, 19]', 'write26:[15, 16, 18, 19, 21, 22]']
+               保留的 gold 证据句 8/11 处
+               保留的 pred 来源句 0/0 处
+  Full         f1=1.00 resident=27  evidence 保留    | pred='2010'
+================================================================================================
+idx 87  gold='Hollywood, Florida'  blocks=27  evidence blocks=[7, 8, 12, 14]
+  Selection    f1=0.00 resident=11  evidence 已丢    | pred='Miami'
+               保留的 gold 证据句 0/5 处
+               保留的 pred 来源句 133/271 处
+               pred 原文出现在 block [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24, 25, 26]，其中保留 [16, 17, 19, 20, 21, 22, 23, 24, 25, 26]
+  SharedMerge  f1=0.00 resident=11  evidence 已丢    | pred='Miami'
+               融合窗口吸收 evidence：['write14:[7, 8, 12]', 'write18:[7, 8, 12, 14]', 'write22:[8, 12, 14]', 'write26:[12, 14]']
+               保留的 gold 证据句 0/5 处
+               保留的 pred 来源句 133/271 处
+               pred 原文出现在 block [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24, 25, 26]，其中保留 [16, 17, 19, 20, 21, 22, 23, 24, 25, 26]
+  Full         f1=1.00 resident=27  evidence 保留    | pred='Hollywood, Florida'
+================================================================================================
+idx 6  gold='Tharangambadi'  blocks=27  evidence blocks=[19, 22]
+  Selection    f1=0.17 resident=11  evidence 保留    | pred='Thirukkalacherry is a village in Mayil'
+               保留的 gold 证据句 11/11 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [22]，其中保留 [22]
+  SharedMerge  f1=0.00 resident=11  evidence 保留    | pred='Suryanar Kovil'
+               融合窗口吸收 evidence：['write22:[19]', 'write26:[19, 22]']
+               保留的 gold 证据句 11/11 处
+               保留的 pred 来源句 3/3 处
+               pred 原文出现在 block [23]，其中保留 [23]
+  Full         f1=0.17 resident=27  evidence 保留    | pred='Thirukkalacherry is a village in Mayil'
+================================================================================================
+idx 8  gold='2013'  blocks=20  evidence blocks=[0, 4, 5, 6, 10]
+  Selection    f1=1.00 resident=12  evidence 保留    | pred='2013'
+               保留的 gold 证据句 2/7 处
+               保留的 pred 来源句 2/7 处
+               pred 原文出现在 block [0, 4, 5, 6, 10]，其中保留 [10]
+  SharedMerge  f1=0.00 resident=12  evidence 保留    | pred='2005'
+               融合窗口吸收 evidence：['write14:[0, 4, 5, 6, 10]', 'write18:[4, 5, 6, 10]']
+               保留的 gold 证据句 2/7 处
+               保留的 pred 来源句 0/2 处
+               pred 原文出现在 block [3, 4]，其中保留 []
+  Full         f1=1.00 resident=20  evidence 保留    | pred='2013'
+================================================================================================
+idx 24  gold="It's Always Sunny in Philadelphia"  blocks=24  evidence blocks=[15, 16, 21, 23]
+  Selection    f1=1.00 resident=12  evidence 保留    | pred="It's Always Sunny in Philadelphia"
+               保留的 gold 证据句 10/10 处
+               保留的 pred 来源句 10/10 处
+               pred 原文出现在 block [15, 16, 21, 23]，其中保留 [15, 16, 21, 23]
+  SharedMerge  f1=0.00 resident=12  evidence 保留    | pred='Robbie Tucker'
+               融合窗口吸收 evidence：['write18:[15, 16]', 'write22:[15, 16]']
+               保留的 gold 证据句 10/10 处
+               保留的 pred 来源句 3/4 处
+               pred 原文出现在 block [2, 15, 23]，其中保留 [15, 23]
+  Full         f1=1.00 resident=24  evidence 保留    | pred="It's Always Sunny in Philadelphia"
+================================================================================================
+idx 34  gold='Troy, Montana'  blocks=24  evidence blocks=[0]
+  Selection    f1=0.15 resident=12  evidence 已丢    | pred='Vegepet is based in the city of Lincol'
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 7/12 处
+               pred 原文出现在 block [6, 10, 11, 12, 13, 14, 17, 22]，其中保留 [12, 13, 14, 17, 22]
+  SharedMerge  f1=0.00 resident=12  evidence 已丢    | pred='Siletz'
+               融合窗口吸收 evidence：['write14:[0]']
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 15/15 处
+               pred 原文出现在 block [15, 16, 17]，其中保留 [15, 16, 17]
+  Full         f1=0.40 resident=24  evidence 保留    | pred='Star City, Montana'
+================================================================================================
+idx 35  gold='Mika Häkkinen'  blocks=28  evidence blocks=[0, 17, 18, 23, 26, 27]
+  Selection    f1=1.00 resident=12  evidence 保留    | pred='Mika Häkkinen'
+               保留的 gold 证据句 5/6 处
+               保留的 pred 来源句 5/6 处
+               pred 原文出现在 block [0, 17, 18, 23, 26, 27]，其中保留 [17, 18, 23, 26, 27]
+  SharedMerge  f1=0.00 resident=12  evidence 保留    | pred='Ayrton Senna'
+               融合窗口吸收 evidence：['write14:[0]', 'write22:[17, 18]', 'write26:[17, 18, 23]']
+               保留的 gold 证据句 5/6 处
+               保留的 pred 来源句 5/6 处
+               pred 原文出现在 block [4, 19, 24, 27]，其中保留 [19, 24, 27]
+  Full         f1=1.00 resident=28  evidence 保留    | pred='Mika Häkkinen'
+================================================================================================
+idx 38  gold='Xcel Energy Inc.'  blocks=28  evidence blocks=[9, 13]
+  Selection    f1=0.29 resident=12  evidence 已丢    | pred='Alfred A. Marcus worked as a consultan'
+               保留的 gold 证据句 0/2 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [27]，其中保留 [27]
+  SharedMerge  f1=0.00 resident=12  evidence 已丢    | pred='North American Company'
+               融合窗口吸收 evidence：['write14:[9]', 'write18:[9, 13]', 'write22:[9, 13]', 'write26:[13]']
+               保留的 gold 证据句 0/2 处
+               保留的 pred 来源句 7/13 处
+               pred 原文出现在 block [0, 26, 27]，其中保留 [26, 27]
+  Full         f1=0.80 resident=28  evidence 保留    | pred='Xcel Energy'
+================================================================================================
+idx 39  gold='Summer Magic'  blocks=27  evidence blocks=[26]
+  Selection    f1=0.21 resident=11  evidence 保留    | pred='Summer Magic was released first in 196'
+               保留的 gold 证据句 7/7 处
+               保留的 pred 来源句 14/17 处
+               pred 原文出现在 block [11, 12, 16, 17, 18, 26]，其中保留 [16, 17, 18, 26]
+  SharedMerge  f1=0.00 resident=11  evidence 保留    | pred='Around the World in 80 Days'
+               融合窗口吸收 evidence：从未进入任何窗口
+               保留的 gold 证据句 7/7 处
+               保留的 pred 来源句 8/23 处
+               pred 原文出现在 block [0, 3, 4, 6, 7, 10, 11, 13, 14, 15, 16, 17, 18, 23, 24, 26]，其中保留 [16, 17, 18, 23, 24, 26]
+  Full         f1=0.21 resident=27  evidence 保留    | pred='Summer Magic was released first, in 19'
+================================================================================================
+idx 41  gold='seasonal television specials, particularly its work in stop motion animation'  blocks=28  evidence blocks=[1]
+  Selection    f1=0.21 resident=12  evidence 已丢    | pred='The Rankin/Bass Productions is best kn'
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 0/1 处
+               pred 原文出现在 block [0]，其中保留 []
+  SharedMerge  f1=0.00 resident=12  evidence 已丢    | pred='Christmas'
+               融合窗口吸收 evidence：['write14:[1]']
+               保留的 gold 证据句 0/1 处
+               保留的 pred 来源句 82/120 处
+               pred 原文出现在 block [0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]，其中保留 [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+  Full         f1=0.21 resident=28  evidence 保留    | pred='Rankin/Bass Productions is best known '
+================================================================================================
+idx 57  gold='Floyd Casey Stadium'  blocks=28  evidence blocks=[0, 27]
+  Selection    f1=0.21 resident=12  evidence 保留    | pred='The Huskies football team were invited'
+               保留的 gold 证据句 1/2 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [27]，其中保留 [27]
+  SharedMerge  f1=0.00 resident=12  evidence 保留    | pred='Air Force'
+               融合窗口吸收 evidence：['write14:[0]']
+               保留的 gold 证据句 1/2 处
+               保留的 pred 来源句 2/5 处
+               pred 原文出现在 block [12, 14, 15, 17, 18]，其中保留 [17, 18]
+  Full         f1=0.00 resident=28  evidence 保留    | pred='The Huskies football team were invited'
+================================================================================================
+idx 68  gold='India'  blocks=21  evidence blocks=[2, 9, 20]
+  Selection    f1=1.00 resident=13  evidence 保留    | pred='India'
+               保留的 gold 证据句 5/6 处
+               保留的 pred 来源句 5/6 处
+               pred 原文出现在 block [2, 9, 20]，其中保留 [9, 20]
+  SharedMerge  f1=0.00 resident=13  evidence 保留    | pred='Spain'
+               融合窗口吸收 evidence：['write14:[2, 9]', 'write18:[9]']
+               保留的 gold 证据句 5/6 处
+               保留的 pred 来源句 0/0 处
+  Full         f1=1.00 resident=21  evidence 保留    | pred='India'
+================================================================================================
+idx 92  gold='no'  blocks=28  evidence blocks=NOT FOUND
+  Selection    f1=0.13 resident=12  evidence 未定位   | pred='No, Werther is an opera by Jules Masse'
+               保留的 gold 证据句 0/0 处
+               保留的 pred 来源句 1/1 处
+               pred 原文出现在 block [27]，其中保留 [27]
+  SharedMerge  f1=0.00 resident=12  evidence 未定位   | pred='Yes'
+               融合窗口吸收 evidence：从未进入任何窗口
+               保留的 gold 证据句 0/0 处
+               保留的 pred 来源句 0/0 处
+  Full         f1=0.20 resident=28  evidence 未定位   | pred='No, Werther is an opera and The Odysse'
