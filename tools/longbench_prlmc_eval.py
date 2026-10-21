@@ -22,6 +22,16 @@ written in chunks of at most 512 tokens), with two differences:
 block selector (no residual merge module), the same comparison axis as the
 v5 development stream.
 
+--arm Full is the same-path no-compression reference. It reuses the existing
+"Full" streaming arm (`natural_merge_runtime.MergeStream` ->
+`public_retention_eval.StreamingMemory.write`, the arm the natural-data training
+and evaluation streams already run) instead of adding a second oracle: the
+compaction trigger is skipped for this arm, every written block stays resident,
+and the capacity limit is the whole native 50-block pool. Nothing is compacted,
+so the prefix is read back exactly as written. This is the ceiling a merge
+operator is bounded by: a merge can only recover what compression destroyed, so
+its effect has to sit inside `Full - Selection` (see tools/ceiling_report.py).
+
 No training, no optimizer, greedy decoding, fixed seed 0.
 """
 import argparse
@@ -145,6 +155,11 @@ TOTAL_TOKEN_CHOICES = (8192, 16384, 32768)
 # explicitly instead of silently clamping.
 VALIDATED_TOTAL_TOKENS = (8192, 16384)
 PHYSICAL_BLOCKS = 50
+# The no-compression reference arm. It is the arm name the existing streaming
+# runtime already understands (`ARMS` in public_retention_eval): `write` skips
+# the compaction trigger for it and its capacity limit is `m.total`, so no new
+# oracle code is needed -- only the wiring into this entrypoint.
+FULL_ARM = "Full"
 # Fields that identify a run. --resume refuses to append to an output whose
 # identity differs in any of them (a mixed restart already produced 2 bogus
 # samples in the v4 16k g7 run).
@@ -220,6 +235,13 @@ def stream_kwargs(args, merge_stream_cls=MergeStream):
     target_blocks); this checkout may predate it, so refuse loudly instead of
     silently running the pre-registered table.
     """
+    if args.arm == FULL_ARM:
+        # The Full arm never compacts, so the managed budget/geometry are inert:
+        # `StreamingMemory.write` skips the trigger for this arm and its capacity
+        # limit is the whole physical pool. Keep the pre-registered default
+        # budget so the stream constructor validates as usual, and report no
+        # compaction geometry at all (`None`).
+        return dict(budget_blocks=BUDGET_BLOCKS), None
     window_blocks, target_blocks = effective_geometry(args)
     kwargs = dict(budget_blocks=args.budget_blocks)
     if getattr(args, "window_blocks", None) is not None or getattr(args, "target_blocks", None) is not None:
@@ -252,13 +274,22 @@ def layer_identity(saved, merge=None, num_layers=None):
 def current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verified):
     """The full run identity --resume compares field by field."""
     select_layer, reference_layer = layer_identity(saved)
+    if geometry is None:
+        # No-compression reference: the capacity is the physical pool, not a
+        # managed budget, and no merge module or carrier layer is involved.
+        budget_blocks, window_blocks, target_blocks = PHYSICAL_BLOCKS, None, None
+        select_layer = reference_layer = None
+    else:
+        budget_blocks = args.budget_blocks
+        window_blocks, target_blocks = geometry
     return dict(arm=args.arm, checkpoint=args.checkpoint,
                 checkpoint_sha256=checkpoint_sha256,
-                architecture=resolve_architecture(saved, default=ARCHITECTURE),
+                architecture=(None if args.arm == FULL_ARM
+                              else resolve_architecture(saved, default=ARCHITECTURE)),
                 variant=(saved or {}).get("variant"),
                 total_tokens=args.total_tokens, tail_tokens=args.tail_tokens,
-                budget_blocks=args.budget_blocks,
-                window_blocks=geometry[0], target_blocks=geometry[1],
+                budget_blocks=budget_blocks,
+                window_blocks=window_blocks, target_blocks=target_blocks,
                 select_layer=select_layer, reference_layer=reference_layer,
                 critical_source_manifest=critical_manifest(),
                 code_hash_verified=code_hash_verified)
@@ -325,6 +356,31 @@ def evaluation_flags(checkpoint, code_hash_verified):
 
 def protocol_record(args, tasks, saved, geometry):
     """Protocol block written to the result JSON (geometry from the CLI)."""
+    if args.arm == FULL_ARM:
+        # No merge module is loaded and nothing is compacted; the recorded
+        # capacity is the native pool, never a managed budget.
+        return dict(model="MemoryLLM-8B",
+            method="PRLM-C Full reference (no compression; every block retained)",
+            variant=None, architecture=None,
+            capacity="native_50_blocks", capacity_blocks=PHYSICAL_BLOCKS,
+            budget_blocks=PHYSICAL_BLOCKS, window_blocks=None, target_blocks=None,
+            merge_arm=args.arm,
+            latent_tokens_per_block=256, max_write_tokens=512,
+            total_input_tokens=args.total_tokens,
+            direct_query_tokens=args.tail_tokens,
+            write_prefix_tokens=args.total_tokens - args.tail_tokens,
+            max_new_tokens={t: MAX_NEW[t] for t in tasks}, seed=args.seed,
+            do_sample=False, num_beams=1, training=False,
+            benchmark="LongBench test",
+            scoring="official QA F1 (raw) + newline-truncated QA F1",
+            prompt_truncation="keep last total_input_tokens; no decode/re-encode",
+            input_protocol=(f"tail{args.tail_tokens}_native_write_v1; "
+                            "same as the native50 baseline"),
+            injection="inject_memory(update_memory=False); manager places the delta",
+            compaction="none: the Full arm retains every written block "
+                       "(no-compression ceiling, not a managed budget)",
+            seed_reset="reset to 0 before each sample",
+            memory_reset="checkpoint values, used=0 and full active mask before every sample")
     window_blocks, target_blocks = geometry
     return dict(model="MemoryLLM-8B",
         method=("PRLM-C Consolidate (training-free plan A)" if args.arm == "Consolidate"
@@ -435,8 +491,12 @@ def dry_run_plan(args, tasks, geometry):
                       for t in tasks if (Path(args.data_dir) / (t + ".jsonl")).is_file()}
     identity = current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verified)
     flags = evaluation_flags(args.checkpoint, code_hash_verified)
+    resolved_geometry = (dict(budget_blocks=PHYSICAL_BLOCKS, window_blocks=None,
+                              target_blocks=None, total_blocks=PHYSICAL_BLOCKS)
+                         if geometry is None
+                         else validate_geometry(args.budget_blocks, geometry[0], geometry[1]))
     plan = dict(dry_run=True, out=str(args.out),
-                geometry=validate_geometry(args.budget_blocks, geometry[0], geometry[1]),
+                geometry=resolved_geometry,
                 protocol=protocol_record(args, tasks, saved, geometry),
                 identity=dict(identity, model_path=MODEL_PATH, data_dir=args.data_dir,
                               source_manifest=source_manifest(), data_files=data_files),
@@ -475,9 +535,20 @@ def evaluate(args):
     elif args.arm == "Consolidate":
         if args.checkpoint is not None:
             raise ValueError("--arm Consolidate is training-free; drop --checkpoint")
+    elif args.arm == FULL_ARM:
+        if args.checkpoint is not None:
+            raise ValueError("--arm Full keeps every block and loads no merge "
+                             "module; drop --checkpoint")
+        if args.window_blocks is not None or args.target_blocks is not None:
+            raise ValueError("--arm Full performs no compaction, so "
+                             "--window-blocks/--target-blocks do not apply")
+        if args.budget_blocks != BUDGET_BLOCKS:
+            raise ValueError("--arm Full runs at the native 50-block capacity, so "
+                             f"--budget-blocks {args.budget_blocks} would mislabel it")
     elif args.checkpoint is not None:
         raise ValueError("--arm Selection mutates no learned module; drop --checkpoint")
-    geometry = effective_geometry(args)  # rejects impossible geometry before any load
+    # `None` means "no compaction geometry"; only the Full arm runs without one.
+    geometry = None if args.arm == FULL_ARM else effective_geometry(args)  # rejects impossible geometry before any load
     # Runtime handshake, validated before any model load: an explicit geometry
     # must be one the streaming runtime can actually run. Without this the
     # --dry-run path returned before stream_kwargs and printed a green plan for
@@ -528,8 +599,12 @@ def evaluate(args):
         raise ValueError("expected the native 50-block MemoryLLM reader")
     checkpoint_sha256 = sha(args.checkpoint) if args.checkpoint else None
     stream_arguments, geometry = stream_kwargs(args)
-    validate_geometry(args.budget_blocks, geometry[0], geometry[1],
-                      manager.total // manager.block)
+    if geometry is None:
+        if manager.total // manager.block != PHYSICAL_BLOCKS:
+            raise ValueError("--arm Full needs the native 50-block pool")
+    else:
+        validate_geometry(args.budget_blocks, geometry[0], geometry[1],
+                          manager.total // manager.block)
     code_hash_verified = saved.get("code_hash_verified") if saved else None
     identity = current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verified)
     flags = evaluation_flags(args.checkpoint, code_hash_verified)
@@ -600,8 +675,11 @@ def evaluate(args):
             active = int(model.memory_active_mask.sum())
             # The pre-registered geometry for budgets 8/10 reads a window one
             # block larger than the budget, so the stream may transiently hold
-            # window blocks before the final compact lands back on target.
-            if active != manager.used or active > max(args.budget_blocks, geometry[0]) * model.num_tokens:
+            # window blocks before the final compact lands back on target. The
+            # Full arm has no budget: its limit is the whole physical pool.
+            capacity_blocks = (PHYSICAL_BLOCKS if geometry is None
+                               else max(args.budget_blocks, geometry[0]))
+            if active != manager.used or active > capacity_blocks * model.num_tokens:
                 raise ValueError("active budget violation after writes")
             report["samples"].append(dict(
                 task=task, sample_index=sample_index, id=row.get("_id"),
@@ -681,9 +759,11 @@ def build_parser():
                    help="trained Dsup/Dnative checkpoint; required for --arm SharedMerge, "
                         "unused for --arm Selection")
     p.add_argument("--arm", default="SharedMerge",
-                   choices=("SharedMerge", "Selection", "Consolidate"),
+                   choices=("SharedMerge", "Selection", "Consolidate", FULL_ARM),
                    help="SharedMerge = trained Dsup residual merge (our method); "
-                        "Selection = same-budget pure block selector control")
+                        "Selection = same-budget pure block selector control; "
+                        "Full = no-compression reference (every block retained in "
+                        "the native 50-block pool)")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--tasks", nargs="+", choices=DEFAULT_TASKS)
     p.add_argument("--max-samples", type=int, default=None)
