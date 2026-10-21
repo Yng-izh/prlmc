@@ -131,7 +131,8 @@ def resolve_geometry(budget_blocks, window_blocks=None, target_blocks=None,
 
 class MergeStream(StreamingMemory):
     def __init__(self, manager, compactor, arm, on_compression=None, carrier_schedule=None,
-                 budget_blocks=20, window_blocks=None, target_blocks=None):
+                 budget_blocks=20, window_blocks=None, target_blocks=None,
+                 trigger_blocks=None):
         aliases = {"SharedMerge": "SharedE6d", "CarrierOnlyFusion": "SharedE6d"}
         # Resolved before the base class runs: `None` keeps the pre-registered
         # table, an explicit value must be consistent, and the base class is
@@ -144,7 +145,8 @@ class MergeStream(StreamingMemory):
         )
         super().__init__(manager, compactor, aliases.get(arm, arm),
                          budget_blocks=budget_blocks,
-                         window_blocks=geometry[0], target_blocks=geometry[1])
+                         window_blocks=geometry[0], target_blocks=geometry[1],
+                         trigger_blocks=trigger_blocks)
         self.merge_arm = arm
         self.on_compression = on_compression
         self.carrier_schedule = carrier_schedule

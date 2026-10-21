@@ -165,7 +165,7 @@ FULL_ARM = "Full"
 # samples in the v4 16k g7 run).
 IDENTITY_KEYS = ("arm", "checkpoint", "checkpoint_sha256", "architecture", "variant",
                  "total_tokens", "tail_tokens", "budget_blocks", "window_blocks",
-                 "target_blocks", "select_layer", "reference_layer",
+                 "target_blocks", "trigger_blocks", "select_layer", "reference_layer",
                  "critical_source_manifest", "code_hash_verified")
 # The reader is read from the GPFS FP32 checkpoint by default. On a host that
 # has staged the verified FP16 cache in /dev/shm the same weights load in
@@ -228,6 +228,30 @@ def effective_geometry(args, total_blocks=PHYSICAL_BLOCKS):
     return window_blocks, target_blocks
 
 
+def effective_trigger(args, window_blocks):
+    """Resident-block count at which the managed stream compacts.
+
+    `None` keeps the pre-registered `min(budget, window+1)` rule (14 blocks for
+    the 20-budget 13->9 geometry). An explicit `--trigger-blocks` moves the
+    compaction point to the declared budget so the stream actually spends it:
+    with trigger 20 the resident width cycles 16..20 instead of 10..14, and the
+    uncompressed tail is 7 blocks instead of 1, which is the layout the
+    independent-window training path sees (19 resident, 6-block tail).
+    """
+    explicit = getattr(args, "trigger_blocks", None)
+    if explicit is None:
+        return compaction_trigger(args.budget_blocks, window_blocks)
+    if explicit < window_blocks:
+        raise ValueError(
+            f"--trigger-blocks {explicit} is smaller than the {window_blocks}-block "
+            "compression window; the window must be fully resident when compaction fires")
+    if explicit > args.budget_blocks:
+        raise ValueError(
+            f"--trigger-blocks {explicit} exceeds --budget-blocks {args.budget_blocks}; "
+            "the stream would hold more blocks than the declared budget")
+    return explicit
+
+
 def stream_kwargs(args, merge_stream_cls=MergeStream):
     """MergeStream kwargs plus the geometry the stream will actually run.
 
@@ -253,6 +277,15 @@ def stream_kwargs(args, merge_stream_cls=MergeStream):
                 "experiments/v7-spec-contract.md C8); this runtime only supports "
                 "the pre-registered budget_geometry table")
         kwargs.update(window_blocks=window_blocks, target_blocks=target_blocks)
+    if getattr(args, "trigger_blocks", None) is not None:
+        effective_trigger(args, window_blocks)      # validate before any load
+        parameters = inspect.signature(merge_stream_cls.__init__).parameters
+        if "trigger_blocks" not in parameters:
+            raise RuntimeError(
+                "--trigger-blocks needs a MergeStream that accepts trigger_blocks "
+                "(full-load trigger); this runtime only supports the "
+                "min(budget, window+1) rule")
+        kwargs.update(trigger_blocks=args.trigger_blocks)
     return kwargs, (window_blocks, target_blocks)
 
 
@@ -278,10 +311,12 @@ def current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verifie
         # No-compression reference: the capacity is the physical pool, not a
         # managed budget, and no merge module or carrier layer is involved.
         budget_blocks, window_blocks, target_blocks = PHYSICAL_BLOCKS, None, None
+        trigger_blocks = None
         select_layer = reference_layer = None
     else:
         budget_blocks = args.budget_blocks
         window_blocks, target_blocks = geometry
+        trigger_blocks = effective_trigger(args, window_blocks)
     return dict(arm=args.arm, checkpoint=args.checkpoint,
                 checkpoint_sha256=checkpoint_sha256,
                 architecture=(None if args.arm == FULL_ARM
@@ -290,6 +325,7 @@ def current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verifie
                 total_tokens=args.total_tokens, tail_tokens=args.tail_tokens,
                 budget_blocks=budget_blocks,
                 window_blocks=window_blocks, target_blocks=target_blocks,
+                trigger_blocks=trigger_blocks,
                 select_layer=select_layer, reference_layer=reference_layer,
                 critical_source_manifest=critical_manifest(),
                 code_hash_verified=code_hash_verified)
@@ -364,6 +400,7 @@ def protocol_record(args, tasks, saved, geometry):
             variant=None, architecture=None,
             capacity="native_50_blocks", capacity_blocks=PHYSICAL_BLOCKS,
             budget_blocks=PHYSICAL_BLOCKS, window_blocks=None, target_blocks=None,
+            trigger_blocks=None,
             merge_arm=args.arm,
             latent_tokens_per_block=256, max_write_tokens=512,
             total_input_tokens=args.total_tokens,
@@ -382,6 +419,8 @@ def protocol_record(args, tasks, saved, geometry):
             seed_reset="reset to 0 before each sample",
             memory_reset="checkpoint values, used=0 and full active mask before every sample")
     window_blocks, target_blocks = geometry
+    trigger_blocks = effective_trigger(args, window_blocks)
+    explicit_trigger = getattr(args, "trigger_blocks", None) is not None
     return dict(model="MemoryLLM-8B",
         method=("PRLM-C Consolidate (training-free plan A)" if args.arm == "Consolidate"
                 else (METHOD_V6 if saved and saved.get("architecture", "").endswith("_v6")
@@ -391,6 +430,7 @@ def protocol_record(args, tasks, saved, geometry):
         capacity=f"managed_{args.budget_blocks}_block_budget",
         budget_blocks=args.budget_blocks,
         window_blocks=window_blocks, target_blocks=target_blocks,
+        trigger_blocks=trigger_blocks,
         merge_arm=args.arm,
         latent_tokens_per_block=256, max_write_tokens=512,
         total_input_tokens=args.total_tokens,
@@ -405,8 +445,12 @@ def protocol_record(args, tasks, saved, geometry):
                         "same as the native50 baseline"),
         injection="inject_memory(update_memory=False); manager places the delta",
         compaction=(f"{window_blocks}->{target_blocks} block merge at "
-                    f"used>={compaction_trigger(args.budget_blocks, window_blocks)} "
-                    "(trigger=min(budget,window+1))"),
+                    f"used>={trigger_blocks} "
+                    + ("(trigger=budget, full-load: the declared budget is spent "
+                       f"before compacting; resident width cycles {target_blocks + (trigger_blocks - window_blocks)}..{trigger_blocks} blocks, "
+                       f"{trigger_blocks - window_blocks} uncompressed tail blocks)"
+                       if explicit_trigger else
+                       "(trigger=min(budget,window+1))")),
         seed_reset="reset to 0 before each sample",
         memory_reset="checkpoint values, used=0 and full active mask before every sample")
 
@@ -492,9 +536,11 @@ def dry_run_plan(args, tasks, geometry):
     identity = current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verified)
     flags = evaluation_flags(args.checkpoint, code_hash_verified)
     resolved_geometry = (dict(budget_blocks=PHYSICAL_BLOCKS, window_blocks=None,
-                              target_blocks=None, total_blocks=PHYSICAL_BLOCKS)
+                              target_blocks=None, trigger_blocks=None,
+                              total_blocks=PHYSICAL_BLOCKS)
                          if geometry is None
-                         else validate_geometry(args.budget_blocks, geometry[0], geometry[1]))
+                         else dict(validate_geometry(args.budget_blocks, geometry[0], geometry[1]),
+                                   trigger_blocks=effective_trigger(args, geometry[0])))
     plan = dict(dry_run=True, out=str(args.out),
                 geometry=resolved_geometry,
                 protocol=protocol_record(args, tasks, saved, geometry),
@@ -542,6 +588,9 @@ def evaluate(args):
         if args.window_blocks is not None or args.target_blocks is not None:
             raise ValueError("--arm Full performs no compaction, so "
                              "--window-blocks/--target-blocks do not apply")
+        if args.trigger_blocks is not None:
+            raise ValueError("--arm Full performs no compaction, so --trigger-blocks "
+                             "does not apply")
         if args.budget_blocks != BUDGET_BLOCKS:
             raise ValueError("--arm Full runs at the native 50-block capacity, so "
                              f"--budget-blocks {args.budget_blocks} would mislabel it")
@@ -741,6 +790,13 @@ def build_parser():
     p.add_argument("--target-blocks", dest="target_blocks", type=int, default=None,
                    help="explicit merge target in native blocks (default 9 for "
                         "budget 20)")
+    p.add_argument("--trigger-blocks", dest="trigger_blocks", type=int, default=None,
+                   help="resident block count at which compaction fires (default: "
+                        "min(budget, window+1) = 14 for budget 20 / window 13). "
+                        "Set it to the budget (20) for the full-load layout: the "
+                        "stream fills to 20 blocks, compresses the oldest 13 into "
+                        "9, keeps the newest 7 uncompressed, and cycles 16..20 "
+                        "resident instead of 10..14")
     p.add_argument("--strict-code-hash", dest="strict_code_hash", type=parse_bool,
                    default=True, metavar="{true,false}",
                    help="verify the checkpoint source_manifest against the live "

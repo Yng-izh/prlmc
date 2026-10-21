@@ -5,10 +5,15 @@ For every sample this rebuilds the prompt, locates the sentence containing the
 gold answer, and classifies the sample by the cheapest way to reach that
 evidence:
 
-    tail_only     visible verbatim in the last 2048 queried tokens
-    memory_only   only in the written prefix -> has to come out of memory
-    both          reachable either way
-    absent        cut away by the 16384-token tail truncation
+    tail_only        visible verbatim in the last 2048 queried tokens
+    memory_only      only in the written prefix -> has to come out of memory
+    both             reachable either way
+    truncated_out    the answer occurs in the prompt but only in the part the
+                     16384-token tail truncation dropped (never written, so no
+                     memory could hold it)
+    no_literal_match the answer string never occurs (alias, paraphrase, or a
+                     case/punctuation difference) -> the bucket is unknown, not
+                     "absent from memory"
 
 Cross-tabulating those buckets against each arm's F1 splits the loss into a
 write-side term (memory_only vs both is what "going through memory" costs) and a
@@ -32,13 +37,41 @@ TOTAL = 16384
 TAIL = 2048
 
 
-def classify(spans, n_all, write_tokens, tail=TAIL):
-    """Bucket name for one sample given its gold-evidence token spans."""
-    if not spans:
-        return "absent"
+def retained(spans, n_all, tail=TAIL):
+    """Spans clipped to the retained region, dropping matches cut away entirely.
+
+    `sentence_spans` reports positions in `all_ids` coordinates, so a match that
+    sits in the part of the prompt the tail truncation dropped comes back with a
+    negative start. Those matches are *not* in memory -- nothing was written from
+    them -- so they must never be bucketed as `memory_only`.
+    """
+    out = []
+    for start, end in spans:
+        if end <= 0 or start >= n_all:
+            continue
+        out.append((max(start, 0), min(end, n_all)))
+    return out
+
+
+def classify(spans, n_all, write_tokens, tail=TAIL, has_match=None):
+    """Bucket name for one sample given its gold-evidence token spans.
+
+    `spans` are in `all_ids` coordinates and may be negative (the match exists in
+    the prompt but sits before the retained window). `has_match` distinguishes
+    "the answer string occurs in the prompt but was truncated away"
+    (`truncated_out`) from "the answer never occurs literally" (`no_literal_match`,
+    e.g. an alias or a punctuation/case difference).
+    """
+    if has_match is None:
+        has_match = bool(spans)
+    if not has_match:
+        return "no_literal_match"
+    kept = retained(spans, n_all, tail)
+    if not kept:
+        return "truncated_out"
     tail_edge = n_all - tail
-    in_tail = any(end > tail_edge and start < n_all for start, end in spans)
-    in_prefix = any(start < write_tokens for start, end in spans)
+    in_tail = any(end > tail_edge for _, end in kept)
+    in_prefix = any(0 <= start < write_tokens for start, _ in kept)
     if in_tail and in_prefix:
         return "both"
     if in_tail:
@@ -68,7 +101,10 @@ def main():
     ap.add_argument("--model", default="/share/latent/MemoryLLM-8B")
     ap.add_argument("--arms", default="Full,Selection")
     ap.add_argument("--limit", type=int, default=0, help="0 = every sample in the run")
+    ap.add_argument("--show-indices", default="",
+                    help="comma separated sample_index list to print per sample")
     args = ap.parse_args()
+    show = {int(x) for x in args.show_indices.split(",") if x.strip()}
 
     sys.path.insert(0, str(ROOT))
     from transformers import AutoTokenizer
@@ -98,6 +134,15 @@ def main():
                 break
         bucket = classify(spans, len(all_ids), len(write_ids))
         table.append((bucket, {arm: runs[arm][index] for arm in arms}))
+        if index in show:
+            kept = retained(spans, len(all_ids))
+            detail = ("kept %d/%d spans" % (len(kept), len(spans))) if spans else "no literal match"
+            print("idx %-3d %-15s %-24s %s" % (
+                index, bucket, detail,
+                "  ".join("%s=%.2f" % (arm, runs[arm][index]) for arm in arms)))
+
+    if show:
+        print()
 
     stats = tally(table, runs)
     head = "%-12s %4s" % ("evidence", "n")

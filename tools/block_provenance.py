@@ -85,6 +85,22 @@ def blocks_of(span, write_tokens):
     return set(range(start // BLOCK, (end - 1) // BLOCK + 1))
 
 
+def retained_spans(spans, n_all):
+    """Spans clipped to the retained window, dropping matches truncated away.
+
+    `sentence_spans` reports `all_ids` coordinates, so a match that sits in the
+    part of the prompt the tail truncation dropped comes back negative. Clipping
+    it to zero would silently claim the evidence is in block 0, which is the
+    exact opposite of the truth: nothing was ever written from it.
+    """
+    out = []
+    for start, end in spans:
+        if end <= 0 or start >= n_all:
+            continue
+        out.append((max(start, 0), min(end, n_all)))
+    return out
+
+
 def sentence_spans(tokenizer, prompt, phrase, dropped):
     """Token spans (inside all_ids) of every sentence containing `phrase`."""
     def count(text):
@@ -146,13 +162,25 @@ def main():
             gold_spans = sentence_spans(tokenizer, prompt, form, dropped)
             if gold_spans:
                 break
+        # Matches that the tail truncation dropped are not in memory at all; they
+        # must not be clipped into block 0.
+        gold_live = retained_spans(gold_spans, len(all_ids))
         gold_blocks = set()
-        for span in gold_spans:
+        for span in gold_live:
             gold_blocks |= blocks_of(span, len(write_ids))
 
         print("=" * 96)
+        if not gold_spans:
+            located = "NOT FOUND (no literal match)"
+        elif not gold_live:
+            located = "TRUNCATED OUT (only in the dropped head)"
+        else:
+            located = str(sorted(gold_blocks))
         print("idx %d  gold=%r  blocks=%d  evidence blocks=%s"
-              % (index, gold, n_blocks, sorted(gold_blocks) if gold_spans else "NOT FOUND"))
+              % (index, gold, n_blocks, located))
+        if gold_spans and len(gold_live) < len(gold_spans):
+            print("  %d of %d literal matches sit before the retained window"
+                  % (len(gold_spans) - len(gold_live), len(gold_spans)))
         key = (args.task, row.get("_id"), index)
         for arm in ("Selection", "SharedMerge", "Full"):
             sample = runs[arm].get(key)
@@ -164,29 +192,36 @@ def main():
             else:
                 resident = set(replay(sample, args.window_blocks, n_blocks))
                 sample_resident = len(resident)
-            status = "evidence 保留" if gold_blocks & resident else (
-                "evidence 已丢" if gold_blocks else "evidence 未定位")
+            if not gold_spans:
+                status = "evidence 无字面匹配"
+            elif not gold_live:
+                status = "evidence 已被截断"
+            elif gold_blocks & resident:
+                status = "evidence 保留"
+            else:
+                status = "evidence 已丢"
             pred = (sample["prediction"] or "").split("\n")[0].strip()[:38]
             print("  %-12s f1=%.2f resident=%2d  %-14s | pred=%r"
                   % (arm, sample["official_qa_f1_truncated"], sample_resident, status, pred))
-            if arm == "SharedMerge":
+            if arm == "SharedMerge" and gold_blocks:
                 seen = absorbed(gold_blocks, sample, args.window_blocks, n_blocks)
                 print("               融合窗口吸收 evidence：%s"
                       % (["write%d:%s" % (w, b) for w, b in seen] or "从未进入任何窗口"))
             if arm == "Full":
                 continue
-            gold_kept = sum(1 for s in gold_spans if blocks_of(s, len(write_ids)) & resident)
-            print("               保留的 gold 证据句 %d/%d 处" % (gold_kept, len(gold_spans)))
+            gold_kept = sum(1 for s in gold_live if blocks_of(s, len(write_ids)) & resident)
+            print("               保留的 gold 证据句 %d/%d 处" % (gold_kept, len(gold_live)))
             pred_spans = []
             for form in answer_forms(pred) if pred else []:
                 pred_spans = sentence_spans(tokenizer, prompt, form, dropped)
                 if pred_spans:
                     break
-            pred_kept = sum(1 for s in pred_spans if blocks_of(s, len(write_ids)) & resident)
-            print("               保留的 pred 来源句 %d/%d 处" % (pred_kept, len(pred_spans)))
-            if pred_spans:
+            pred_live = retained_spans(pred_spans, len(all_ids))
+            pred_kept = sum(1 for s in pred_live if blocks_of(s, len(write_ids)) & resident)
+            print("               保留的 pred 来源句 %d/%d 处" % (pred_kept, len(pred_live)))
+            if pred_live:
                 pred_blocks = set()
-                for span in pred_spans:
+                for span in pred_live:
                     pred_blocks |= blocks_of(span, len(write_ids))
                 print("               pred 原文出现在 block %s，其中保留 %s"
                       % (sorted(pred_blocks), sorted(pred_blocks & resident)))

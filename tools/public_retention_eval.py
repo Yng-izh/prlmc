@@ -140,7 +140,7 @@ def compaction_trigger(budget_blocks, window_blocks):
 class StreamingMemory:
     """Explicit preappend 19→9 compression; no answer-derived goals/anchors."""
     def __init__(self, manager, compactor, arm, budget_blocks=20, window_blocks=None,
-                 target_blocks=None, strict_budget=False):
+                 target_blocks=None, strict_budget=False, trigger_blocks=None):
         if arm not in ARMS:
             raise ValueError("unknown arm")
         # budget_blocks is the managed working budget (8/10/12/20 native blocks).
@@ -176,7 +176,31 @@ class StreamingMemory:
         # held at 8/10, so it must be reported, never silently absorbed into a
         # "managed_8_block_budget" label. `strict_budget=True` refuses the
         # overshoot entirely (the window has to fit inside the budget).
-        self.peak_allowed_blocks = max(self.budget_blocks, self.window_blocks)
+        #
+        # `trigger_blocks` (full-load trigger) moves the compaction point off the
+        # `min(budget, window+1)` rule so the declared budget is actually used:
+        # with budget 20, window 13, target 9 and trigger 20 the stream fills to
+        # 20 resident blocks, compresses the oldest 13 into 9, and keeps the
+        # newest 7 uncompressed -- resident width then cycles 16..20 instead of
+        # 10..14. That both spends the declared 20-block budget and matches the
+        # training-time window layout (19 resident, 6-block uncompressed tail).
+        self.trigger_blocks = None if trigger_blocks is None else int(trigger_blocks)
+        if self.trigger_blocks is not None:
+            if self.trigger_blocks < self.window_blocks:
+                raise ValueError(
+                    f"trigger_blocks {self.trigger_blocks} is smaller than the "
+                    f"{self.window_blocks}-block compression window; the window "
+                    "would not be fully resident when compaction fires")
+            if self.trigger_blocks > self.budget_blocks:
+                raise ValueError(
+                    f"trigger_blocks {self.trigger_blocks} exceeds the declared "
+                    f"budget {self.budget_blocks}; the stream would hold more "
+                    "blocks than it reports")
+        self.effective_trigger_blocks = (self.trigger_blocks if self.trigger_blocks is not None
+                                         else compaction_trigger(self.budget_blocks,
+                                                                 self.window_blocks))
+        self.peak_allowed_blocks = max(self.budget_blocks, self.window_blocks,
+                                       self.effective_trigger_blocks)
         self.capacity_overshoot_blocks = self.peak_allowed_blocks - self.budget_blocks
         if strict_budget and self.capacity_overshoot_blocks:
             raise ValueError(
@@ -248,9 +272,11 @@ class StreamingMemory:
             # to the old `used + block > budget` gate for the pre-registered
             # 8/10/12/20 geometries, and fires at 14 blocks for the v7
             # 20-budget 13->9 geometry instead of silently waiting for 20.
+            # An explicit `trigger_blocks` (full-load trigger) replaces that term
+            # so the declared budget is spent before compacting.
             if self.arm not in ("Full", "NativeDefault") \
                     and m.used >= self.window \
-                    and m.used >= compaction_trigger(self.budget_blocks, self.window_blocks) * m.block:
+                    and m.used >= self.effective_trigger_blocks * m.block:
                 self.compact(index)
             if self.arm == "Full" and m.used + m.block > m.total:
                 return None  # Honest Full-capacity failure; never truncate the stream.

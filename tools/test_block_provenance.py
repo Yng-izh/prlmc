@@ -6,8 +6,8 @@ block mapping, and the evidence-location buckets.
 """
 import unittest
 
-from block_provenance import absorbed, answer_forms, blocks_of, replay
-from evidence_location import classify, tally
+from block_provenance import absorbed, answer_forms, blocks_of, replay, retained_spans
+from evidence_location import classify, retained, tally
 
 WINDOW = 13
 
@@ -84,6 +84,22 @@ class AnswerFormsTest(unittest.TestCase):
         self.assertEqual(answer_forms("Troy, Montana"), ["Troy, Montana", "Montana"])
 
 
+class RetainedTest(unittest.TestCase):
+    """Matches the tail truncation dropped must never look like block-0 evidence."""
+
+    def test_fully_dropped_match_is_not_retained(self):
+        self.assertEqual(retained([(-500, -100)], 16384), [])
+
+    def test_partially_visible_match_is_clipped(self):
+        self.assertEqual(retained([(-10, 50)], 16384), [(0, 50)])
+
+    def test_span_past_the_window_is_dropped(self):
+        self.assertEqual(retained([(17000, 17100)], 16384), [])
+
+    def test_provenance_helper_matches(self):
+        self.assertEqual(retained_spans([(-500, -100), (10, 20)], 16384), [(10, 20)])
+
+
 class ClassifyTest(unittest.TestCase):
     def test_evidence_only_in_the_written_prefix(self):
         self.assertEqual(classify([(100, 200)], 16384, 14336), "memory_only")
@@ -94,8 +110,27 @@ class ClassifyTest(unittest.TestCase):
     def test_evidence_reachable_both_ways(self):
         self.assertEqual(classify([(14000, 14500)], 16384, 14336), "both")
 
-    def test_missing_evidence(self):
-        self.assertEqual(classify([], 16384, 14336), "absent")
+    def test_no_literal_match(self):
+        self.assertEqual(classify([], 16384, 14336), "no_literal_match")
+
+    def test_truncated_out_is_not_memory_only(self):
+        # The match exists in the prompt but only in the dropped head: negative
+        # start must not be read as "in the written prefix".
+        self.assertEqual(classify([(-900, -800)], 16384, 14336), "truncated_out")
+
+    def test_truncated_out_wins_when_every_match_is_dropped(self):
+        spans = [(-900, -800), (-200, -100)]
+        self.assertEqual(classify(spans, 16384, 14336), "truncated_out")
+
+    def test_one_surviving_match_beats_a_dropped_one(self):
+        spans = [(-900, -800), (200, 300)]
+        self.assertEqual(classify(spans, 16384, 14336), "memory_only")
+
+    def test_partially_visible_match_counts_as_memory(self):
+        self.assertEqual(classify([(-10, 50)], 16384, 14336), "memory_only")
+
+    def test_no_match_reported_explicitly(self):
+        self.assertEqual(classify([], 16384, 14336, has_match=False), "no_literal_match")
 
 
 class TallyTest(unittest.TestCase):

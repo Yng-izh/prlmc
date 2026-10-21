@@ -1,0 +1,24 @@
+idx 6   memory_only     kept 11/11 spans         Full=0.17  Selection=0.17  SharedMerge=0.00
+idx 8   memory_only     kept 7/7 spans           Full=1.00  Selection=1.00  SharedMerge=0.00
+idx 12  memory_only     kept 2/2 spans           Full=1.00  Selection=0.00  SharedMerge=0.00
+idx 23  both            kept 9/9 spans           Full=1.00  Selection=0.00  SharedMerge=1.00
+idx 24  both            kept 10/10 spans         Full=1.00  Selection=1.00  SharedMerge=0.00
+idx 34  memory_only     kept 1/1 spans           Full=0.40  Selection=0.15  SharedMerge=0.00
+idx 35  both            kept 6/6 spans           Full=1.00  Selection=1.00  SharedMerge=0.00
+idx 36  memory_only     kept 58/58 spans         Full=1.00  Selection=0.00  SharedMerge=0.00
+idx 38  memory_only     kept 2/2 spans           Full=0.80  Selection=0.29  SharedMerge=0.00
+idx 39  tail_only       kept 7/7 spans           Full=0.21  Selection=0.21  SharedMerge=0.00
+idx 41  memory_only     kept 1/1 spans           Full=0.21  Selection=0.21  SharedMerge=0.00
+idx 44  memory_only     kept 1/1 spans           Full=0.80  Selection=0.00  SharedMerge=0.00
+idx 57  memory_only     kept 2/2 spans           Full=0.00  Selection=0.21  SharedMerge=0.00
+idx 58  memory_only     kept 11/11 spans         Full=1.00  Selection=0.00  SharedMerge=0.00
+idx 68  both            kept 6/6 spans           Full=1.00  Selection=1.00  SharedMerge=0.00
+idx 87  memory_only     kept 5/5 spans           Full=1.00  Selection=0.00  SharedMerge=0.00
+idx 92  no_literal_match no literal match         Full=0.20  Selection=0.13  SharedMerge=0.00
+
+evidence        n        Full 正确   Full F1   Selection 正确 Selection F1 SharedMerge 正确 SharedMerge F1
+memory_only    43       22( 51%)     32.0%       21( 49%)     26.7%       16( 37%)     22.2%
+both           33       25( 76%)     54.8%       25( 76%)     54.2%       23( 70%)     59.1%
+no_literal_match   12        3( 25%)     10.5%        3( 25%)     10.0%        2( 17%)      9.5%
+tail_only       8        3( 38%)     10.0%        3( 38%)     16.7%        2( 25%)     16.1%
+samples: 96
