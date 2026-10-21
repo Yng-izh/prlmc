@@ -152,7 +152,12 @@ IDENTITY_KEYS = ("arm", "checkpoint", "checkpoint_sha256", "architecture", "vari
                  "total_tokens", "tail_tokens", "budget_blocks", "window_blocks",
                  "target_blocks", "select_layer", "reference_layer",
                  "critical_source_manifest", "code_hash_verified")
-MODEL_PATH = "/share/latent/MemoryLLM-8B"
+# The reader is read from the GPFS FP32 checkpoint by default. On a host that
+# has staged the verified FP16 cache in /dev/shm the same weights load in
+# seconds instead of ~12 minutes; the staged copy is byte-verified by
+# tools/stage_s1d_reader_cache.py, so pointing at it does not change results.
+# Override with PRLMC_READER_PATH; the resolved path is recorded in identity.
+MODEL_PATH = os.environ.get("PRLMC_READER_PATH") or "/share/latent/MemoryLLM-8B"
 # v5 architecture string. A v4 checkpoint cannot be evaluated here: the v5
 # module changed routing, the gate inputs and the native path, and
 # `validate_merge_checkpoint` rejects the retired training record, so the
