@@ -1,0 +1,183 @@
+{
+  "schema": "prlmc_ceiling_report/2",
+  "selection": "runs/longbench_prlmc_v7_eval/Selection_trigger19_hotpotqa.json",
+  "ceiling": "runs/longbench_prlmc_v7_eval/Full_hotpotqa.json",
+  "treatment": "runs/longbench_prlmc_v7_eval/SharedMerge_trigger19_hotpotqa.json",
+  "partial": false,
+  "paired_samples": 96,
+  "tasks": [
+    "hotpotqa"
+  ],
+  "mean_selection": 0.38193589731418687,
+  "mean_ceiling": 0.35299768398770953,
+  "metrics": {
+    "selection": {
+      "n": 96,
+      "mean_f1": 0.38193589731418687,
+      "nonzero_rate": 0.5833333333333334,
+      "high_precision_rate": 0.2708333333333333,
+      "high_precision_threshold": 0.8,
+      "exact_match_rate": 0.22916666666666666
+    },
+    "ceiling": {
+      "n": 96,
+      "mean_f1": 0.35299768398770953,
+      "nonzero_rate": 0.5520833333333334,
+      "high_precision_rate": 0.25,
+      "high_precision_threshold": 0.8,
+      "exact_match_rate": 0.20833333333333334
+    },
+    "treatment": {
+      "n": 96,
+      "mean_f1": 0.382093253968254,
+      "nonzero_rate": 0.5104166666666666,
+      "high_precision_rate": 0.3020833333333333,
+      "high_precision_threshold": 0.8,
+      "exact_match_rate": 0.25
+    }
+  },
+  "deltas": {
+    "headroom": {
+      "mean_f1": {
+        "n": 96,
+        "mean": -0.028938213326477332,
+        "low": -0.07853081677094835,
+        "high": 0.021688444961471282,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.25161138493760793,
+        "label": "mean_f1",
+        "wins": 6,
+        "losses": 11,
+        "ties": 79
+      },
+      "nonzero_rate": {
+        "n": 96,
+        "mean": -0.03125,
+        "low": -0.09375,
+        "high": 0.03125,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.30618621784789724,
+        "label": "nonzero_rate",
+        "wins": 3,
+        "losses": 6,
+        "ties": 87
+      },
+      "high_precision_rate": {
+        "n": 96,
+        "mean": -0.020833333333333332,
+        "low": -0.08333333333333333,
+        "high": 0.03125,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.2894338090558209,
+        "label": "high_precision_rate",
+        "wins": 3,
+        "losses": 5,
+        "ties": 88
+      },
+      "exact_match_rate": {
+        "n": 96,
+        "mean": -0.020833333333333332,
+        "low": -0.0625,
+        "high": 0.020833333333333332,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.20412414523193148,
+        "label": "exact_match_rate",
+        "wins": 1,
+        "losses": 3,
+        "ties": 92
+      }
+    },
+    "effect": {
+      "mean_f1": {
+        "n": 96,
+        "mean": 0.00015735665406718438,
+        "low": -0.059012271841219203,
+        "high": 0.05851019411874676,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.29498615930806943,
+        "label": "mean_f1",
+        "wins": 10,
+        "losses": 12,
+        "ties": 74
+      },
+      "nonzero_rate": {
+        "n": 96,
+        "mean": -0.07291666666666667,
+        "low": -0.14583333333333334,
+        "high": 0.0,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.36258695266875507,
+        "label": "nonzero_rate",
+        "wins": 3,
+        "losses": 10,
+        "ties": 83
+      },
+      "high_precision_rate": {
+        "n": 96,
+        "mean": 0.03125,
+        "low": -0.041666666666666664,
+        "high": 0.10416666666666667,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.36858548961929405,
+        "label": "high_precision_rate",
+        "wins": 8,
+        "losses": 5,
+        "ties": 83
+      },
+      "exact_match_rate": {
+        "n": 96,
+        "mean": 0.020833333333333332,
+        "low": -0.041666666666666664,
+        "high": 0.09375,
+        "resamples": 2000,
+        "seed": 0,
+        "sd": 0.35479176002615403,
+        "label": "exact_match_rate",
+        "wins": 7,
+        "losses": 5,
+        "ties": 84
+      }
+    }
+  },
+  "headroom": {
+    "n": 96,
+    "mean": -0.028938213326477332,
+    "low": -0.07853081677094835,
+    "high": 0.021688444961471282,
+    "resamples": 2000,
+    "seed": 0,
+    "sd": 0.25161138493760793,
+    "label": "ceiling - selection",
+    "wins": 6,
+    "losses": 11,
+    "ties": 79
+  },
+  "required_n": {
+    "target_effect": 0.017,
+    "power": 0.8,
+    "n": 1720
+  },
+  "mean_treatment": 0.382093253968254,
+  "effect": {
+    "n": 96,
+    "mean": 0.00015735665406718438,
+    "low": -0.059012271841219203,
+    "high": 0.05851019411874676,
+    "resamples": 2000,
+    "seed": 0,
+    "sd": 0.29498615930806943,
+    "label": "treatment - selection",
+    "wins": 10,
+    "losses": 12,
+    "ties": 74
+  },
+  "verdict": "headroom_undetected: the no-compression reference is not demonstrably better than the same-budget selector at this sample size (headroom -0.0289, CI [-0.0785, +0.0217] covers 0), so neither a positive nor a zero headroom is established; check nonzero_rate/high_precision_rate and raise n before concluding",
+  "notes": []
+}
