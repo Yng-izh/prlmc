@@ -1,0 +1,113 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:02,  2.82it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:02,  2.62it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:01<00:01,  2.61it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  2.56it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:01,  2.45it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:02<00:00,  2.48it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  2.46it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:03<00:00,  2.58it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:03<00:00,  2.55it/s]
+We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:650: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `0` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+  warnings.warn(
+{"task": "hotpotqa", "sample": 97, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 66.94151351414621}
+{"task": "hotpotqa", "sample": 98, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 47.61313662538305}
+{"task": "hotpotqa", "sample": 99, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 34.65729008009657}
+{"task": "hotpotqa", "sample": 100, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 70.40831488277763}
+{"task": "hotpotqa", "sample": 101, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 2, "seconds": 74.27732841996476}
+{"task": "hotpotqa", "sample": 102, "total": 200, "f1_truncated": 0.5714285714285714, "compressions": 2, "seconds": 70.07403038907796}
+{"task": "hotpotqa", "sample": 103, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 53.670680336188525}
+{"task": "hotpotqa", "sample": 104, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 36.364208586048335}
+{"task": "hotpotqa", "sample": 105, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 67.91497901408002}
+{"task": "hotpotqa", "sample": 106, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 65.6274071726948}
+{"task": "hotpotqa", "sample": 107, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 66.73782637808472}
+{"task": "hotpotqa", "sample": 108, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 62.13604619214311}
+{"task": "hotpotqa", "sample": 109, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 74.61254074890167}
+{"task": "hotpotqa", "sample": 110, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 50.005315211601555}
+{"task": "hotpotqa", "sample": 111, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 77.47021238785237}
+{"task": "hotpotqa", "sample": 112, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 81.55616145115346}
+{"task": "hotpotqa", "sample": 113, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 66.20297834277153}
+{"task": "hotpotqa", "sample": 114, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 59.11335633136332}
+{"task": "hotpotqa", "sample": 115, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 9.409412755165249}
+{"task": "hotpotqa", "sample": 116, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 47.358731001615524}
+{"task": "hotpotqa", "sample": 117, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 49.487907791975886}
+{"task": "hotpotqa", "sample": 118, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 66.74418101925403}
+{"task": "hotpotqa", "sample": 119, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 42.616331374272704}
+{"task": "hotpotqa", "sample": 120, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 63.37019485607743}
+{"task": "hotpotqa", "sample": 121, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 11.239148733671755}
+{"task": "hotpotqa", "sample": 122, "total": 200, "f1_truncated": 0.5, "compressions": 0, "seconds": 20.407205067109317}
+{"task": "hotpotqa", "sample": 123, "total": 200, "f1_truncated": 0.11764705882352941, "compressions": 1, "seconds": 57.88138609007001}
+{"task": "hotpotqa", "sample": 124, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 56.433703540824354}
+{"task": "hotpotqa", "sample": 125, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 67.9503268157132}
+{"task": "hotpotqa", "sample": 126, "total": 200, "f1_truncated": 0.2857142857142857, "compressions": 0, "seconds": 48.978274574968964}
+{"task": "hotpotqa", "sample": 127, "total": 200, "f1_truncated": 0.5714285714285714, "compressions": 0, "seconds": 23.882472705096006}
+{"task": "hotpotqa", "sample": 128, "total": 200, "f1_truncated": 0.19047619047619047, "compressions": 0, "seconds": 40.83640256198123}
+{"task": "hotpotqa", "sample": 129, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 84.08800603216514}
+{"task": "hotpotqa", "sample": 130, "total": 200, "f1_truncated": 0.7058823529411765, "compressions": 0, "seconds": 8.955217874143273}
+{"task": "hotpotqa", "sample": 131, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 60.71833750419319}
+{"task": "hotpotqa", "sample": 132, "total": 200, "f1_truncated": 0.4, "compressions": 0, "seconds": 48.71534586092457}
+{"task": "hotpotqa", "sample": 133, "total": 200, "f1_truncated": 0.16666666666666666, "compressions": 1, "seconds": 69.76084858737886}
+{"task": "hotpotqa", "sample": 134, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 28.51654269779101}
+{"task": "hotpotqa", "sample": 135, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 71.53238285891712}
+{"task": "hotpotqa", "sample": 136, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 48.511829604860395}
+{"task": "hotpotqa", "sample": 137, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 21.178983001038432}
+{"task": "hotpotqa", "sample": 138, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 67.548870685976}
+{"task": "hotpotqa", "sample": 139, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 75.61180787393823}
+{"task": "hotpotqa", "sample": 140, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 71.90907377190888}
+{"task": "hotpotqa", "sample": 141, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 70.60927268490195}
+{"task": "hotpotqa", "sample": 142, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 76.55365904886276}
+{"task": "hotpotqa", "sample": 143, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 77.04866411490366}
+{"task": "hotpotqa", "sample": 144, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 61.979824516922235}
+{"task": "hotpotqa", "sample": 145, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 2, "seconds": 69.99284826591611}
+{"task": "hotpotqa", "sample": 146, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 68.19185343803838}
+{"task": "hotpotqa", "sample": 147, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 60.637084134854376}
+{"task": "hotpotqa", "sample": 148, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 53.01640902925283}
+{"task": "hotpotqa", "sample": 149, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 33.96762275509536}
+{"task": "hotpotqa", "sample": 150, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 61.62619810272008}
+{"task": "hotpotqa", "sample": 151, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 51.53696178505197}
+{"task": "hotpotqa", "sample": 152, "total": 200, "f1_truncated": 0.4, "compressions": 2, "seconds": 62.74052986269817}
+{"task": "hotpotqa", "sample": 153, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 61.931915268767625}
+{"task": "hotpotqa", "sample": 154, "total": 200, "f1_truncated": 1.0, "compressions": 1, "seconds": 58.36277158698067}
+{"task": "hotpotqa", "sample": 155, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 17.217938725836575}
+{"task": "hotpotqa", "sample": 156, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 0, "seconds": 19.902563225943595}
+{"task": "hotpotqa", "sample": 157, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 74.92026032088324}
+{"task": "hotpotqa", "sample": 158, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 2, "seconds": 80.04099605279043}
+{"task": "hotpotqa", "sample": 159, "total": 200, "f1_truncated": 0.1, "compressions": 0, "seconds": 47.95384339010343}
+{"task": "hotpotqa", "sample": 160, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 31.859774021897465}
+{"task": "hotpotqa", "sample": 161, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 47.65324300294742}
+{"task": "hotpotqa", "sample": 162, "total": 200, "f1_truncated": 0.09523809523809523, "compressions": 0, "seconds": 44.793231026269495}
+{"task": "hotpotqa", "sample": 163, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 42.632140337023884}
+{"task": "hotpotqa", "sample": 164, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 63.93391587398946}
+{"task": "hotpotqa", "sample": 165, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 68.57602508272976}
+{"task": "hotpotqa", "sample": 166, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 15.035606771241874}
+{"task": "hotpotqa", "sample": 167, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 65.91464621480554}
+{"task": "hotpotqa", "sample": 168, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 0, "seconds": 14.30037491535768}
+{"task": "hotpotqa", "sample": 169, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 63.14057670114562}
+{"task": "hotpotqa", "sample": 170, "total": 200, "f1_truncated": 0.8333333333333334, "compressions": 2, "seconds": 62.660907309968024}
+{"task": "hotpotqa", "sample": 171, "total": 200, "f1_truncated": 0.4, "compressions": 2, "seconds": 77.85442048916593}
+{"task": "hotpotqa", "sample": 172, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 69.55299147497863}
+{"task": "hotpotqa", "sample": 173, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 65.90627447981387}
+{"task": "hotpotqa", "sample": 174, "total": 200, "f1_truncated": 0.8, "compressions": 2, "seconds": 68.7082153041847}
+{"task": "hotpotqa", "sample": 175, "total": 200, "f1_truncated": 0.09090909090909091, "compressions": 1, "seconds": 56.726497596129775}
+{"task": "hotpotqa", "sample": 176, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 20.22456604614854}
+{"task": "hotpotqa", "sample": 177, "total": 200, "f1_truncated": 0.25, "compressions": 2, "seconds": 61.0270873401314}
+{"task": "hotpotqa", "sample": 178, "total": 200, "f1_truncated": 1.0, "compressions": 1, "seconds": 44.29632407100871}
+{"task": "hotpotqa", "sample": 179, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 21.413108287844807}
+{"task": "hotpotqa", "sample": 180, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 56.892683159094304}
+{"task": "hotpotqa", "sample": 181, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 58.64141017012298}
+{"task": "hotpotqa", "sample": 182, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 20.121101265773177}
+{"task": "hotpotqa", "sample": 183, "total": 200, "f1_truncated": 0.3333333333333333, "compressions": 0, "seconds": 40.77503083599731}
+{"task": "hotpotqa", "sample": 184, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 44.32039118511602}
+{"task": "hotpotqa", "sample": 185, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 45.34807374328375}
+{"task": "hotpotqa", "sample": 186, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 59.595213301014155}
+{"task": "hotpotqa", "sample": 187, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 69.99350313376635}
+{"task": "hotpotqa", "sample": 188, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 24.976661691907793}
+{"task": "hotpotqa", "sample": 189, "total": 200, "f1_truncated": 0.08695652173913043, "compressions": 0, "seconds": 30.890177548862994}
+{"task": "hotpotqa", "sample": 190, "total": 200, "f1_truncated": 0.0, "compressions": 2, "seconds": 68.97101212199777}
+{"task": "hotpotqa", "sample": 191, "total": 200, "f1_truncated": 1.0, "compressions": 2, "seconds": 61.01701942505315}
+{"task": "hotpotqa", "sample": 192, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 14.906276086810976}
+{"task": "hotpotqa", "sample": 193, "total": 200, "f1_truncated": 0.8, "compressions": 0, "seconds": 40.690133379772305}
+{"task": "hotpotqa", "sample": 194, "total": 200, "f1_truncated": 1.0, "compressions": 0, "seconds": 21.22426768997684}
+{"task": "hotpotqa", "sample": 195, "total": 200, "f1_truncated": 0.5, "compressions": 2, "seconds": 60.03899222239852}
+{"task": "hotpotqa", "sample": 196, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 36.87711216788739}
+{"task": "hotpotqa", "sample": 197, "total": 200, "f1_truncated": 0.0, "compressions": 1, "seconds": 61.892542068846524}
+{"task": "hotpotqa", "sample": 198, "total": 200, "f1_truncated": 0.6666666666666666, "compressions": 0, "seconds": 16.37964336294681}
+{"task": "hotpotqa", "sample": 199, "total": 200, "f1_truncated": 0.5714285714285714, "compressions": 2, "seconds": 63.73475680220872}
+{"task": "hotpotqa", "sample": 200, "total": 200, "f1_truncated": 0.0, "compressions": 0, "seconds": 23.17321346933022}
