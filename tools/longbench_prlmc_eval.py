@@ -164,6 +164,7 @@ FULL_ARM = "Full"
 # identity differs in any of them (a mixed restart already produced 2 bogus
 # samples in the v4 16k g7 run).
 IDENTITY_KEYS = ("arm", "checkpoint", "checkpoint_sha256", "architecture", "variant",
+                 "fusion_mode",
                  "total_tokens", "tail_tokens", "budget_blocks", "window_blocks",
                  "target_blocks", "trigger_blocks", "select_layer", "reference_layer",
                  "critical_source_manifest", "code_hash_verified")
@@ -321,6 +322,8 @@ def current_identity(args, saved, geometry, checkpoint_sha256, code_hash_verifie
                 checkpoint_sha256=checkpoint_sha256,
                 architecture=(None if args.arm == FULL_ARM
                               else resolve_architecture(saved, default=ARCHITECTURE)),
+                fusion_mode=(None if args.arm == FULL_ARM
+                             else getattr(args, "fusion_mode", "sealed")),
                 variant=(saved or {}).get("variant"),
                 total_tokens=args.total_tokens, tail_tokens=args.tail_tokens,
                 budget_blocks=budget_blocks,
@@ -427,6 +430,7 @@ def protocol_record(args, tasks, saved, geometry):
                       else METHOD) if args.checkpoint else "PRLM-C Selection"),
         variant=saved.get("variant") if saved else None,
         architecture=resolve_architecture(saved, default=ARCHITECTURE),
+        fusion_mode=getattr(args, "fusion_mode", "sealed"),
         capacity=f"managed_{args.budget_blocks}_block_budget",
         budget_blocks=args.budget_blocks,
         window_blocks=window_blocks, target_blocks=target_blocks,
@@ -642,7 +646,7 @@ def evaluate(args):
         MODEL_PATH, checkpoint=args.checkpoint, train=False,
         architecture=None,
         budget_blocks=args.budget_blocks,
-        strict_code_hash=args.strict_code_hash)
+        strict_code_hash=args.strict_code_hash, fusion_mode=args.fusion_mode)
     tokenizer.pad_token = tokenizer.eos_token
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
@@ -814,6 +818,13 @@ def build_parser():
     p.add_argument("--checkpoint", default=None,
                    help="trained Dsup/Dnative checkpoint; required for --arm SharedMerge, "
                         "unused for --arm Selection")
+    p.add_argument("--fusion-mode", dest="fusion_mode",
+                   choices=("sealed", "block_ortho"), default="sealed",
+                   help="Part-1 inference refinements on the v7 lineage: "
+                        "block_ortho enables block-coherent routing + the "
+                        "orthogonal fact write (no retraining, no new "
+                        "parameters, identical state dict); sealed keeps the "
+                        "checkpoint-exact operator")
     p.add_argument("--arm", default="SharedMerge",
                    choices=("SharedMerge", "Selection", "Consolidate", FULL_ARM),
                    help="SharedMerge = trained Dsup residual merge (our method); "

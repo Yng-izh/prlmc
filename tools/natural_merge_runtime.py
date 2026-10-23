@@ -356,7 +356,7 @@ def v7_merge_classes():
             "grouped_gated_sparse_native_v7": NativeSkipSlotMergeV7}
 
 
-def build_merge(architecture, num_layers, hidden, block):
+def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed"):
     from methods.prlmc.merge import SharedMemoryMerge
     from methods.prlmc.slot_merge import SlotMemoryMerge
     from methods.prlmc.gated_slot_merge import (BudgetedSlotMemoryMerge, GraftedSlotMemoryMerge,
@@ -384,6 +384,16 @@ def build_merge(architecture, num_layers, hidden, block):
                 "v7 merge classes are unavailable in this checkout; the v7 "
                 "architecture patch must land before a v7 checkpoint can load"
             ) from error
+    if fusion_mode == "block_ortho":
+        # Part-1 inference refinements (block-coherent routing + orthogonal
+        # write): subclass outside the sealed operator files, identical state
+        # dict, so a v7 checkpoint loads strictly with no conversion.
+        from methods.prlmc.ortho_slot_merge import ORTHO_MERGE_CLASSES
+        if architecture not in ORTHO_MERGE_CLASSES:
+            raise ValueError(f"fusion_mode=block_ortho requires a v7 architecture, got {architecture!r}")
+        classes.update(ORTHO_MERGE_CLASSES)
+    elif fusion_mode != "sealed":
+        raise ValueError(f"unknown fusion_mode {fusion_mode!r}")
     if architecture not in classes:
         raise ValueError("unknown shared merge architecture")
     kwargs = dict(rank=32, gamma_max=.05)
@@ -526,7 +536,7 @@ def load_merge_state(merge, saved, architecture, strict_code_hash=True):
 
 def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
                  budget_blocks=20, strict_code_hash=True, window_blocks=None,
-                 target_blocks=None):
+                 target_blocks=None, fusion_mode="sealed"):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -565,7 +575,8 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
     cfg.update(window_blocks=geometry[0], target_blocks=geometry[1])
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True) if checkpoint else None
     architecture = resolve_architecture(saved, architecture)
-    merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block).to("cuda:0")
+    merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block,
+                        fusion_mode=fusion_mode).to("cuda:0")
     if checkpoint:
         check_similarity_margin(saved, merge)
         verified = load_merge_state(merge, saved, architecture, strict_code_hash=strict_code_hash)
