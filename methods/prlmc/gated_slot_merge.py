@@ -347,7 +347,7 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         # Learned view: a bounded residual projection of those same slots.
         query = _l2(self.q(q_nat))
         keys = _l2(self.k(k_nat))
-        prefix = int(getattr(self, "prefix_slots", 4))
+        prefix = int(getattr(self, "prefix_slots", 0))
         if 0 < prefix < self.block:
             # True marks the leading "Context:" prefix slots of each block:
             # they carry template text, not content, and must never be fused.
@@ -544,7 +544,7 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         k_nat = _l2(fusion[self.reference_layer].detach().float().flatten(0, 1))
         query = _l2(self.q(q_nat))
         keys = _l2(self.k(k_nat))
-        prefix = int(getattr(self, "prefix_slots", 4))
+        prefix = int(getattr(self, "prefix_slots", 0))
         if 0 < prefix < self.block:
             self._key_mask = (torch.arange(keys.shape[0], device=keys.device)
                               % self.block) < prefix

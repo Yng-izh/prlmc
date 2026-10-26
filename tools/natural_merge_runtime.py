@@ -32,6 +32,8 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "tools/natural_merge_v4_training_fit.py", "tools/run_natural_merge_v4.py",
     "tools/summarize_natural_merge_v4.py",
     "tools/prepare_natural_merge_v7.py", "tools/natural_merge_v7_train.py",
+    "tools/prepare_natural_merge_v8.py", "tools/natural_merge_v8_train.py",
+    "tools/natural_merge_v8_objective.py", "tools/prepare_hotpotqa_v8.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
 
@@ -423,8 +425,12 @@ def training_for(architecture):
         from prepare_natural_merge_v6 import TRAIN_V6 as training
         return training
     if architecture.endswith("_v7"):
-        from prepare_natural_merge_v7 import TRAIN_V7 as training
-        return training
+        # v8 checkpoints keep the v7 architecture names but carry the v8 plan
+        # schema; their training record must deep-equal the TRAIN_V8 record
+        # rebuilt deterministically from the sealed v7 plan + hotpot episodes,
+        # not the sealed TRAIN_V7.
+        from prepare_natural_merge_v8 import ensure_train_v8
+        return ensure_train_v8()
     return None
 
 
