@@ -227,6 +227,12 @@ def fit_width(block: torch.Tensor, width: int) -> torch.Tensor:
 class ProtectedResidualMemory:
     """Owns the pool partition, the write path, and capacity-triggered compaction."""
 
+    # v9 write-once lock defaults; the tensor itself is created lazily by
+    # `_fused_flags`, which keeps every existing construction path intact.
+    slot_fused = None
+    archive_fraction = .5
+    archive_max_blocks = 3
+
     def __init__(self, model, tokenizer, config: PRLMCConfig):
         self.model = model
         self.tokenizer = tokenizer
@@ -411,6 +417,63 @@ class ProtectedResidualMemory:
         self._block_ages[-appended:] = 0
         self.age_append_events += 1
 
+    # -- v9 write-once lock (M4) --------------------------------------------
+    #
+    # `slot_fused` marks physical slots that already accepted a high-amplitude
+    # bridge write. They are read-only for every later compaction, and a block
+    # mostly made of them becomes an archive: pinned into the carrier set rather
+    # than sampled by the 19->9 selector. `slot_fused` is not a buffer (it is
+    # structural state, not a learned tensor) but `snapshot`/`restore` do carry
+    # it, so an episode reset or a rolled-back compaction cannot leak a lock
+    # from one history into the next.
+
+    def _fused_flags(self) -> torch.Tensor:
+        if self.slot_fused is None or self.slot_fused.numel() != self.total:
+            self.slot_fused = torch.zeros(self.total, dtype=torch.bool,
+                                          device=self._memory.device)
+        return self.slot_fused
+
+    def fused_window(self, start: int, window: int):
+        """Per-slot freeze mask and archive-pinned blocks of one window."""
+        block = self.block
+        frozen = self._fused_flags()[start:start + window].clone()
+        per_block = frozen.view(-1, block).float().mean(-1)
+        pinned = torch.nonzero(per_block >= self.archive_fraction).flatten().tolist()
+        return frozen, [int(i) for i in pinned if i < window // block][:self.archive_max_blocks]
+
+    def mark_fused_slots(self, offsets, base: int = 0) -> int:
+        """Freeze the candidate slots that just received a bridge write."""
+        if not offsets:
+            return 0
+        flags = self._fused_flags()
+        index = torch.as_tensor([base + int(o) for o in offsets],
+                                device=flags.device, dtype=torch.long)
+        index = index[(index >= 0) & (index < self.total)]
+        flags[index] = True
+        return int(index.numel())
+
+    def remap_fused(self, start, window, target, new_start, selected, used_before) -> None:
+        """Move the freeze flags with the content they belong to.
+
+        Compaction removes `window - target` slots, so everything moves
+        right-to-left. The surviving carriers inherit the flags of the blocks
+        they were built from, the uncompressed tail keeps its own, and the
+        vacated front of the pool is zeroed.
+        """
+        block = self.block
+        flags = self._fused_flags()
+        window_flags = flags[start:start + window].clone()
+        # The resident region is [start, total), so the tail runs to `total`;
+        # slicing to the *length* `used_before` dropped every tail flag.
+        tail = flags[start + window:self.total].clone()
+        fresh = torch.zeros_like(flags)
+        if selected is not None:
+            kept = window_flags.view(-1, block)[torch.as_tensor(selected, device=flags.device)]
+            fresh[new_start:new_start + target] = kept.reshape(-1)
+        if tail.numel():
+            fresh[new_start + target:new_start + target + tail.numel()] = tail
+        flags.copy_(fresh)
+
     def note_merge(
         self,
         selected_blocks,
@@ -559,6 +622,7 @@ class ProtectedResidualMemory:
             "trigger_armed": self.trigger.armed,
             "trigger_updates": self.trigger.update_count,
             "block_ages": self._block_ages.clone(),
+            "slot_fused": None if self.slot_fused is None else self.slot_fused.clone(),
         }
 
     def restore(self, state: Dict[str, Any]) -> None:
@@ -585,6 +649,11 @@ class ProtectedResidualMemory:
         # that restored the slots but kept the post-compaction ages would
         # describe a generation layout that no longer exists (R-07).
         self._block_ages.copy_(state["block_ages"])
+        # The lock is pool state too: a restored pool must not inherit a lock
+        # that belongs to a history the rollback discarded (and an episode reset
+        # must start unlocked).
+        saved_fused = state.get("slot_fused")
+        self.slot_fused = None if saved_fused is None else saved_fused.clone()
         # `used` came back from the snapshot, so the published mask describes a
         # rolled-back pool until this runs. The cache key is dropped rather than
         # compared, because the restore may return to a width the mask already

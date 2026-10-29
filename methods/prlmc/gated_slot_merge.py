@@ -315,7 +315,9 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         if target >= source.shape[1]:
             return source.contiguous()
         count = source.shape[1] // block
-        index = (_select_block_indices(source, target, block, weights, goal_direction, select_weights)
+        index = (_select_block_indices(source, target, block, weights, goal_direction, select_weights,
+                                       pinned=getattr(self, "pinned_blocks", None),
+                                       bridge_blocks=int(getattr(self, "bridge_blocks", 0)))
                  if carrier_indices is None else torch.as_tensor(carrier_indices, device=source.device, dtype=torch.long))
         if (index.ndim != 1 or index.numel() != target // block or index.unique().numel() != index.numel()
                 or (index < 0).any() or (index >= count).any() or not torch.equal(index, index.sort().values)):
@@ -344,6 +346,12 @@ class GraftedSlotMemoryMerge(BudgetedSlotMemoryMerge):
         # Native view: the pretrained 4096-D slots themselves.
         q_nat = _l2(carriers[self.reference_layer].detach().float().flatten(0, 1))
         k_nat = _l2(fusion[self.reference_layer].detach().float().flatten(0, 1))
+        # v9 hook: a subclass may smooth the *routing* key only (the value
+        # branch below still reads the original slots). Applied before the
+        # balance prior so the correction sees the keys routing will use.
+        _route = getattr(self, "_route_keys", None)
+        if _route is not None:
+            k_nat = _route(k_nat)
         # Learned view: a bounded residual projection of those same slots.
         query = _l2(self.q(q_nat))
         keys = _l2(self.k(k_nat))
@@ -514,7 +522,9 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         if target >= source.shape[1]:
             return source.contiguous()
         count = source.shape[1] // block
-        index = (_select_block_indices(source, target, block, weights, goal_direction, select_weights)
+        index = (_select_block_indices(source, target, block, weights, goal_direction, select_weights,
+                                       pinned=getattr(self, "pinned_blocks", None),
+                                       bridge_blocks=int(getattr(self, "bridge_blocks", 0)))
                  if carrier_indices is None else torch.as_tensor(carrier_indices, device=source.device, dtype=torch.long))
         if (index.ndim != 1 or index.numel() != target // block or index.unique().numel() != index.numel()
                 or (index < 0).any() or (index >= count).any() or not torch.equal(index, index.sort().values)):
@@ -542,6 +552,12 @@ class GraftedSlotMemoryMergeV6(GraftedSlotMemoryMerge):
         fusion = blocks.index_select(1, source_indices)
         q_nat = _l2(carriers[self.reference_layer].detach().float().flatten(0, 1))
         k_nat = _l2(fusion[self.reference_layer].detach().float().flatten(0, 1))
+        # v9 hook: a subclass may smooth the *routing* key only (the value
+        # branch below still reads the original slots). Applied before the
+        # balance prior so the correction sees the keys routing will use.
+        _route = getattr(self, "_route_keys", None)
+        if _route is not None:
+            k_nat = _route(k_nat)
         query = _l2(self.q(q_nat))
         keys = _l2(self.k(k_nat))
         prefix = int(getattr(self, "prefix_slots", 0))

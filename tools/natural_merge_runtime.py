@@ -33,6 +33,8 @@ SOURCE_FILES = ["configs/agent_conf/prlmc_e6.yaml", "methods/prlmc/config.py",
     "tools/summarize_natural_merge_v4.py",
     "tools/prepare_natural_merge_v7.py", "tools/natural_merge_v7_train.py",
     "tools/prepare_natural_merge_v8.py", "tools/natural_merge_v8_train.py",
+    "tools/prepare_natural_merge_v9.py", "tools/natural_merge_v9_objective.py",
+    "tools/natural_merge_v9_train.py",
     "tools/natural_merge_v8_objective.py", "tools/prepare_hotpotqa_v8.py",
     "methods/memoryllm_modeling/modeling_memoryllm.py"]
 
@@ -192,14 +194,28 @@ class MergeStream(StreamingMemory):
 
     def compact(self, write_index):
         import torch
-        from methods.prlmc.consolidate import _select_block_indices
+        from methods.prlmc.consolidate import _select_block_indices, select_bridge_aware
         m = self.m
         start = m.total - m.used
         source = m._memory[:, start:start+self.window].contiguous()
         weights = m._window_importance(start, self.window)
         ages = m.window_block_ages(start, self.window)
-        selected = _select_block_indices(source, self.target, m.block, weights, None, m.select_weights,
-                                         block_ages=ages)
+        # v9: freeze mask + archive pinning for exactly this window, then the
+        # two-stage anchor-bridge selection when the operator asks for it.
+        if hasattr(m, "fused_window"):
+            frozen, pinned = m.fused_window(start, self.window)
+            m.pinned_blocks = pinned
+        else:  # lighter managers used by the CPU contracts carry no lock
+            frozen, pinned = None, None
+        bridge = int(getattr(self.compactor, "bridge_blocks", 0))
+        if bridge or pinned:
+            picked = select_bridge_aware(source, self.target, m.block, weights, None,
+                                         m.select_weights, block_ages=ages,
+                                         pinned=pinned, bridge_blocks=bridge)
+            selected = torch.as_tensor(picked["index"], device=source.device, dtype=torch.long)
+        else:
+            selected = _select_block_indices(source, self.target, m.block, weights, None,
+                                             m.select_weights, block_ages=ages)
         if self.carrier_schedule is not None:
             if len(self.events) >= len(self.carrier_schedule):
                 raise ValueError("replayed carrier schedule ended early")
@@ -213,9 +229,14 @@ class MergeStream(StreamingMemory):
             if self.merge_arm == "CarrierOnlyFusion":
                 allow.zero_(); allow[selected] = True
             begun = time.monotonic()
+            # Only the v9 operator declares `bridge_blocks`; every sealed
+            # operator keeps its exact call signature here.
+            v9_kwargs = (dict(frozen_slots=frozen, pinned_blocks=pinned)
+                         if getattr(self.compactor, "bridge_blocks", None) is not None else {})
             output = self.compactor(source, target=self.target, block=m.block,
-                carrier_indices=selected, source_allow_mask=allow).to(m.dtype)
-            install(m, output, self.window, selected_blocks=selected)
+                carrier_indices=selected, source_allow_mask=allow, **v9_kwargs).to(m.dtype)
+            install(m, output, self.window, selected_blocks=selected,
+                    fused_offsets=getattr(self.compactor, "last_fusion", {}).get("bridge_slot_offsets"))
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
                 selected_block_ages=ages[selected].cpu().tolist(),
@@ -256,7 +277,7 @@ class MergeStream(StreamingMemory):
             self.on_compression("after", write_index, selected)
 
 
-def install(manager, candidate, window, selected_blocks=None):
+def install(manager, candidate, window, selected_blocks=None, fused_offsets=None):
     """Same suffix placement for inference, training and causal ablation.
 
     `selected_blocks` are the window-relative native blocks whose content the
@@ -289,6 +310,13 @@ def install(manager, candidate, window, selected_blocks=None):
             target_blocks=target // m.block,
             used_before=used_before,
         )
+    # v9 M4: every install moves the pool, so the write-once flags move here --
+    # the one place inference, training and ablation all pass through. Then the
+    # bridge slots that just took a high-amplitude write are frozen for good.
+    if hasattr(m, "remap_fused"):
+        new_start = m.total - (used_before - window + target)
+        m.remap_fused(start, window, target, new_start, selected_blocks, used_before)
+        m.mark_fused_slots(fused_offsets or [], base=new_start)
 
 
 @contextmanager
@@ -342,6 +370,13 @@ def native_write(model, record, index):
 
 
 V7_ARCHITECTURES = ("grouped_gated_sparse_slot_v7", "grouped_gated_sparse_native_v7")
+V9_ARCHITECTURES = ("grouped_gated_sparse_native_v9",)
+
+
+def v9_merge_classes():
+    """Resolve the v9 class at call time (M1-M4 of the v9 architecture patch)."""
+    from methods.prlmc.native_skip_merge import NativeSkipSlotMergeV9
+    return {"grouped_gated_sparse_native_v9": NativeSkipSlotMergeV9}
 
 
 def v7_merge_classes():
@@ -386,6 +421,8 @@ def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed"):
                 "v7 merge classes are unavailable in this checkout; the v7 "
                 "architecture patch must land before a v7 checkpoint can load"
             ) from error
+    if architecture in V9_ARCHITECTURES:
+        classes.update(v9_merge_classes())
     if fusion_mode == "block_ortho":
         # Part-1 inference refinements (block-coherent routing + orthogonal
         # write): subclass outside the sealed operator files, identical state
@@ -406,7 +443,17 @@ def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed"):
                       global_rms_budget=training["global_rms_budget"])
         if architecture != "budgeted_dense_slot_v3":
             kwargs.update(num_groups=spec["groups"], reference_layer=spec["reference_layer"], topk=spec["topk"])
-        if architecture.endswith(("_v5", "_v6", "_v7")):
+        if architecture.endswith("_v9"):
+            kwargs.update(top_sharp=spec.get("top_sharp", 1),
+                          route_temperature_sharp=spec.get("route_temperature_sharp", .1),
+                          bridge_fraction=spec.get("bridge_fraction", .156),
+                          bridge_gamma_max=spec.get("bridge_gamma_max", .6),
+                          significance_affinity_weight=spec.get("significance_affinity_weight", .5),
+                          ngram_kernel=tuple(training.get("ngram_kernel", (.25, .5, .25))),
+                          bridge_blocks=int(training.get("bridge_blocks", 3)),
+                          native_init=float(training.get("native_init", 0.)),
+                          global_rms_budget=training["global_rms_budget"])
+        if architecture.endswith(("_v5", "_v6", "_v7", "_v9")):
             kwargs.update(native_prior_weight=training["native_prior_weight"],
                           route_mix_temperature=training["route_mix_temperature"],
                           balance_strength=training["balance_strength"])
@@ -423,6 +470,9 @@ def training_for(architecture):
         return training
     if architecture.endswith("_v6"):
         from prepare_natural_merge_v6 import TRAIN_V6 as training
+        return training
+    if architecture.endswith("_v9"):
+        from prepare_natural_merge_v9 import TRAIN_V9 as training
         return training
     if architecture.endswith("_v7"):
         # v8 checkpoints keep the v7 architecture names but carry the v8 plan

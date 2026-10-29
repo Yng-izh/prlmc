@@ -176,6 +176,7 @@ def _greedy_diverse(
     diversity_weight: float,
     group: Optional[torch.Tensor] = None,
     group_cap: Optional[int] = None,
+    available: Optional[torch.Tensor] = None,
 ) -> list:
     """Pick `count` indices, trading score against max-min distance from the picks.
 
@@ -199,7 +200,11 @@ def _greedy_diverse(
     """
     n = score.numel()
     count = max(1, min(count, n))
-    available = torch.ones(n, dtype=torch.bool, device=score.device)
+    # `available=None` is the sealed path: every seat is open. A caller that
+    # has already spent seats (pinned archive blocks) masks them out here, so the
+    # max-min loop never picks a block that is already a carrier.
+    available = (torch.ones(n, dtype=torch.bool, device=score.device)
+                 if available is None else available.clone())
     nearest = torch.ones(n, device=score.device, dtype=score.dtype)
     chosen = []
     quota = group is not None and group_cap is not None
@@ -222,6 +227,156 @@ def _greedy_diverse(
         nearest = torch.minimum(nearest, distance.clamp_min(0.0))
 
     return sorted(chosen)
+
+def _ngram_smooth(x: torch.Tensor, block: int, kernel=(.25, .5, .25)) -> torch.Tensor:
+    """Per-block 1-D local pooling over slots; every row is re-normalised.
+
+    `x` is [blocks*block, hidden] in slot order. A routing key then carries the
+    predicate context around an entity instead of the bare entity token, and the
+    kernel never crosses a native block boundary: both neighbours come from the
+    same block, and the block edges replicate. No parameters -- the kernel is
+    fixed and the value branch reads the original slots untouched.
+    """
+    weight = torch.as_tensor(kernel, device=x.device, dtype=x.dtype).flatten()
+    if weight.numel() < 2 or weight.numel() % 2 == 0:
+        return x
+    if block <= 0 or x.shape[0] % block:
+        raise ValueError("slot rows must be a whole number of native blocks")
+    half = weight.numel() // 2
+    hidden = x.shape[-1]
+    rows = x.view(-1, block, hidden).transpose(1, 2)              # [B, hidden, block]
+    padded = torch.nn.functional.pad(rows, (half, half), mode="replicate")
+    conv = torch.nn.functional.conv1d(
+        padded, weight.view(1, 1, -1).expand(hidden, 1, weight.numel()).contiguous(),
+        groups=hidden)                                            # [B, hidden, block]
+    out = conv.transpose(1, 2).reshape(-1, hidden).to(x.dtype)
+    return out / (out.norm(dim=-1, keepdim=True) + _EPS)
+
+
+def select_bridge_aware(
+    source: torch.Tensor,
+    target: int,
+    block: int,
+    weights: Optional[torch.Tensor] = None,
+    goal_direction: Optional[torch.Tensor] = None,
+    select_weights: Optional[dict] = None,
+    block_ages: Optional[torch.Tensor] = None,
+    age_decay: float = 0.75,
+    max_old_ratio: float = 0.45,
+    pinned=None,
+    bridge_blocks: int = 0,
+    bridge_kernel=(.25, .5, .25),
+    duplicate_threshold: float = .85,
+) -> dict:
+    """Two-stage anchor-bridge carrier selection (v9 M3).
+
+    Stage 1 spends `b_out - bridge_blocks - len(pinned)` seats on the sealed
+    scorer (importance + recency + goal) with the generational quota unchanged.
+
+    Stage 2 spends the remaining seats on *bridge* blocks: for every unselected
+    block it takes the maximum slot-level cosine to an anchor slot at layer 16,
+    after the 3-gram smoothing. That is the "shares a bridge entity with a
+    first-hop block, the rest of the block is new" signal the static scorer
+    cannot see. Pure duplicates stay rejected: when a block's whole-block mean
+    cosine to an anchor exceeds `duplicate_threshold`, its bridge score is
+    multiplied down by `(1 - mean)`. Stage 2 also honours the same old-generation
+    cap as stage 1, so it is not a side door around the v7 C1 contract.
+
+    `index` comes back sorted ascending, so the window keeps its temporal order.
+    """
+    layers, k, d = source.shape
+    if k % block or target % block:
+        raise ValueError("block-aligned window/target required")
+    b, b_out = k // block, target // block
+    if b_out >= b:
+        return dict(index=list(range(b)), anchors=[], bridges=[], bridge_priority=[])
+    pin = [int(i) for i in ([] if pinned is None else pinned)]
+    if len(set(pin)) != len(pin) or any(not 0 <= i < b for i in pin):
+        raise ValueError("pinned blocks must be unique in-window indices")
+    if len(pin) > b_out:
+        raise ValueError("pinned blocks exceed the carrier budget")
+    seats = b_out - len(pin)
+    take_bridge = min(max(0, int(bridge_blocks)), max(0, seats - 1))
+    anchor_seats = max(1, seats - take_bridge)
+
+    cfg = dict(_DEFAULT_SELECT_WEIGHTS)
+    if select_weights:
+        for key, value in select_weights.items():
+            if key in cfg:
+                cfg[key] = float(value)
+
+    x = source.view(layers, b, block, d)
+    ref = x[min(_SELECT_LAYER, layers - 1)].detach().to(torch.float32)   # [b, block, d]
+    summary = ref.mean(dim=1)
+    if weights is not None and weights.numel() == k:
+        importance = weights.detach().to(torch.float32).view(b, block).mean(dim=1)
+    else:
+        importance = (summary - summary.mean(dim=0, keepdim=True)).norm(dim=-1)
+    importance = _unit(importance)
+    recency = _unit(torch.arange(b, device=source.device, dtype=torch.float32))
+    if goal_direction is not None and goal_direction.numel() > 0:
+        direction = goal_direction.detach().to(torch.float32).flatten().to(source.device)
+        direction = direction / (direction.norm() + _EPS)
+        normed = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
+        goal = ((normed @ direction).clamp(-1.0, 1.0) + 1.0) / 2.0
+    else:
+        goal = torch.zeros(b, device=source.device, dtype=torch.float32)
+    score = cfg["importance"] * importance + cfg["recency"] * recency + cfg["goal"] * goal
+
+    ages = None if block_ages is None else _block_age_vector(block_ages, b, block, source)
+    generational = ages is not None and bool((ages > 0).any())
+    if generational:
+        score = score * torch.pow(
+            torch.as_tensor(float(age_decay), device=source.device, dtype=torch.float32),
+            ages.to(torch.float32))
+    old_cap = (max(0, min(b_out, int(math.floor(b_out * float(max_old_ratio)))))
+               if generational else None)
+    unit_summary = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
+    available = torch.ones(b, dtype=torch.bool, device=source.device)
+    if pin:
+        available[torch.tensor(pin, device=source.device)] = False
+    anchors = _greedy_diverse(
+        score, unit_summary, anchor_seats, cfg["diversity"],
+        group=(ages > 0) if generational else None, group_cap=old_cap, available=available)
+    chosen = sorted(set(pin) | {int(i) for i in anchors})
+
+    bridges, priority = [], []
+    take = b_out - len(chosen)
+    if take > 0:
+        keys = _ngram_smooth(ref.reshape(-1, d), block, bridge_kernel).view(b, block, d)
+        anchor_rows = keys[torch.tensor(chosen, device=keys.device)].reshape(-1, d)
+        slot_bridge = (keys.reshape(b, -1, d) @ anchor_rows.T).amax(-1)   # [b, block]
+        block_bridge = slot_bridge.amax(-1)
+        means = summary / (summary.norm(dim=-1, keepdim=True) + _EPS)
+        dup = (means @ means[torch.tensor(chosen, device=means.device)].T).clamp(0., 1.).amax(-1)
+        block_bridge = torch.where(dup > duplicate_threshold,
+                                   block_bridge * (1. - dup), block_bridge)
+        blocked = torch.zeros(b, dtype=torch.bool, device=source.device)
+        blocked[torch.tensor(chosen, device=source.device)] = True
+        ranked = block_bridge.masked_fill(blocked, float("-inf"))
+        k_take = min(take, int((~blocked).sum()))
+        if k_take > 0:
+            bridges = sorted(int(i) for i in ranked.topk(k_take).indices)
+            priority = [int(i) for i in torch.argsort(block_bridge, descending=True)
+                        if not bool(blocked[i]) and int(i) not in set(bridges)]
+        if generational and old_cap is not None and bridges:
+            # v7 C1: at most `old_cap` seats go to old blocks. An old bridge block
+            # is swapped for the next young candidate in priority order.
+            old_taken = int((ages[torch.tensor(chosen + bridges)] > 0).sum())
+            if old_taken > old_cap:
+                young = [i for i in priority if int(ages[i]) == 0]
+                keep_bridge = [b_ for b_ in bridges if int(ages[b_]) == 0]
+                need = len(bridges) - len(keep_bridge)
+                bridges = sorted(keep_bridge + young[:need])
+    index = sorted(set(chosen) | set(bridges))
+    if len(index) != b_out:
+        for i in torch.argsort(score, descending=True).tolist():
+            if int(i) not in set(index):
+                index.append(int(i))
+            if len(index) == b_out:
+                break
+        index = sorted(index)
+    return dict(index=index, anchors=chosen, bridges=bridges, bridge_priority=priority)
 
 
 def _block_age_vector(
@@ -256,6 +411,8 @@ def _select_block_indices(
     block_ages: Optional[torch.Tensor] = None,
     age_decay: float = 0.75,
     max_old_ratio: float = 0.45,
+    pinned=None,
+    bridge_blocks: int = 0,
 ) -> torch.Tensor:
     """Return the indices of the `target // block` blocks that survive selection.
 
@@ -295,6 +452,15 @@ def _select_block_indices(
     b_out = target // block
     if b_out >= b:
         return torch.arange(b, device=source.device, dtype=torch.long)
+    if pinned or bridge_blocks:
+        # v9 M3: the two-stage selector replaces the flat scorer here, so every
+        # caller (streaming compaction and the supervised event) agrees on
+        # carriers. Both flags default off, keeping the sealed path bit-identical.
+        return torch.tensor(
+            select_bridge_aware(source, target, block, weights, goal_direction, select_weights,
+                                block_ages, age_decay, max_old_ratio,
+                                pinned=pinned, bridge_blocks=bridge_blocks)["index"],
+            device=source.device, dtype=torch.long)
 
     ages = None if block_ages is None else _block_age_vector(block_ages, b, block, source)
     generational = ages is not None and bool((ages > 0).any())
