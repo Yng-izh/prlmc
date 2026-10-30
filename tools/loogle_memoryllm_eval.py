@@ -26,6 +26,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 from longbench_memoryllm_eval import (  # noqa: E402
     atomic_json, digest, native_write, reset_model, seed_everything, sha,

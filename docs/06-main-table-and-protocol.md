@@ -8,7 +8,7 @@ Table 1. Performance under a Unified Historical Memory Budget
 
 | Method | LongBench 6-QA F1 | LooGLE Short / Long QA | InfiniteBench En.QA / En.MC | LongBench v2 Medium Acc |
 | --- | --- | --- | --- | --- |
-| MemoryLLM-8B | 待测 | 待测 | 待测 | **18.7** |
+| MemoryLLM-8B | **26.60** | **11.53 / 15.45** | 待测 | **18.7** |
 | M+ | 待测 | 待测 | 待测 | 待测 |
 | StreamingLLM | 待测 | 待测 | 待测 | 待测 |
 | KIVI | 待测 | 待测 | 待测 | 待测 |
@@ -17,6 +17,12 @@ Table 1. Performance under a Unified Historical Memory Budget
 
 定位：LongBench 6-QA 为常规能力对照；LooGLE、InfiniteBench、LongBench v2 为超预算、多轮融合的主验证。
 各 benchmark 的单项任务分数进详细表，不做跨任务宏平均。
+
+数据来源记录（MemoryLLM-8B 行）：
+
+- LongBench 6-QA：hotpotqa 200 / 2wikimqa 200 / musique 200 / qasper 200 / narrativeqa 200 / multifieldqa_en 150 共 1150 题，8k 输入、native 50-block、官方 prompt、截断后 token F1；宏平均 26.60。逐任务见 `reports/main_table/native_lb6qa_8k/`。
+- LooGLE：shortdep_qa 1951 题单次跑完；longdep_qa 1101 题中前 782 题来自单卡运行，中断后剩余 246 题按字符数均衡切分到两张卡补跑，合并结果见 `reports/main_table/native_loogle_128k_longdep_qa_merged.json`（内含 `merge_note` 标注拼接区间）。
+- 已知缺陷：`native_loogle_128k_shortdep_qa.json` 内的 `summary.rouge_l_recall`(=9.22) 与逐样本均值(=11.53)不一致，表中采用逐样本均值，该 summary 字段待修。
 
 ### 1.1 Baseline 定位与竞争强度（冻结）
 
