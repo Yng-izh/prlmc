@@ -10,13 +10,25 @@ Table 1. Performance under a Unified Historical Memory Budget
 | --- | --- | --- | --- | --- |
 | MemoryLLM-8B | 待测 | 待测 | 待测 | **18.7** |
 | M+ | 待测 | 待测 | 待测 | 待测 |
-| H₂O | 待测 | 待测 | 待测 | 待测 |
+| StreamingLLM | 待测 | 待测 | 待测 | 待测 |
 | KIVI | 待测 | 待测 | 待测 | 待测 |
 | ReST-KV | 待测 | 待测 | 待测 | 待测 |
 | PRLM-C (Ours) | 待测 | 待测 | 待测 | 待测 |
 
 定位：LongBench 6-QA 为常规能力对照；LooGLE、InfiniteBench、LongBench v2 为超预算、多轮融合的主验证。
 各 benchmark 的单项任务分数进详细表，不做跨任务宏平均。
+
+### 1.1 Baseline 定位与竞争强度（冻结）
+
+| Baseline | 论文与年份 | 方法定位 | 对我们论文的竞争强度 |
+| --- | --- | --- | --- |
+| MemoryLLM | ICML 2024 | 原生 latent memory，历史记忆持续更新 | 必须保留的基础对照 |
+| M+ | ICML 2025 | Latent memory + 长期记忆检索 | 强，直接竞争者 |
+| StreamingLLM | ICLR 2024 | Attention sinks + 滑动窗口 | 经典，但长程知识保留较弱 |
+| KIVI | ICML 2024 | 2-bit KV Cache 量化 | 强，属于另一条技术路线 |
+| ReST-KV | ICLR 2026 | 基于输出重构的 KV Cache 淘汰 | 强，较新的竞争者 |
+
+H₂O 已从主表移出（改为 StreamingLLM）；H₂O 只剩两条可用实现路径，且都依赖 `flash_attn`，与本轮容量口径的匹配度也低于上述五个。
 
 ## 2. 内部对照副表（证明融合增益的唯一依据）
 
