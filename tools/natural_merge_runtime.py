@@ -612,8 +612,8 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
     if float(getattr(model, "memory_attn_scale", 1.)) != 1.:
         raise ValueError("reader attention gain must stay one")
     cfg = yaml.safe_load((ROOT/"configs/agent_conf/prlmc_e6.yaml").read_text())["prlmc"]
-    if budget_blocks not in (8, 10, 12, 20):
-        raise ValueError("budget_blocks must be one of 8/10/12/20")
+    if budget_blocks not in (8, 10, 12, 20, 50):
+        raise ValueError("budget_blocks must be one of 8/10/12/20/50")
     cfg.update(k_anchor=0, anchor_source="none", k_max=budget_blocks*model.num_tokens,
         device="cuda:0",
         dtype="float16", active_memory_mask=True, trigger="none", compact_mode="carrier_residual",

@@ -115,7 +115,9 @@ def budget_geometry(budget_blocks):
     """Pre-registered (window_blocks, target_blocks) per managed budget."""
     table = {8: (9, 4), 10: (11, 5), 12: (11, 5), 20: (19, 9)}
     if budget_blocks not in table:
-        raise ValueError("budget_blocks must be one of 8/10/12/20")
+        if budget_blocks == 50:
+            return 19, 9    # native full pool: 12800 slots, 19 -> 9
+    raise ValueError("budget_blocks must be one of 8/10/12/20/50")
     return table[budget_blocks]
 
 
@@ -161,7 +163,7 @@ class StreamingMemory:
         self.m = manager
         self.compactor = compactor
         self.arm = arm
-        if budget_blocks not in (8, 10, 12, 20):
+        if budget_blocks not in (8, 10, 12, 20, 50):
             raise ValueError("budget_blocks must be one of 8/10/12/20")
         from natural_merge_runtime import resolve_geometry
         self.budget_blocks = int(budget_blocks)
@@ -247,10 +249,13 @@ class StreamingMemory:
             raise ValueError("invalid compactor output; no eviction fallback")
         # Keep the newest native block unmodified so the next injection has the
         # same predecessor position. No fact is placed in a protected anchor.
-        tail = m._memory[:, start + self.window:].clone()
-        replacement = torch.cat((output, tail), dim=1)
-        m.used = replacement.shape[1]
-        m._memory[:, m.total - m.used:].copy_(replacement)
+        # No tail clone and no cat: the surviving tail already occupies exactly the
+        # slots the compacted pool needs ([start+window, total)), so only the fused
+        # head has to be written. Slot placement and values are identical to the old
+        # cat((output, tail)) + full-pool copy, with ~4 GB less transient traffic.
+        m.used = self.target + (used_before - self.window)
+        head = m.total - m.used
+        m._memory[:, head:head + self.target].copy_(output)
         # Settle the ages from the carriers the merge actually kept: a surviving
         # carrier is one round older, the uncompressed tail keeps its age, the
         # rest of the pool resets to the young generation (D-04). The old code
@@ -295,9 +300,14 @@ class StreamingMemory:
                     raise ValueError("unexpected injection shape; refuse dropping/tiling original writes")
                 if m.used:
                     old_start = m.total - m.used
-                    # CPU intermediate bounds GPU peak on 32-GiB devices.
-                    previous = m._memory[:, old_start:].detach().cpu().clone()
-                    m._memory[:, old_start - m.block:m.total - m.block].copy_(previous)
+                    # On-device block shift: the same fp16 values end up in the same
+                    # slots as the old CPU-staged move, without the two `used`-sized
+                    # PCIe transfers. Ascending order is safe because every
+                    # destination sits exactly one block below its source, i.e.
+                    # outside the region that has not been read yet.
+                    for b in range(m.used // m.block):
+                        src = old_start + b * m.block
+                        m._memory[:, src - m.block:src].copy_(m._memory[:, src:src + m.block])
                 m._memory[:, -m.block:].copy_(delta)
                 m.used += m.block
                 # Age bookkeeping on the real write path (C2): exactly one

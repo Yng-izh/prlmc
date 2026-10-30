@@ -145,7 +145,7 @@ def install_generation_compatibility():
     _mllm.MemoryLLM.__init__ = _mllm_init_with_gencfg
 
 BUDGET_BLOCKS = 20
-BUDGET_CHOICES = (8, 10, 12, 20)
+BUDGET_CHOICES = (8, 10, 12, 20, 50)
 WINDOW_BLOCKS = 19
 TARGET_BLOCKS = 9
 TAIL_CHOICES = (512, 1024, 2048)
