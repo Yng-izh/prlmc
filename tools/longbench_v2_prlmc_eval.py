@@ -84,10 +84,17 @@ def evaluate(args):
     pe.install_generation_compatibility()
 
     model, tokenizer, manager, merge, initial, cfg, saved = pe.load_runtime(
-        args.model_path, checkpoint=args.checkpoint, train=False, architecture=None,
+        args.model_path, checkpoint=args.checkpoint, train=False,
+        architecture=(None if args.checkpoint else "grouped_gated_sparse_native_v9"),
         budget_blocks=args.budget_blocks, strict_code_hash=args.strict_code_hash,
         fusion_mode=args.fusion_mode)
     tokenizer.pad_token = tokenizer.eos_token
+    lora_state = None
+    if args.reader_lora:
+        from reader_lora_train import load_lora_state, set_lora_enabled
+        lora_state = torch.load(args.reader_lora, map_location="cpu")
+        load_lora_state(model, lora_state)
+        set_lora_enabled(model, True)
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
     if args.budget_blocks == NATIVE_BUDGET:
@@ -144,12 +151,16 @@ def evaluate(args):
         with torch.no_grad():
             manager._tile_free_region()
             manager._sync_active_mask()
+        if lora_state is not None:
+            set_lora_enabled(model, False)
         prompt, ids, write_ids, query_ids, original = build_input(
             tokenizer, row, args.total_tokens, args.tail_tokens, args.doc_truncation)
         writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
         merge_module = pe.build_consolidate_merge(merge, args.arm, manager)
         stream = pe.MergeStream(manager, merge_module, args.arm, **stream_arguments)
         events = pe.run_sample(stream, writes)
+        if lora_state is not None:
+            set_lora_enabled(model, True)
         prediction, output_ids = pe.generate(model, tokenizer, query_ids, MAX_NEW)
         letter = lbv2.extract_answer(prediction)
         active = int(model.memory_active_mask.sum())
@@ -207,6 +218,8 @@ def build_parser():
     p.add_argument("--tail-tokens", type=int, default=2048, choices=(512, 1024, 2048))
     p.add_argument("--doc-truncation", default="middle", choices=("middle", "tail"))
     p.add_argument("--max-samples", type=int, default=None)
+    p.add_argument("--reader-lora", default=None,
+                   help="frozen Reader LoRA payload from reader_lora_train.py")
     p.add_argument("--checkpoint", default=None)
     p.add_argument("--arm", default="SharedMerge",
                    choices=("SharedMerge", "Selection", "Consolidate", "Full"))

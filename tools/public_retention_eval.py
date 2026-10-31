@@ -113,11 +113,9 @@ def generate(model, tokenizer, sample, target):
 
 def budget_geometry(budget_blocks):
     """Pre-registered (window_blocks, target_blocks) per managed budget."""
-    table = {8: (9, 4), 10: (11, 5), 12: (11, 5), 20: (19, 9)}
+    table = {8: (9, 4), 10: (11, 5), 12: (11, 5), 20: (19, 9), 50: (19, 9)}
     if budget_blocks not in table:
-        if budget_blocks == 50:
-            return 19, 9    # native full pool: 12800 slots, 19 -> 9
-    raise ValueError("budget_blocks must be one of 8/10/12/20/50")
+        raise ValueError("budget_blocks must be one of 8/10/12/20/50")
     return table[budget_blocks]
 
 

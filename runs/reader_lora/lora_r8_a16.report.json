@@ -1,0 +1,4200 @@
+{
+  "schema": "reader_lora_train/1",
+  "args": {
+    "model_path": "/dev/shm/s1d_reader_fp16",
+    "train_jsonl": "data/natqa/train.jsonl",
+    "val_jsonl": "data/natqa/val.jsonl",
+    "out": "runs/reader_lora/lora_r8_a16.pt",
+    "stream_tokens": 64000,
+    "updates": 512,
+    "lr": 0.0001,
+    "rank": 8,
+    "alpha": 16,
+    "dropout": 0.0,
+    "last_layers": 8,
+    "val_every": 50,
+    "seed": 0
+  },
+  "geometry": {
+    "budget_blocks": 50,
+    "window_blocks": 19,
+    "target_blocks": 9,
+    "trigger_blocks": 50
+  },
+  "lora": {
+    "targets": [
+      "layers.24.self_attn.q_proj",
+      "layers.24.self_attn.o_proj",
+      "layers.25.self_attn.q_proj",
+      "layers.25.self_attn.o_proj",
+      "layers.26.self_attn.q_proj",
+      "layers.26.self_attn.o_proj",
+      "layers.27.self_attn.q_proj",
+      "layers.27.self_attn.o_proj",
+      "layers.28.self_attn.q_proj",
+      "layers.28.self_attn.o_proj",
+      "layers.29.self_attn.q_proj",
+      "layers.29.self_attn.o_proj",
+      "layers.30.self_attn.q_proj",
+      "layers.30.self_attn.o_proj",
+      "layers.31.self_attn.q_proj",
+      "layers.31.self_attn.o_proj"
+    ],
+    "rank": 8,
+    "alpha": 16,
+    "dropout": 0.0,
+    "trainable_params": 1048576
+  },
+  "updates": [
+    {
+      "step": 1,
+      "loss": 0.14511756598949432,
+      "merges": 8,
+      "doc_id": "stream::00362",
+      "stream_tokens": 64000,
+      "seconds": 17.81399447377771
+    },
+    {
+      "step": 2,
+      "loss": 3.582137107849121,
+      "merges": 8,
+      "doc_id": "stream::00411",
+      "stream_tokens": 64000,
+      "seconds": 35.16316509433091
+    },
+    {
+      "step": 3,
+      "loss": 3.246009588241577,
+      "merges": 8,
+      "doc_id": "stream::00121",
+      "stream_tokens": 64000,
+      "seconds": 52.39369740244001
+    },
+    {
+      "step": 4,
+      "loss": 7.596289157867432,
+      "merges": 8,
+      "doc_id": "stream::00366",
+      "stream_tokens": 64000,
+      "seconds": 69.67943045683205
+    },
+    {
+      "step": 5,
+      "loss": 1.0684126615524292,
+      "merges": 8,
+      "doc_id": "stream::00479",
+      "stream_tokens": 64000,
+      "seconds": 86.92922750022262
+    },
+    {
+      "step": 6,
+      "loss": 1.4980731010437012,
+      "merges": 8,
+      "doc_id": "stream::00130",
+      "stream_tokens": 64000,
+      "seconds": 104.24174269102514
+    },
+    {
+      "step": 7,
+      "loss": 6.441946983337402,
+      "merges": 8,
+      "doc_id": "stream::00242",
+      "stream_tokens": 64000,
+      "seconds": 121.53209292516112
+    },
+    {
+      "step": 8,
+      "loss": 10.655227661132812,
+      "merges": 8,
+      "doc_id": "stream::00328",
+      "stream_tokens": 64000,
+      "seconds": 138.8586068926379
+    },
+    {
+      "step": 9,
+      "loss": 2.8945791721343994,
+      "merges": 8,
+      "doc_id": "stream::00342",
+      "stream_tokens": 64000,
+      "seconds": 156.29248818475753
+    },
+    {
+      "step": 10,
+      "loss": 6.50739049911499,
+      "merges": 8,
+      "doc_id": "stream::00386",
+      "stream_tokens": 64000,
+      "seconds": 173.76104756165296
+    },
+    {
+      "step": 11,
+      "loss": 0.47482141852378845,
+      "merges": 8,
+      "doc_id": "stream::00152",
+      "stream_tokens": 64000,
+      "seconds": 191.22858107928187
+    },
+    {
+      "step": 12,
+      "loss": 10.623054504394531,
+      "merges": 8,
+      "doc_id": "stream::00105",
+      "stream_tokens": 64000,
+      "seconds": 208.60639309789985
+    },
+    {
+      "step": 13,
+      "loss": 6.051188945770264,
+      "merges": 8,
+      "doc_id": "stream::00099",
+      "stream_tokens": 64000,
+      "seconds": 226.09607058484107
+    },
+    {
+      "step": 14,
+      "loss": 2.3392622470855713,
+      "merges": 8,
+      "doc_id": "stream::00049",
+      "stream_tokens": 64000,
+      "seconds": 243.5498606292531
+    },
+    {
+      "step": 15,
+      "loss": 3.6753036975860596,
+      "merges": 8,
+      "doc_id": "stream::00353",
+      "stream_tokens": 64000,
+      "seconds": 260.95062238071114
+    },
+    {
+      "step": 16,
+      "loss": 7.226616859436035,
+      "merges": 8,
+      "doc_id": "stream::00231",
+      "stream_tokens": 64000,
+      "seconds": 278.29428532440215
+    },
+    {
+      "step": 17,
+      "loss": 2.492464780807495,
+      "merges": 8,
+      "doc_id": "stream::00428",
+      "stream_tokens": 64000,
+      "seconds": 295.64893056545407
+    },
+    {
+      "step": 18,
+      "loss": 0.6385612487792969,
+      "merges": 8,
+      "doc_id": "stream::00444",
+      "stream_tokens": 64000,
+      "seconds": 313.066612332128
+    },
+    {
+      "step": 19,
+      "loss": 11.352490425109863,
+      "merges": 8,
+      "doc_id": "stream::00450",
+      "stream_tokens": 64000,
+      "seconds": 330.3066042624414
+    },
+    {
+      "step": 20,
+      "loss": 1.2396087646484375,
+      "merges": 8,
+      "doc_id": "stream::00324",
+      "stream_tokens": 64000,
+      "seconds": 347.5723695056513
+    },
+    {
+      "step": 21,
+      "loss": 2.0323305130004883,
+      "merges": 8,
+      "doc_id": "stream::00158",
+      "stream_tokens": 64000,
+      "seconds": 364.86273878253996
+    },
+    {
+      "step": 22,
+      "loss": 1.098582148551941,
+      "merges": 8,
+      "doc_id": "stream::00391",
+      "stream_tokens": 64000,
+      "seconds": 382.19553368352354
+    },
+    {
+      "step": 23,
+      "loss": 3.3259286880493164,
+      "merges": 8,
+      "doc_id": "stream::00345",
+      "stream_tokens": 64000,
+      "seconds": 399.7020781664178
+    },
+    {
+      "step": 24,
+      "loss": 1.931077241897583,
+      "merges": 8,
+      "doc_id": "stream::00036",
+      "stream_tokens": 64000,
+      "seconds": 417.0966004887596
+    },
+    {
+      "step": 25,
+      "loss": 4.140454292297363,
+      "merges": 8,
+      "doc_id": "stream::00477",
+      "stream_tokens": 64000,
+      "seconds": 434.3909051977098
+    },
+    {
+      "step": 26,
+      "loss": 0.8399116396903992,
+      "merges": 8,
+      "doc_id": "stream::00305",
+      "stream_tokens": 64000,
+      "seconds": 451.68124974053353
+    },
+    {
+      "step": 27,
+      "loss": 1.2756297588348389,
+      "merges": 8,
+      "doc_id": "stream::00392",
+      "stream_tokens": 64000,
+      "seconds": 468.98362342547625
+    },
+    {
+      "step": 28,
+      "loss": 2.6373040676116943,
+      "merges": 8,
+      "doc_id": "stream::00217",
+      "stream_tokens": 64000,
+      "seconds": 486.1988658737391
+    },
+    {
+      "step": 29,
+      "loss": 1.6290550231933594,
+      "merges": 8,
+      "doc_id": "stream::00223",
+      "stream_tokens": 64000,
+      "seconds": 503.46396934986115
+    },
+    {
+      "step": 30,
+      "loss": 2.9156179428100586,
+      "merges": 8,
+      "doc_id": "stream::00415",
+      "stream_tokens": 64000,
+      "seconds": 520.6546127600595
+    },
+    {
+      "step": 31,
+      "loss": 3.1163628101348877,
+      "merges": 8,
+      "doc_id": "stream::00226",
+      "stream_tokens": 64000,
+      "seconds": 537.8746466534212
+    },
+    {
+      "step": 32,
+      "loss": 2.659451484680176,
+      "merges": 8,
+      "doc_id": "stream::00459",
+      "stream_tokens": 64000,
+      "seconds": 555.1723083620891
+    },
+    {
+      "step": 33,
+      "loss": 3.8144867420196533,
+      "merges": 8,
+      "doc_id": "stream::00174",
+      "stream_tokens": 64000,
+      "seconds": 572.520208703354
+    },
+    {
+      "step": 34,
+      "loss": 0.8492154479026794,
+      "merges": 8,
+      "doc_id": "stream::00232",
+      "stream_tokens": 64000,
+      "seconds": 589.8810260687023
+    },
+    {
+      "step": 35,
+      "loss": 2.259356737136841,
+      "merges": 8,
+      "doc_id": "stream::00229",
+      "stream_tokens": 64000,
+      "seconds": 607.1113370731473
+    },
+    {
+      "step": 36,
+      "loss": 4.649901866912842,
+      "merges": 8,
+      "doc_id": "stream::00370",
+      "stream_tokens": 64000,
+      "seconds": 624.353544623591
+    },
+    {
+      "step": 37,
+      "loss": 4.581368923187256,
+      "merges": 8,
+      "doc_id": "stream::00280",
+      "stream_tokens": 64000,
+      "seconds": 641.6804447267205
+    },
+    {
+      "step": 38,
+      "loss": 0.5255196690559387,
+      "merges": 8,
+      "doc_id": "stream::00285",
+      "stream_tokens": 64000,
+      "seconds": 658.947338052094
+    },
+    {
+      "step": 39,
+      "loss": 0.05668405070900917,
+      "merges": 8,
+      "doc_id": "stream::00045",
+      "stream_tokens": 64000,
+      "seconds": 676.3145756814629
+    },
+    {
+      "step": 40,
+      "loss": 0.4225105047225952,
+      "merges": 8,
+      "doc_id": "stream::00300",
+      "stream_tokens": 64000,
+      "seconds": 693.5136684384197
+    },
+    {
+      "step": 41,
+      "loss": 1.7998422384262085,
+      "merges": 8,
+      "doc_id": "stream::00163",
+      "stream_tokens": 64000,
+      "seconds": 710.7832196932286
+    },
+    {
+      "step": 42,
+      "loss": 2.6560192108154297,
+      "merges": 8,
+      "doc_id": "stream::00148",
+      "stream_tokens": 64000,
+      "seconds": 728.1565733570606
+    },
+    {
+      "step": 43,
+      "loss": 1.7735862731933594,
+      "merges": 8,
+      "doc_id": "stream::00124",
+      "stream_tokens": 64000,
+      "seconds": 745.4768886240199
+    },
+    {
+      "step": 44,
+      "loss": 0.4328913986682892,
+      "merges": 8,
+      "doc_id": "stream::00073",
+      "stream_tokens": 64000,
+      "seconds": 762.8109180275351
+    },
+    {
+      "step": 45,
+      "loss": 1.0746768712997437,
+      "merges": 8,
+      "doc_id": "stream::00469",
+      "stream_tokens": 64000,
+      "seconds": 780.0784239368513
+    },
+    {
+      "step": 46,
+      "loss": 7.995107173919678,
+      "merges": 8,
+      "doc_id": "stream::00023",
+      "stream_tokens": 64000,
+      "seconds": 797.4335220372304
+    },
+    {
+      "step": 47,
+      "loss": 2.2094297409057617,
+      "merges": 8,
+      "doc_id": "stream::00048",
+      "stream_tokens": 64000,
+      "seconds": 814.7869026875123
+    },
+    {
+      "step": 48,
+      "loss": 1.3954306840896606,
+      "merges": 8,
+      "doc_id": "stream::00295",
+      "stream_tokens": 64000,
+      "seconds": 832.2910666065291
+    },
+    {
+      "step": 49,
+      "loss": 3.758040428161621,
+      "merges": 8,
+      "doc_id": "stream::00065",
+      "stream_tokens": 64000,
+      "seconds": 849.8303786115721
+    },
+    {
+      "step": 50,
+      "loss": 0.3198021650314331,
+      "merges": 8,
+      "doc_id": "stream::00126",
+      "stream_tokens": 64000,
+      "seconds": 867.2116077952087
+    },
+    {
+      "step": 51,
+      "loss": 2.8867297172546387,
+      "merges": 8,
+      "doc_id": "stream::00220",
+      "stream_tokens": 64000,
+      "seconds": 1022.268943477422
+    },
+    {
+      "step": 52,
+      "loss": 10.721759796142578,
+      "merges": 8,
+      "doc_id": "stream::00431",
+      "stream_tokens": 64000,
+      "seconds": 1039.5261194296181
+    },
+    {
+      "step": 53,
+      "loss": 9.638713836669922,
+      "merges": 8,
+      "doc_id": "stream::00077",
+      "stream_tokens": 64000,
+      "seconds": 1056.7526260931045
+    },
+    {
+      "step": 54,
+      "loss": 5.8042521476745605,
+      "merges": 8,
+      "doc_id": "stream::00194",
+      "stream_tokens": 64000,
+      "seconds": 1073.98326980602
+    },
+    {
+      "step": 55,
+      "loss": 1.3028651475906372,
+      "merges": 8,
+      "doc_id": "stream::00090",
+      "stream_tokens": 64000,
+      "seconds": 1091.2234652396291
+    },
+    {
+      "step": 56,
+      "loss": 4.307596206665039,
+      "merges": 8,
+      "doc_id": "stream::00359",
+      "stream_tokens": 64000,
+      "seconds": 1108.505402370356
+    },
+    {
+      "step": 57,
+      "loss": 4.649092674255371,
+      "merges": 8,
+      "doc_id": "stream::00443",
+      "stream_tokens": 64000,
+      "seconds": 1125.7279690681025
+    },
+    {
+      "step": 58,
+      "loss": 3.23146915435791,
+      "merges": 8,
+      "doc_id": "stream::00316",
+      "stream_tokens": 64000,
+      "seconds": 1142.9439971335232
+    },
+    {
+      "step": 59,
+      "loss": 0.4164156913757324,
+      "merges": 8,
+      "doc_id": "stream::00241",
+      "stream_tokens": 64000,
+      "seconds": 1160.3166485242546
+    },
+    {
+      "step": 60,
+      "loss": 1.0347081422805786,
+      "merges": 8,
+      "doc_id": "stream::00208",
+      "stream_tokens": 64000,
+      "seconds": 1177.5149640310556
+    },
+    {
+      "step": 61,
+      "loss": 4.987575054168701,
+      "merges": 8,
+      "doc_id": "stream::00302",
+      "stream_tokens": 64000,
+      "seconds": 1194.9276474937797
+    },
+    {
+      "step": 62,
+      "loss": 0.01862417906522751,
+      "merges": 8,
+      "doc_id": "stream::00083",
+      "stream_tokens": 64000,
+      "seconds": 1212.350667912513
+    },
+    {
+      "step": 63,
+      "loss": 2.6981046199798584,
+      "merges": 8,
+      "doc_id": "stream::00188",
+      "stream_tokens": 64000,
+      "seconds": 1229.7827977612615
+    },
+    {
+      "step": 64,
+      "loss": 2.3917388916015625,
+      "merges": 8,
+      "doc_id": "stream::00074",
+      "stream_tokens": 64000,
+      "seconds": 1247.2260904433206
+    },
+    {
+      "step": 65,
+      "loss": 1.8362528085708618,
+      "merges": 8,
+      "doc_id": "stream::00088",
+      "stream_tokens": 64000,
+      "seconds": 1264.6835376024246
+    },
+    {
+      "step": 66,
+      "loss": 1.8649457693099976,
+      "merges": 8,
+      "doc_id": "stream::00114",
+      "stream_tokens": 64000,
+      "seconds": 1282.1669744355604
+    },
+    {
+      "step": 67,
+      "loss": 0.7437467575073242,
+      "merges": 8,
+      "doc_id": "stream::00291",
+      "stream_tokens": 64000,
+      "seconds": 1299.5807627234608
+    },
+    {
+      "step": 68,
+      "loss": 1.36981201171875,
+      "merges": 8,
+      "doc_id": "stream::00059",
+      "stream_tokens": 64000,
+      "seconds": 1317.0145580256358
+    },
+    {
+      "step": 69,
+      "loss": 0.06047631800174713,
+      "merges": 8,
+      "doc_id": "stream::00344",
+      "stream_tokens": 64000,
+      "seconds": 1334.4676120914519
+    },
+    {
+      "step": 70,
+      "loss": 1.0943583250045776,
+      "merges": 8,
+      "doc_id": "stream::00201",
+      "stream_tokens": 64000,
+      "seconds": 1352.0843132101
+    },
+    {
+      "step": 71,
+      "loss": 4.274899005889893,
+      "merges": 8,
+      "doc_id": "stream::00481",
+      "stream_tokens": 64000,
+      "seconds": 1369.6516046626493
+    },
+    {
+      "step": 72,
+      "loss": 7.114082336425781,
+      "merges": 8,
+      "doc_id": "stream::00268",
+      "stream_tokens": 64000,
+      "seconds": 1387.096425043419
+    },
+    {
+      "step": 73,
+      "loss": 1.5182186365127563,
+      "merges": 8,
+      "doc_id": "stream::00027",
+      "stream_tokens": 64000,
+      "seconds": 1404.709690876305
+    },
+    {
+      "step": 74,
+      "loss": 2.492563486099243,
+      "merges": 8,
+      "doc_id": "stream::00416",
+      "stream_tokens": 64000,
+      "seconds": 1422.2139617754146
+    },
+    {
+      "step": 75,
+      "loss": 4.298585891723633,
+      "merges": 8,
+      "doc_id": "stream::00290",
+      "stream_tokens": 64000,
+      "seconds": 1439.5926248868927
+    },
+    {
+      "step": 76,
+      "loss": 3.4325175285339355,
+      "merges": 8,
+      "doc_id": "stream::00035",
+      "stream_tokens": 64000,
+      "seconds": 1456.9279222665355
+    },
+    {
+      "step": 77,
+      "loss": 1.6690921783447266,
+      "merges": 8,
+      "doc_id": "stream::00178",
+      "stream_tokens": 64000,
+      "seconds": 1474.441022402607
+    },
+    {
+      "step": 78,
+      "loss": 4.652505874633789,
+      "merges": 8,
+      "doc_id": "stream::00206",
+      "stream_tokens": 64000,
+      "seconds": 1491.9136700127274
+    },
+    {
+      "step": 79,
+      "loss": 3.500636100769043,
+      "merges": 8,
+      "doc_id": "stream::00339",
+      "stream_tokens": 64000,
+      "seconds": 1509.3999256165698
+    },
+    {
+      "step": 80,
+      "loss": 1.2261569499969482,
+      "merges": 8,
+      "doc_id": "stream::00429",
+      "stream_tokens": 64000,
+      "seconds": 1526.8328851247206
+    },
+    {
+      "step": 81,
+      "loss": 4.077672958374023,
+      "merges": 8,
+      "doc_id": "stream::00274",
+      "stream_tokens": 64000,
+      "seconds": 1544.4109289068729
+    },
+    {
+      "step": 82,
+      "loss": 6.196452617645264,
+      "merges": 8,
+      "doc_id": "stream::00119",
+      "stream_tokens": 64000,
+      "seconds": 1561.9515512678772
+    },
+    {
+      "step": 83,
+      "loss": 5.5931172370910645,
+      "merges": 8,
+      "doc_id": "stream::00330",
+      "stream_tokens": 64000,
+      "seconds": 1579.453296130523
+    },
+    {
+      "step": 84,
+      "loss": 3.387346029281616,
+      "merges": 8,
+      "doc_id": "stream::00198",
+      "stream_tokens": 64000,
+      "seconds": 1596.8618784155697
+    },
+    {
+      "step": 85,
+      "loss": 2.019765615463257,
+      "merges": 8,
+      "doc_id": "stream::00219",
+      "stream_tokens": 64000,
+      "seconds": 1614.3230817681178
+    },
+    {
+      "step": 86,
+      "loss": 1.5866427421569824,
+      "merges": 8,
+      "doc_id": "stream::00312",
+      "stream_tokens": 64000,
+      "seconds": 1631.6927935183048
+    },
+    {
+      "step": 87,
+      "loss": 1.6103698015213013,
+      "merges": 8,
+      "doc_id": "stream::00139",
+      "stream_tokens": 64000,
+      "seconds": 1648.9317697361112
+    },
+    {
+      "step": 88,
+      "loss": 0.8084443807601929,
+      "merges": 8,
+      "doc_id": "stream::00468",
+      "stream_tokens": 64000,
+      "seconds": 1666.321252092719
+    },
+    {
+      "step": 89,
+      "loss": 0.25226590037345886,
+      "merges": 8,
+      "doc_id": "stream::00286",
+      "stream_tokens": 64000,
+      "seconds": 1683.7722913455218
+    },
+    {
+      "step": 90,
+      "loss": 0.9538817405700684,
+      "merges": 8,
+      "doc_id": "stream::00296",
+      "stream_tokens": 64000,
+      "seconds": 1701.152631741017
+    },
+    {
+      "step": 91,
+      "loss": 9.623805046081543,
+      "merges": 8,
+      "doc_id": "stream::00205",
+      "stream_tokens": 64000,
+      "seconds": 1718.4918473577127
+    },
+    {
+      "step": 92,
+      "loss": 1.5905510187149048,
+      "merges": 8,
+      "doc_id": "stream::00272",
+      "stream_tokens": 64000,
+      "seconds": 1735.825305968523
+    },
+    {
+      "step": 93,
+      "loss": 2.1360013484954834,
+      "merges": 8,
+      "doc_id": "stream::00064",
+      "stream_tokens": 64000,
+      "seconds": 1753.1478153690696
+    },
+    {
+      "step": 94,
+      "loss": 1.7911590337753296,
+      "merges": 8,
+      "doc_id": "stream::00234",
+      "stream_tokens": 64000,
+      "seconds": 1770.3862708508968
+    },
+    {
+      "step": 95,
+      "loss": 2.5319037437438965,
+      "merges": 8,
+      "doc_id": "stream::00155",
+      "stream_tokens": 64000,
+      "seconds": 1787.6417873501778
+    },
+    {
+      "step": 96,
+      "loss": 9.309948921203613,
+      "merges": 8,
+      "doc_id": "stream::00367",
+      "stream_tokens": 64000,
+      "seconds": 1804.9427165947855
+    },
+    {
+      "step": 97,
+      "loss": 0.5277411341667175,
+      "merges": 8,
+      "doc_id": "stream::00038",
+      "stream_tokens": 64000,
+      "seconds": 1822.2087560435757
+    },
+    {
+      "step": 98,
+      "loss": 1.1854451894760132,
+      "merges": 8,
+      "doc_id": "stream::00022",
+      "stream_tokens": 64000,
+      "seconds": 1839.645136022009
+    },
+    {
+      "step": 99,
+      "loss": 1.2189420461654663,
+      "merges": 8,
+      "doc_id": "stream::00325",
+      "stream_tokens": 64000,
+      "seconds": 1856.8345175292343
+    },
+    {
+      "step": 100,
+      "loss": 0.40979838371276855,
+      "merges": 8,
+      "doc_id": "stream::00455",
+      "stream_tokens": 64000,
+      "seconds": 1874.2794087771326
+    },
+    {
+      "step": 101,
+      "loss": 2.883070945739746,
+      "merges": 8,
+      "doc_id": "stream::00399",
+      "stream_tokens": 64000,
+      "seconds": 2029.1445961249992
+    },
+    {
+      "step": 102,
+      "loss": 8.934555053710938,
+      "merges": 8,
+      "doc_id": "stream::00146",
+      "stream_tokens": 64000,
+      "seconds": 2046.587198983878
+    },
+    {
+      "step": 103,
+      "loss": 0.9696244597434998,
+      "merges": 8,
+      "doc_id": "stream::00043",
+      "stream_tokens": 64000,
+      "seconds": 2063.967970404774
+    },
+    {
+      "step": 104,
+      "loss": 1.6822322607040405,
+      "merges": 8,
+      "doc_id": "stream::00089",
+      "stream_tokens": 64000,
+      "seconds": 2081.383848939091
+    },
+    {
+      "step": 105,
+      "loss": 0.802382230758667,
+      "merges": 8,
+      "doc_id": "stream::00461",
+      "stream_tokens": 64000,
+      "seconds": 2098.6532177990302
+    },
+    {
+      "step": 106,
+      "loss": 0.14376573264598846,
+      "merges": 8,
+      "doc_id": "stream::00402",
+      "stream_tokens": 64000,
+      "seconds": 2116.1004550214857
+    },
+    {
+      "step": 107,
+      "loss": 0.3683222532272339,
+      "merges": 8,
+      "doc_id": "stream::00478",
+      "stream_tokens": 64000,
+      "seconds": 2133.5867603775114
+    },
+    {
+      "step": 108,
+      "loss": 1.6560068130493164,
+      "merges": 8,
+      "doc_id": "stream::00079",
+      "stream_tokens": 64000,
+      "seconds": 2150.962938733399
+    },
+    {
+      "step": 109,
+      "loss": 3.8579888343811035,
+      "merges": 8,
+      "doc_id": "stream::00404",
+      "stream_tokens": 64000,
+      "seconds": 2168.267541839741
+    },
+    {
+      "step": 110,
+      "loss": 0.7553079724311829,
+      "merges": 8,
+      "doc_id": "stream::00442",
+      "stream_tokens": 64000,
+      "seconds": 2185.531104212627
+    },
+    {
+      "step": 111,
+      "loss": 3.651310920715332,
+      "merges": 8,
+      "doc_id": "stream::00413",
+      "stream_tokens": 64000,
+      "seconds": 2202.7914914330468
+    },
+    {
+      "step": 112,
+      "loss": 3.6764369010925293,
+      "merges": 8,
+      "doc_id": "stream::00207",
+      "stream_tokens": 64000,
+      "seconds": 2220.0903484495357
+    },
+    {
+      "step": 113,
+      "loss": 7.353303909301758,
+      "merges": 8,
+      "doc_id": "stream::00167",
+      "stream_tokens": 64000,
+      "seconds": 2237.29538784083
+    },
+    {
+      "step": 114,
+      "loss": 1.9222865104675293,
+      "merges": 8,
+      "doc_id": "stream::00276",
+      "stream_tokens": 64000,
+      "seconds": 2254.623732417822
+    },
+    {
+      "step": 115,
+      "loss": 3.1475071907043457,
+      "merges": 8,
+      "doc_id": "stream::00378",
+      "stream_tokens": 64000,
+      "seconds": 2271.9416246814653
+    },
+    {
+      "step": 116,
+      "loss": 0.16188032925128937,
+      "merges": 8,
+      "doc_id": "stream::00267",
+      "stream_tokens": 64000,
+      "seconds": 2289.2460399717093
+    },
+    {
+      "step": 117,
+      "loss": 2.8408422470092773,
+      "merges": 8,
+      "doc_id": "stream::00441",
+      "stream_tokens": 64000,
+      "seconds": 2306.503151548095
+    },
+    {
+      "step": 118,
+      "loss": 2.418952465057373,
+      "merges": 8,
+      "doc_id": "stream::00129",
+      "stream_tokens": 64000,
+      "seconds": 2323.775276573375
+    },
+    {
+      "step": 119,
+      "loss": 1.2213948965072632,
+      "merges": 8,
+      "doc_id": "stream::00137",
+      "stream_tokens": 64000,
+      "seconds": 2341.06472737249
+    },
+    {
+      "step": 120,
+      "loss": 1.472151756286621,
+      "merges": 8,
+      "doc_id": "stream::00410",
+      "stream_tokens": 64000,
+      "seconds": 2358.4872193764895
+    },
+    {
+      "step": 121,
+      "loss": 0.7152366042137146,
+      "merges": 8,
+      "doc_id": "stream::00466",
+      "stream_tokens": 64000,
+      "seconds": 2375.744283770211
+    },
+    {
+      "step": 122,
+      "loss": 3.474663734436035,
+      "merges": 8,
+      "doc_id": "stream::00224",
+      "stream_tokens": 64000,
+      "seconds": 2393.0942594287917
+    },
+    {
+      "step": 123,
+      "loss": 8.117526054382324,
+      "merges": 8,
+      "doc_id": "stream::00150",
+      "stream_tokens": 64000,
+      "seconds": 2410.585802245885
+    },
+    {
+      "step": 124,
+      "loss": 2.2953238487243652,
+      "merges": 8,
+      "doc_id": "stream::00181",
+      "stream_tokens": 64000,
+      "seconds": 2427.85629216861
+    },
+    {
+      "step": 125,
+      "loss": 0.24072127044200897,
+      "merges": 8,
+      "doc_id": "stream::00335",
+      "stream_tokens": 64000,
+      "seconds": 2445.3858885597438
+    },
+    {
+      "step": 126,
+      "loss": 2.1741340160369873,
+      "merges": 8,
+      "doc_id": "stream::00047",
+      "stream_tokens": 64000,
+      "seconds": 2462.40810463205
+    },
+    {
+      "step": 127,
+      "loss": 1.8083460330963135,
+      "merges": 8,
+      "doc_id": "stream::00249",
+      "stream_tokens": 64000,
+      "seconds": 2479.450577588752
+    },
+    {
+      "step": 128,
+      "loss": 1.2797305583953857,
+      "merges": 8,
+      "doc_id": "stream::00031",
+      "stream_tokens": 64000,
+      "seconds": 2496.557148169726
+    },
+    {
+      "step": 129,
+      "loss": 2.141131639480591,
+      "merges": 8,
+      "doc_id": "stream::00025",
+      "stream_tokens": 64000,
+      "seconds": 2513.7514990670606
+    },
+    {
+      "step": 130,
+      "loss": 3.5917770862579346,
+      "merges": 8,
+      "doc_id": "stream::00209",
+      "stream_tokens": 64000,
+      "seconds": 2530.8858662471175
+    },
+    {
+      "step": 131,
+      "loss": 4.803807258605957,
+      "merges": 8,
+      "doc_id": "stream::00259",
+      "stream_tokens": 64000,
+      "seconds": 2548.1886737598106
+    },
+    {
+      "step": 132,
+      "loss": 0.6665985584259033,
+      "merges": 8,
+      "doc_id": "stream::00157",
+      "stream_tokens": 64000,
+      "seconds": 2565.4497414305806
+    },
+    {
+      "step": 133,
+      "loss": 3.7041592597961426,
+      "merges": 8,
+      "doc_id": "stream::00109",
+      "stream_tokens": 64000,
+      "seconds": 2582.8141089985147
+    },
+    {
+      "step": 134,
+      "loss": 0.6871970295906067,
+      "merges": 8,
+      "doc_id": "stream::00361",
+      "stream_tokens": 64000,
+      "seconds": 2600.1900477353483
+    },
+    {
+      "step": 135,
+      "loss": 0.31793341040611267,
+      "merges": 8,
+      "doc_id": "stream::00277",
+      "stream_tokens": 64000,
+      "seconds": 2617.5758525980636
+    },
+    {
+      "step": 136,
+      "loss": 4.499122619628906,
+      "merges": 8,
+      "doc_id": "stream::00086",
+      "stream_tokens": 64000,
+      "seconds": 2634.8294769171625
+    },
+    {
+      "step": 137,
+      "loss": 1.103821873664856,
+      "merges": 8,
+      "doc_id": "stream::00283",
+      "stream_tokens": 64000,
+      "seconds": 2652.192172823474
+    },
+    {
+      "step": 138,
+      "loss": 3.3178114891052246,
+      "merges": 8,
+      "doc_id": "stream::00136",
+      "stream_tokens": 64000,
+      "seconds": 2669.613353726454
+    },
+    {
+      "step": 139,
+      "loss": 1.104772686958313,
+      "merges": 8,
+      "doc_id": "stream::00091",
+      "stream_tokens": 64000,
+      "seconds": 2686.94120370131
+    },
+    {
+      "step": 140,
+      "loss": 1.3175283670425415,
+      "merges": 8,
+      "doc_id": "stream::00026",
+      "stream_tokens": 64000,
+      "seconds": 2704.371951326728
+    },
+    {
+      "step": 141,
+      "loss": 3.4447124004364014,
+      "merges": 8,
+      "doc_id": "stream::00482",
+      "stream_tokens": 64000,
+      "seconds": 2721.76427898556
+    },
+    {
+      "step": 142,
+      "loss": 4.029250144958496,
+      "merges": 8,
+      "doc_id": "stream::00122",
+      "stream_tokens": 64000,
+      "seconds": 2739.2506324360147
+    },
+    {
+      "step": 143,
+      "loss": 12.770574569702148,
+      "merges": 8,
+      "doc_id": "stream::00142",
+      "stream_tokens": 64000,
+      "seconds": 2756.6723694317043
+    },
+    {
+      "step": 144,
+      "loss": 1.005069375038147,
+      "merges": 8,
+      "doc_id": "stream::00171",
+      "stream_tokens": 64000,
+      "seconds": 2774.081705908291
+    },
+    {
+      "step": 145,
+      "loss": 0.7650272250175476,
+      "merges": 8,
+      "doc_id": "stream::00318",
+      "stream_tokens": 64000,
+      "seconds": 2791.465526556596
+    },
+    {
+      "step": 146,
+      "loss": 1.045440435409546,
+      "merges": 8,
+      "doc_id": "stream::00388",
+      "stream_tokens": 64000,
+      "seconds": 2808.7906920025125
+    },
+    {
+      "step": 147,
+      "loss": 0.7068164348602295,
+      "merges": 8,
+      "doc_id": "stream::00098",
+      "stream_tokens": 64000,
+      "seconds": 2826.271764584817
+    },
+    {
+      "step": 148,
+      "loss": 1.3324087858200073,
+      "merges": 8,
+      "doc_id": "stream::00485",
+      "stream_tokens": 64000,
+      "seconds": 2843.707819492556
+    },
+    {
+      "step": 149,
+      "loss": 2.96820068359375,
+      "merges": 8,
+      "doc_id": "stream::00051",
+      "stream_tokens": 64000,
+      "seconds": 2861.0930329309776
+    },
+    {
+      "step": 150,
+      "loss": 0.726722240447998,
+      "merges": 8,
+      "doc_id": "stream::00185",
+      "stream_tokens": 64000,
+      "seconds": 2878.4793579280376
+    },
+    {
+      "step": 151,
+      "loss": 2.3207573890686035,
+      "merges": 8,
+      "doc_id": "stream::00046",
+      "stream_tokens": 64000,
+      "seconds": 3033.969593955204
+    },
+    {
+      "step": 152,
+      "loss": 1.553519368171692,
+      "merges": 8,
+      "doc_id": "stream::00257",
+      "stream_tokens": 64000,
+      "seconds": 3051.3187422044575
+    },
+    {
+      "step": 153,
+      "loss": 0.036702223122119904,
+      "merges": 8,
+      "doc_id": "stream::00473",
+      "stream_tokens": 64000,
+      "seconds": 3068.6209420524538
+    },
+    {
+      "step": 154,
+      "loss": 2.119044542312622,
+      "merges": 8,
+      "doc_id": "stream::00180",
+      "stream_tokens": 64000,
+      "seconds": 3085.871657210402
+    },
+    {
+      "step": 155,
+      "loss": 0.26253262162208557,
+      "merges": 8,
+      "doc_id": "stream::00075",
+      "stream_tokens": 64000,
+      "seconds": 3103.274665649049
+    },
+    {
+      "step": 156,
+      "loss": 1.3935962915420532,
+      "merges": 8,
+      "doc_id": "stream::00215",
+      "stream_tokens": 64000,
+      "seconds": 3120.5551398433745
+    },
+    {
+      "step": 157,
+      "loss": 2.290383815765381,
+      "merges": 8,
+      "doc_id": "stream::00101",
+      "stream_tokens": 64000,
+      "seconds": 3138.021836882457
+    },
+    {
+      "step": 158,
+      "loss": 0.560707151889801,
+      "merges": 8,
+      "doc_id": "stream::00186",
+      "stream_tokens": 64000,
+      "seconds": 3155.4773770114407
+    },
+    {
+      "step": 159,
+      "loss": 4.482895374298096,
+      "merges": 8,
+      "doc_id": "stream::00336",
+      "stream_tokens": 64000,
+      "seconds": 3173.00606280379
+    },
+    {
+      "step": 160,
+      "loss": 0.3551718294620514,
+      "merges": 8,
+      "doc_id": "stream::00256",
+      "stream_tokens": 64000,
+      "seconds": 3190.421023200266
+    },
+    {
+      "step": 161,
+      "loss": 0.5523712635040283,
+      "merges": 8,
+      "doc_id": "stream::00448",
+      "stream_tokens": 64000,
+      "seconds": 3207.9175630304962
+    },
+    {
+      "step": 162,
+      "loss": 1.1602990627288818,
+      "merges": 8,
+      "doc_id": "stream::00042",
+      "stream_tokens": 64000,
+      "seconds": 3225.3486799895763
+    },
+    {
+      "step": 163,
+      "loss": 1.8263945579528809,
+      "merges": 8,
+      "doc_id": "stream::00237",
+      "stream_tokens": 64000,
+      "seconds": 3242.8414365071803
+    },
+    {
+      "step": 164,
+      "loss": 1.5278288125991821,
+      "merges": 8,
+      "doc_id": "stream::00355",
+      "stream_tokens": 64000,
+      "seconds": 3260.0879629608244
+    },
+    {
+      "step": 165,
+      "loss": 2.3513948917388916,
+      "merges": 8,
+      "doc_id": "stream::00463",
+      "stream_tokens": 64000,
+      "seconds": 3277.3901894316077
+    },
+    {
+      "step": 166,
+      "loss": 4.240660667419434,
+      "merges": 8,
+      "doc_id": "stream::00213",
+      "stream_tokens": 64000,
+      "seconds": 3294.8576628323644
+    },
+    {
+      "step": 167,
+      "loss": 0.18027296662330627,
+      "merges": 8,
+      "doc_id": "stream::00033",
+      "stream_tokens": 64000,
+      "seconds": 3312.2567256148905
+    },
+    {
+      "step": 168,
+      "loss": 3.350741147994995,
+      "merges": 8,
+      "doc_id": "stream::00140",
+      "stream_tokens": 64000,
+      "seconds": 3329.645021330565
+    },
+    {
+      "step": 169,
+      "loss": 1.7474361658096313,
+      "merges": 8,
+      "doc_id": "stream::00233",
+      "stream_tokens": 64000,
+      "seconds": 3347.1062230374664
+    },
+    {
+      "step": 170,
+      "loss": 2.4595742225646973,
+      "merges": 8,
+      "doc_id": "stream::00104",
+      "stream_tokens": 64000,
+      "seconds": 3364.494601290673
+    },
+    {
+      "step": 171,
+      "loss": 5.9252753257751465,
+      "merges": 8,
+      "doc_id": "stream::00147",
+      "stream_tokens": 64000,
+      "seconds": 3381.8219353454188
+    },
+    {
+      "step": 172,
+      "loss": 0.5150651335716248,
+      "merges": 8,
+      "doc_id": "stream::00030",
+      "stream_tokens": 64000,
+      "seconds": 3399.134382995777
+    },
+    {
+      "step": 173,
+      "loss": 0.04445359855890274,
+      "merges": 8,
+      "doc_id": "stream::00227",
+      "stream_tokens": 64000,
+      "seconds": 3416.6629890026525
+    },
+    {
+      "step": 174,
+      "loss": 6.4550862312316895,
+      "merges": 8,
+      "doc_id": "stream::00306",
+      "stream_tokens": 64000,
+      "seconds": 3434.114619638771
+    },
+    {
+      "step": 175,
+      "loss": 2.010690927505493,
+      "merges": 8,
+      "doc_id": "stream::00258",
+      "stream_tokens": 64000,
+      "seconds": 3451.5862568840384
+    },
+    {
+      "step": 176,
+      "loss": 2.165184497833252,
+      "merges": 8,
+      "doc_id": "stream::00424",
+      "stream_tokens": 64000,
+      "seconds": 3468.9939417308196
+    },
+    {
+      "step": 177,
+      "loss": 4.972729682922363,
+      "merges": 8,
+      "doc_id": "stream::00156",
+      "stream_tokens": 64000,
+      "seconds": 3486.4223149726167
+    },
+    {
+      "step": 178,
+      "loss": 0.044355668127536774,
+      "merges": 8,
+      "doc_id": "stream::00351",
+      "stream_tokens": 64000,
+      "seconds": 3503.9326600162312
+    },
+    {
+      "step": 179,
+      "loss": 6.497808933258057,
+      "merges": 8,
+      "doc_id": "stream::00222",
+      "stream_tokens": 64000,
+      "seconds": 3521.4939075866714
+    },
+    {
+      "step": 180,
+      "loss": 0.5550952553749084,
+      "merges": 8,
+      "doc_id": "stream::00403",
+      "stream_tokens": 64000,
+      "seconds": 3538.9437376661226
+    },
+    {
+      "step": 181,
+      "loss": 1.9049112796783447,
+      "merges": 8,
+      "doc_id": "stream::00369",
+      "stream_tokens": 64000,
+      "seconds": 3556.312133400701
+    },
+    {
+      "step": 182,
+      "loss": 1.092950463294983,
+      "merges": 8,
+      "doc_id": "stream::00377",
+      "stream_tokens": 64000,
+      "seconds": 3573.6998365130275
+    },
+    {
+      "step": 183,
+      "loss": 1.7107923030853271,
+      "merges": 8,
+      "doc_id": "stream::00385",
+      "stream_tokens": 64000,
+      "seconds": 3591.17473935429
+    },
+    {
+      "step": 184,
+      "loss": 2.086439847946167,
+      "merges": 8,
+      "doc_id": "stream::00350",
+      "stream_tokens": 64000,
+      "seconds": 3608.5450352728367
+    },
+    {
+      "step": 185,
+      "loss": 5.056304931640625,
+      "merges": 8,
+      "doc_id": "stream::00408",
+      "stream_tokens": 64000,
+      "seconds": 3626.0427355235443
+    },
+    {
+      "step": 186,
+      "loss": 3.0551693439483643,
+      "merges": 8,
+      "doc_id": "stream::00245",
+      "stream_tokens": 64000,
+      "seconds": 3643.407724273391
+    },
+    {
+      "step": 187,
+      "loss": 0.8510873913764954,
+      "merges": 8,
+      "doc_id": "stream::00449",
+      "stream_tokens": 64000,
+      "seconds": 3660.936251805164
+    },
+    {
+      "step": 188,
+      "loss": 3.1154658794403076,
+      "merges": 8,
+      "doc_id": "stream::00309",
+      "stream_tokens": 64000,
+      "seconds": 3678.4010418672115
+    },
+    {
+      "step": 189,
+      "loss": 0.11067646741867065,
+      "merges": 8,
+      "doc_id": "stream::00214",
+      "stream_tokens": 64000,
+      "seconds": 3695.6351801864803
+    },
+    {
+      "step": 190,
+      "loss": 0.48772478103637695,
+      "merges": 8,
+      "doc_id": "stream::00298",
+      "stream_tokens": 64000,
+      "seconds": 3712.902541337535
+    },
+    {
+      "step": 191,
+      "loss": 0.24691452085971832,
+      "merges": 8,
+      "doc_id": "stream::00425",
+      "stream_tokens": 64000,
+      "seconds": 3730.2193823950365
+    },
+    {
+      "step": 192,
+      "loss": 3.966169595718384,
+      "merges": 8,
+      "doc_id": "stream::00340",
+      "stream_tokens": 64000,
+      "seconds": 3747.5395478587598
+    },
+    {
+      "step": 193,
+      "loss": 0.38623693585395813,
+      "merges": 8,
+      "doc_id": "stream::00230",
+      "stream_tokens": 64000,
+      "seconds": 3764.8734862729907
+    },
+    {
+      "step": 194,
+      "loss": 2.5144951343536377,
+      "merges": 8,
+      "doc_id": "stream::00346",
+      "stream_tokens": 64000,
+      "seconds": 3782.2390166074038
+    },
+    {
+      "step": 195,
+      "loss": 1.9902739524841309,
+      "merges": 8,
+      "doc_id": "stream::00240",
+      "stream_tokens": 64000,
+      "seconds": 3799.4781258786097
+    },
+    {
+      "step": 196,
+      "loss": 3.3981826305389404,
+      "merges": 8,
+      "doc_id": "stream::00474",
+      "stream_tokens": 64000,
+      "seconds": 3816.8519692383707
+    },
+    {
+      "step": 197,
+      "loss": 1.1410850286483765,
+      "merges": 8,
+      "doc_id": "stream::00358",
+      "stream_tokens": 64000,
+      "seconds": 3834.1932774158195
+    },
+    {
+      "step": 198,
+      "loss": 3.9865000247955322,
+      "merges": 8,
+      "doc_id": "stream::00135",
+      "stream_tokens": 64000,
+      "seconds": 3851.544540040195
+    },
+    {
+      "step": 199,
+      "loss": 1.8274751901626587,
+      "merges": 8,
+      "doc_id": "stream::00405",
+      "stream_tokens": 64000,
+      "seconds": 3869.02568386402
+    },
+    {
+      "step": 200,
+      "loss": 1.8444987535476685,
+      "merges": 8,
+      "doc_id": "stream::00078",
+      "stream_tokens": 64000,
+      "seconds": 3886.3795409975573
+    },
+    {
+      "step": 201,
+      "loss": 1.1071722507476807,
+      "merges": 8,
+      "doc_id": "stream::00246",
+      "stream_tokens": 64000,
+      "seconds": 4041.559754391201
+    },
+    {
+      "step": 202,
+      "loss": 6.462675094604492,
+      "merges": 8,
+      "doc_id": "stream::00061",
+      "stream_tokens": 64000,
+      "seconds": 4058.9061599103734
+    },
+    {
+      "step": 203,
+      "loss": 2.030696392059326,
+      "merges": 8,
+      "doc_id": "stream::00252",
+      "stream_tokens": 64000,
+      "seconds": 4076.279763779603
+    },
+    {
+      "step": 204,
+      "loss": 2.2688894271850586,
+      "merges": 8,
+      "doc_id": "stream::00199",
+      "stream_tokens": 64000,
+      "seconds": 4093.763487854041
+    },
+    {
+      "step": 205,
+      "loss": 2.957944393157959,
+      "merges": 8,
+      "doc_id": "stream::00070",
+      "stream_tokens": 64000,
+      "seconds": 4111.2361582722515
+    },
+    {
+      "step": 206,
+      "loss": 5.458630561828613,
+      "merges": 8,
+      "doc_id": "stream::00173",
+      "stream_tokens": 64000,
+      "seconds": 4128.678577849641
+    },
+    {
+      "step": 207,
+      "loss": 1.7205525636672974,
+      "merges": 8,
+      "doc_id": "stream::00423",
+      "stream_tokens": 64000,
+      "seconds": 4146.03191162087
+    },
+    {
+      "step": 208,
+      "loss": 1.3793319463729858,
+      "merges": 8,
+      "doc_id": "stream::00253",
+      "stream_tokens": 64000,
+      "seconds": 4163.4105712855235
+    },
+    {
+      "step": 209,
+      "loss": 0.32682663202285767,
+      "merges": 8,
+      "doc_id": "stream::00438",
+      "stream_tokens": 64000,
+      "seconds": 4180.7903805766255
+    },
+    {
+      "step": 210,
+      "loss": 5.466317653656006,
+      "merges": 8,
+      "doc_id": "stream::00127",
+      "stream_tokens": 64000,
+      "seconds": 4198.290554483421
+    },
+    {
+      "step": 211,
+      "loss": 0.5096415281295776,
+      "merges": 8,
+      "doc_id": "stream::00212",
+      "stream_tokens": 64000,
+      "seconds": 4215.537700644694
+    },
+    {
+      "step": 212,
+      "loss": 4.281193256378174,
+      "merges": 8,
+      "doc_id": "stream::00263",
+      "stream_tokens": 64000,
+      "seconds": 4232.870466053486
+    },
+    {
+      "step": 213,
+      "loss": 1.3023327589035034,
+      "merges": 8,
+      "doc_id": "stream::00310",
+      "stream_tokens": 64000,
+      "seconds": 4250.162217097357
+    },
+    {
+      "step": 214,
+      "loss": 4.443414688110352,
+      "merges": 8,
+      "doc_id": "stream::00436",
+      "stream_tokens": 64000,
+      "seconds": 4267.500679449178
+    },
+    {
+      "step": 215,
+      "loss": 3.500338315963745,
+      "merges": 8,
+      "doc_id": "stream::00054",
+      "stream_tokens": 64000,
+      "seconds": 4284.82624958735
+    },
+    {
+      "step": 216,
+      "loss": 4.590237140655518,
+      "merges": 8,
+      "doc_id": "stream::00454",
+      "stream_tokens": 64000,
+      "seconds": 4302.180446955375
+    },
+    {
+      "step": 217,
+      "loss": 3.590261936187744,
+      "merges": 8,
+      "doc_id": "stream::00427",
+      "stream_tokens": 64000,
+      "seconds": 4319.610657200217
+    },
+    {
+      "step": 218,
+      "loss": 0.11008167266845703,
+      "merges": 8,
+      "doc_id": "stream::00172",
+      "stream_tokens": 64000,
+      "seconds": 4337.061982442625
+    },
+    {
+      "step": 219,
+      "loss": 0.6497843861579895,
+      "merges": 8,
+      "doc_id": "stream::00373",
+      "stream_tokens": 64000,
+      "seconds": 4354.431459419429
+    },
+    {
+      "step": 220,
+      "loss": 0.36219432950019836,
+      "merges": 8,
+      "doc_id": "stream::00193",
+      "stream_tokens": 64000,
+      "seconds": 4371.718939963728
+    },
+    {
+      "step": 221,
+      "loss": 0.16754283010959625,
+      "merges": 8,
+      "doc_id": "stream::00094",
+      "stream_tokens": 64000,
+      "seconds": 4388.982389914803
+    },
+    {
+      "step": 222,
+      "loss": 0.9428046345710754,
+      "merges": 8,
+      "doc_id": "stream::00177",
+      "stream_tokens": 64000,
+      "seconds": 4406.385790283792
+    },
+    {
+      "step": 223,
+      "loss": 3.2178585529327393,
+      "merges": 8,
+      "doc_id": "stream::00111",
+      "stream_tokens": 64000,
+      "seconds": 4423.818377933465
+    },
+    {
+      "step": 224,
+      "loss": 1.763879656791687,
+      "merges": 8,
+      "doc_id": "stream::00398",
+      "stream_tokens": 64000,
+      "seconds": 4441.21854810603
+    },
+    {
+      "step": 225,
+      "loss": 0.22672757506370544,
+      "merges": 8,
+      "doc_id": "stream::00216",
+      "stream_tokens": 64000,
+      "seconds": 4458.667588780634
+    },
+    {
+      "step": 226,
+      "loss": 0.17134064435958862,
+      "merges": 8,
+      "doc_id": "stream::00320",
+      "stream_tokens": 64000,
+      "seconds": 4476.107344755903
+    },
+    {
+      "step": 227,
+      "loss": 1.109470248222351,
+      "merges": 8,
+      "doc_id": "stream::00055",
+      "stream_tokens": 64000,
+      "seconds": 4493.581109848805
+    },
+    {
+      "step": 228,
+      "loss": 1.0607092380523682,
+      "merges": 8,
+      "doc_id": "stream::00465",
+      "stream_tokens": 64000,
+      "seconds": 4511.007987583987
+    },
+    {
+      "step": 229,
+      "loss": 0.7342337965965271,
+      "merges": 8,
+      "doc_id": "stream::00160",
+      "stream_tokens": 64000,
+      "seconds": 4528.44518725574
+    },
+    {
+      "step": 230,
+      "loss": 0.051883451640605927,
+      "merges": 8,
+      "doc_id": "stream::00447",
+      "stream_tokens": 64000,
+      "seconds": 4545.762862059288
+    },
+    {
+      "step": 231,
+      "loss": 12.123735427856445,
+      "merges": 8,
+      "doc_id": "stream::00254",
+      "stream_tokens": 64000,
+      "seconds": 4563.129819774069
+    },
+    {
+      "step": 232,
+      "loss": 0.647365152835846,
+      "merges": 8,
+      "doc_id": "stream::00106",
+      "stream_tokens": 64000,
+      "seconds": 4580.503582215868
+    },
+    {
+      "step": 233,
+      "loss": 0.040487006306648254,
+      "merges": 8,
+      "doc_id": "stream::00292",
+      "stream_tokens": 64000,
+      "seconds": 4597.986978114583
+    },
+    {
+      "step": 234,
+      "loss": 3.229142427444458,
+      "merges": 8,
+      "doc_id": "stream::00356",
+      "stream_tokens": 64000,
+      "seconds": 4615.397508606315
+    },
+    {
+      "step": 235,
+      "loss": 0.928982138633728,
+      "merges": 8,
+      "doc_id": "stream::00138",
+      "stream_tokens": 64000,
+      "seconds": 4632.718385142274
+    },
+    {
+      "step": 236,
+      "loss": 4.2838897705078125,
+      "merges": 8,
+      "doc_id": "stream::00275",
+      "stream_tokens": 64000,
+      "seconds": 4650.00958835613
+    },
+    {
+      "step": 237,
+      "loss": 1.299622654914856,
+      "merges": 8,
+      "doc_id": "stream::00197",
+      "stream_tokens": 64000,
+      "seconds": 4667.274338281713
+    },
+    {
+      "step": 238,
+      "loss": 3.964120388031006,
+      "merges": 8,
+      "doc_id": "stream::00164",
+      "stream_tokens": 64000,
+      "seconds": 4684.578546393663
+    },
+    {
+      "step": 239,
+      "loss": 0.21029949188232422,
+      "merges": 8,
+      "doc_id": "stream::00060",
+      "stream_tokens": 64000,
+      "seconds": 4701.957419387996
+    },
+    {
+      "step": 240,
+      "loss": 0.9111763834953308,
+      "merges": 8,
+      "doc_id": "stream::00085",
+      "stream_tokens": 64000,
+      "seconds": 4719.4167086472735
+    },
+    {
+      "step": 241,
+      "loss": 0.5489929914474487,
+      "merges": 8,
+      "doc_id": "stream::00189",
+      "stream_tokens": 64000,
+      "seconds": 4736.803129445761
+    },
+    {
+      "step": 242,
+      "loss": 1.1493085622787476,
+      "merges": 8,
+      "doc_id": "stream::00375",
+      "stream_tokens": 64000,
+      "seconds": 4754.27939751558
+    },
+    {
+      "step": 243,
+      "loss": 2.652231454849243,
+      "merges": 8,
+      "doc_id": "stream::00313",
+      "stream_tokens": 64000,
+      "seconds": 4771.726168649271
+    },
+    {
+      "step": 244,
+      "loss": 5.019644737243652,
+      "merges": 8,
+      "doc_id": "stream::00112",
+      "stream_tokens": 64000,
+      "seconds": 4789.115567902103
+    },
+    {
+      "step": 245,
+      "loss": 1.5334199666976929,
+      "merges": 8,
+      "doc_id": "stream::00352",
+      "stream_tokens": 64000,
+      "seconds": 4806.502379056066
+    },
+    {
+      "step": 246,
+      "loss": 0.22880814969539642,
+      "merges": 8,
+      "doc_id": "stream::00100",
+      "stream_tokens": 64000,
+      "seconds": 4824.121713802218
+    },
+    {
+      "step": 247,
+      "loss": 0.8987777829170227,
+      "merges": 8,
+      "doc_id": "stream::00255",
+      "stream_tokens": 64000,
+      "seconds": 4841.630786132067
+    },
+    {
+      "step": 248,
+      "loss": 0.4005328416824341,
+      "merges": 8,
+      "doc_id": "stream::00151",
+      "stream_tokens": 64000,
+      "seconds": 4859.128216584213
+    },
+    {
+      "step": 249,
+      "loss": 0.9319050312042236,
+      "merges": 8,
+      "doc_id": "stream::00365",
+      "stream_tokens": 64000,
+      "seconds": 4876.556589188054
+    },
+    {
+      "step": 250,
+      "loss": 4.923620700836182,
+      "merges": 8,
+      "doc_id": "stream::00166",
+      "stream_tokens": 64000,
+      "seconds": 4893.937303726561
+    },
+    {
+      "step": 251,
+      "loss": 2.4851622581481934,
+      "merges": 8,
+      "doc_id": "stream::00354",
+      "stream_tokens": 64000,
+      "seconds": 5048.833565853536
+    },
+    {
+      "step": 252,
+      "loss": 0.942698061466217,
+      "merges": 8,
+      "doc_id": "stream::00284",
+      "stream_tokens": 64000,
+      "seconds": 5066.282465932891
+    },
+    {
+      "step": 253,
+      "loss": 0.13316302001476288,
+      "merges": 8,
+      "doc_id": "stream::00195",
+      "stream_tokens": 64000,
+      "seconds": 5083.632073660381
+    },
+    {
+      "step": 254,
+      "loss": 1.5124174356460571,
+      "merges": 8,
+      "doc_id": "stream::00360",
+      "stream_tokens": 64000,
+      "seconds": 5100.936404983513
+    },
+    {
+      "step": 255,
+      "loss": 0.028742844238877296,
+      "merges": 8,
+      "doc_id": "stream::00024",
+      "stream_tokens": 64000,
+      "seconds": 5118.23522433918
+    },
+    {
+      "step": 256,
+      "loss": 0.9390203356742859,
+      "merges": 8,
+      "doc_id": "stream::00110",
+      "stream_tokens": 64000,
+      "seconds": 5135.6652013594285
+    },
+    {
+      "step": 257,
+      "loss": 2.1721503734588623,
+      "merges": 8,
+      "doc_id": "stream::00437",
+      "stream_tokens": 64000,
+      "seconds": 5152.910976778716
+    },
+    {
+      "step": 258,
+      "loss": 1.1970223188400269,
+      "merges": 8,
+      "doc_id": "stream::00081",
+      "stream_tokens": 64000,
+      "seconds": 5170.355821419507
+    },
+    {
+      "step": 259,
+      "loss": 3.7349724769592285,
+      "merges": 8,
+      "doc_id": "stream::00460",
+      "stream_tokens": 64000,
+      "seconds": 5187.672644148581
+    },
+    {
+      "step": 260,
+      "loss": 4.669033527374268,
+      "merges": 8,
+      "doc_id": "stream::00196",
+      "stream_tokens": 64000,
+      "seconds": 5204.982636409812
+    },
+    {
+      "step": 261,
+      "loss": 5.5418219566345215,
+      "merges": 8,
+      "doc_id": "stream::00103",
+      "stream_tokens": 64000,
+      "seconds": 5222.394181146286
+    },
+    {
+      "step": 262,
+      "loss": 2.2715721130371094,
+      "merges": 8,
+      "doc_id": "stream::00102",
+      "stream_tokens": 64000,
+      "seconds": 5239.694946040399
+    },
+    {
+      "step": 263,
+      "loss": 0.5865381360054016,
+      "merges": 8,
+      "doc_id": "stream::00050",
+      "stream_tokens": 64000,
+      "seconds": 5257.0634193765
+    },
+    {
+      "step": 264,
+      "loss": 0.015394600108265877,
+      "merges": 8,
+      "doc_id": "stream::00393",
+      "stream_tokens": 64000,
+      "seconds": 5274.305797530338
+    },
+    {
+      "step": 265,
+      "loss": 0.005160138476639986,
+      "merges": 8,
+      "doc_id": "stream::00107",
+      "stream_tokens": 64000,
+      "seconds": 5291.756600946188
+    },
+    {
+      "step": 266,
+      "loss": 2.312206745147705,
+      "merges": 8,
+      "doc_id": "stream::00261",
+      "stream_tokens": 64000,
+      "seconds": 5309.221055094153
+    },
+    {
+      "step": 267,
+      "loss": 0.21729689836502075,
+      "merges": 8,
+      "doc_id": "stream::00471",
+      "stream_tokens": 64000,
+      "seconds": 5326.687771489844
+    },
+    {
+      "step": 268,
+      "loss": 2.640320301055908,
+      "merges": 8,
+      "doc_id": "stream::00400",
+      "stream_tokens": 64000,
+      "seconds": 5343.961091376841
+    },
+    {
+      "step": 269,
+      "loss": 1.6223996877670288,
+      "merges": 8,
+      "doc_id": "stream::00123",
+      "stream_tokens": 64000,
+      "seconds": 5361.324027597904
+    },
+    {
+      "step": 270,
+      "loss": 0.05502231791615486,
+      "merges": 8,
+      "doc_id": "stream::00470",
+      "stream_tokens": 64000,
+      "seconds": 5378.796857395209
+    },
+    {
+      "step": 271,
+      "loss": 0.060222070664167404,
+      "merges": 8,
+      "doc_id": "stream::00304",
+      "stream_tokens": 64000,
+      "seconds": 5396.24246464856
+    },
+    {
+      "step": 272,
+      "loss": 2.2174549102783203,
+      "merges": 8,
+      "doc_id": "stream::00480",
+      "stream_tokens": 64000,
+      "seconds": 5413.673566898331
+    },
+    {
+      "step": 273,
+      "loss": 1.4412477016448975,
+      "merges": 8,
+      "doc_id": "stream::00260",
+      "stream_tokens": 64000,
+      "seconds": 5431.1772275855765
+    },
+    {
+      "step": 274,
+      "loss": 2.359733819961548,
+      "merges": 8,
+      "doc_id": "stream::00278",
+      "stream_tokens": 64000,
+      "seconds": 5448.672350593843
+    },
+    {
+      "step": 275,
+      "loss": 0.23484167456626892,
+      "merges": 8,
+      "doc_id": "stream::00308",
+      "stream_tokens": 64000,
+      "seconds": 5466.192398272455
+    },
+    {
+      "step": 276,
+      "loss": 4.914516925811768,
+      "merges": 8,
+      "doc_id": "stream::00113",
+      "stream_tokens": 64000,
+      "seconds": 5483.752333912067
+    },
+    {
+      "step": 277,
+      "loss": 0.5969459414482117,
+      "merges": 8,
+      "doc_id": "stream::00244",
+      "stream_tokens": 64000,
+      "seconds": 5501.142559089698
+    },
+    {
+      "step": 278,
+      "loss": 6.075772285461426,
+      "merges": 8,
+      "doc_id": "stream::00200",
+      "stream_tokens": 64000,
+      "seconds": 5518.60207955353
+    },
+    {
+      "step": 279,
+      "loss": 0.033417560160160065,
+      "merges": 8,
+      "doc_id": "stream::00401",
+      "stream_tokens": 64000,
+      "seconds": 5536.145925308578
+    },
+    {
+      "step": 280,
+      "loss": 3.9938979148864746,
+      "merges": 8,
+      "doc_id": "stream::00057",
+      "stream_tokens": 64000,
+      "seconds": 5553.63547098171
+    },
+    {
+      "step": 281,
+      "loss": 3.417130947113037,
+      "merges": 8,
+      "doc_id": "stream::00412",
+      "stream_tokens": 64000,
+      "seconds": 5571.018293634988
+    },
+    {
+      "step": 282,
+      "loss": 4.763878345489502,
+      "merges": 8,
+      "doc_id": "stream::00372",
+      "stream_tokens": 64000,
+      "seconds": 5588.31762180943
+    },
+    {
+      "step": 283,
+      "loss": 1.191834568977356,
+      "merges": 8,
+      "doc_id": "stream::00374",
+      "stream_tokens": 64000,
+      "seconds": 5605.6206929134205
+    },
+    {
+      "step": 284,
+      "loss": 4.634988307952881,
+      "merges": 8,
+      "doc_id": "stream::00331",
+      "stream_tokens": 64000,
+      "seconds": 5622.986343516037
+    },
+    {
+      "step": 285,
+      "loss": 0.003441841108724475,
+      "merges": 8,
+      "doc_id": "stream::00238",
+      "stream_tokens": 64000,
+      "seconds": 5640.330731105059
+    },
+    {
+      "step": 286,
+      "loss": 1.8000754117965698,
+      "merges": 8,
+      "doc_id": "stream::00483",
+      "stream_tokens": 64000,
+      "seconds": 5657.759751132689
+    },
+    {
+      "step": 287,
+      "loss": 5.828363418579102,
+      "merges": 8,
+      "doc_id": "stream::00327",
+      "stream_tokens": 64000,
+      "seconds": 5675.164062807336
+    },
+    {
+      "step": 288,
+      "loss": 0.35544121265411377,
+      "merges": 8,
+      "doc_id": "stream::00332",
+      "stream_tokens": 64000,
+      "seconds": 5692.55024616234
+    },
+    {
+      "step": 289,
+      "loss": 5.1376261711120605,
+      "merges": 8,
+      "doc_id": "stream::00128",
+      "stream_tokens": 64000,
+      "seconds": 5709.899997324683
+    },
+    {
+      "step": 290,
+      "loss": 1.1844136714935303,
+      "merges": 8,
+      "doc_id": "stream::00266",
+      "stream_tokens": 64000,
+      "seconds": 5727.2075006421655
+    },
+    {
+      "step": 291,
+      "loss": 2.6577439308166504,
+      "merges": 8,
+      "doc_id": "stream::00323",
+      "stream_tokens": 64000,
+      "seconds": 5744.511215646751
+    },
+    {
+      "step": 292,
+      "loss": 0.43110647797584534,
+      "merges": 8,
+      "doc_id": "stream::00380",
+      "stream_tokens": 64000,
+      "seconds": 5762.040095661767
+    },
+    {
+      "step": 293,
+      "loss": 1.467462182044983,
+      "merges": 8,
+      "doc_id": "stream::00120",
+      "stream_tokens": 64000,
+      "seconds": 5779.590373717248
+    },
+    {
+      "step": 294,
+      "loss": 0.5306727290153503,
+      "merges": 8,
+      "doc_id": "stream::00032",
+      "stream_tokens": 64000,
+      "seconds": 5796.912793162279
+    },
+    {
+      "step": 295,
+      "loss": 1.9012901782989502,
+      "merges": 8,
+      "doc_id": "stream::00039",
+      "stream_tokens": 64000,
+      "seconds": 5814.148712483235
+    },
+    {
+      "step": 296,
+      "loss": 0.18077480792999268,
+      "merges": 8,
+      "doc_id": "stream::00338",
+      "stream_tokens": 64000,
+      "seconds": 5831.504153720103
+    },
+    {
+      "step": 297,
+      "loss": 0.7918498516082764,
+      "merges": 8,
+      "doc_id": "stream::00210",
+      "stream_tokens": 64000,
+      "seconds": 5848.741474303417
+    },
+    {
+      "step": 298,
+      "loss": 2.1945769786834717,
+      "merges": 8,
+      "doc_id": "stream::00387",
+      "stream_tokens": 64000,
+      "seconds": 5865.966209744103
+    },
+    {
+      "step": 299,
+      "loss": 3.311344861984253,
+      "merges": 8,
+      "doc_id": "stream::00364",
+      "stream_tokens": 64000,
+      "seconds": 5883.348285807297
+    },
+    {
+      "step": 300,
+      "loss": 0.4241894781589508,
+      "merges": 8,
+      "doc_id": "stream::00082",
+      "stream_tokens": 64000,
+      "seconds": 5900.841194751672
+    },
+    {
+      "step": 301,
+      "loss": 0.5164093971252441,
+      "merges": 8,
+      "doc_id": "stream::00383",
+      "stream_tokens": 64000,
+      "seconds": 6056.621802190319
+    },
+    {
+      "step": 302,
+      "loss": 0.8656046390533447,
+      "merges": 8,
+      "doc_id": "stream::00379",
+      "stream_tokens": 64000,
+      "seconds": 6074.019311980344
+    },
+    {
+      "step": 303,
+      "loss": 3.257455587387085,
+      "merges": 8,
+      "doc_id": "stream::00397",
+      "stream_tokens": 64000,
+      "seconds": 6091.501068439335
+    },
+    {
+      "step": 304,
+      "loss": 3.700172185897827,
+      "merges": 8,
+      "doc_id": "stream::00034",
+      "stream_tokens": 64000,
+      "seconds": 6108.935072648339
+    },
+    {
+      "step": 305,
+      "loss": 2.84171986579895,
+      "merges": 8,
+      "doc_id": "stream::00451",
+      "stream_tokens": 64000,
+      "seconds": 6126.157802504487
+    },
+    {
+      "step": 306,
+      "loss": 3.8958218097686768,
+      "merges": 8,
+      "doc_id": "stream::00294",
+      "stream_tokens": 64000,
+      "seconds": 6143.448355543427
+    },
+    {
+      "step": 307,
+      "loss": 3.7992868423461914,
+      "merges": 8,
+      "doc_id": "stream::00314",
+      "stream_tokens": 64000,
+      "seconds": 6160.683230479248
+    },
+    {
+      "step": 308,
+      "loss": 1.9393619298934937,
+      "merges": 8,
+      "doc_id": "stream::00044",
+      "stream_tokens": 64000,
+      "seconds": 6177.842880437151
+    },
+    {
+      "step": 309,
+      "loss": 2.8259172439575195,
+      "merges": 8,
+      "doc_id": "stream::00462",
+      "stream_tokens": 64000,
+      "seconds": 6195.263080529869
+    },
+    {
+      "step": 310,
+      "loss": 2.802490472793579,
+      "merges": 8,
+      "doc_id": "stream::00095",
+      "stream_tokens": 64000,
+      "seconds": 6212.6930745383725
+    },
+    {
+      "step": 311,
+      "loss": 0.46443238854408264,
+      "merges": 8,
+      "doc_id": "stream::00446",
+      "stream_tokens": 64000,
+      "seconds": 6230.1304883193225
+    },
+    {
+      "step": 312,
+      "loss": 0.010727912187576294,
+      "merges": 8,
+      "doc_id": "stream::00434",
+      "stream_tokens": 64000,
+      "seconds": 6247.561483494006
+    },
+    {
+      "step": 313,
+      "loss": 0.0834137424826622,
+      "merges": 8,
+      "doc_id": "stream::00239",
+      "stream_tokens": 64000,
+      "seconds": 6265.034160003066
+    },
+    {
+      "step": 314,
+      "loss": 2.1396093368530273,
+      "merges": 8,
+      "doc_id": "stream::00395",
+      "stream_tokens": 64000,
+      "seconds": 6282.378029780462
+    },
+    {
+      "step": 315,
+      "loss": 0.04810895398259163,
+      "merges": 8,
+      "doc_id": "stream::00108",
+      "stream_tokens": 64000,
+      "seconds": 6299.654944872484
+    },
+    {
+      "step": 316,
+      "loss": 1.8769878149032593,
+      "merges": 8,
+      "doc_id": "stream::00211",
+      "stream_tokens": 64000,
+      "seconds": 6316.979037676007
+    },
+    {
+      "step": 317,
+      "loss": 0.4456197917461395,
+      "merges": 8,
+      "doc_id": "stream::00133",
+      "stream_tokens": 64000,
+      "seconds": 6334.322198305279
+    },
+    {
+      "step": 318,
+      "loss": 3.0758297443389893,
+      "merges": 8,
+      "doc_id": "stream::00347",
+      "stream_tokens": 64000,
+      "seconds": 6351.680527702905
+    },
+    {
+      "step": 319,
+      "loss": 6.230982780456543,
+      "merges": 8,
+      "doc_id": "stream::00159",
+      "stream_tokens": 64000,
+      "seconds": 6369.015810227022
+    },
+    {
+      "step": 320,
+      "loss": 2.9194440841674805,
+      "merges": 8,
+      "doc_id": "stream::00029",
+      "stream_tokens": 64000,
+      "seconds": 6386.337936682627
+    },
+    {
+      "step": 321,
+      "loss": 1.3920150995254517,
+      "merges": 8,
+      "doc_id": "stream::00419",
+      "stream_tokens": 64000,
+      "seconds": 6403.712182311341
+    },
+    {
+      "step": 322,
+      "loss": 1.4653691053390503,
+      "merges": 8,
+      "doc_id": "stream::00414",
+      "stream_tokens": 64000,
+      "seconds": 6421.060353164561
+    },
+    {
+      "step": 323,
+      "loss": 0.18922612071037292,
+      "merges": 8,
+      "doc_id": "stream::00192",
+      "stream_tokens": 64000,
+      "seconds": 6438.419840478338
+    },
+    {
+      "step": 324,
+      "loss": 0.32814982533454895,
+      "merges": 8,
+      "doc_id": "stream::00343",
+      "stream_tokens": 64000,
+      "seconds": 6455.756806022488
+    },
+    {
+      "step": 325,
+      "loss": 0.11937826871871948,
+      "merges": 8,
+      "doc_id": "stream::00390",
+      "stream_tokens": 64000,
+      "seconds": 6473.148832552135
+    },
+    {
+      "step": 326,
+      "loss": 1.8233634233474731,
+      "merges": 8,
+      "doc_id": "stream::00270",
+      "stream_tokens": 64000,
+      "seconds": 6490.4229685543105
+    },
+    {
+      "step": 327,
+      "loss": 2.043675661087036,
+      "merges": 8,
+      "doc_id": "stream::00080",
+      "stream_tokens": 64000,
+      "seconds": 6507.798147101887
+    },
+    {
+      "step": 328,
+      "loss": 1.3940925598144531,
+      "merges": 8,
+      "doc_id": "stream::00376",
+      "stream_tokens": 64000,
+      "seconds": 6525.1292756050825
+    },
+    {
+      "step": 329,
+      "loss": 3.634331464767456,
+      "merges": 8,
+      "doc_id": "stream::00417",
+      "stream_tokens": 64000,
+      "seconds": 6542.586201646365
+    },
+    {
+      "step": 330,
+      "loss": 0.08151543140411377,
+      "merges": 8,
+      "doc_id": "stream::00063",
+      "stream_tokens": 64000,
+      "seconds": 6559.868374477141
+    },
+    {
+      "step": 331,
+      "loss": 1.9451143741607666,
+      "merges": 8,
+      "doc_id": "stream::00203",
+      "stream_tokens": 64000,
+      "seconds": 6577.216938117519
+    },
+    {
+      "step": 332,
+      "loss": 0.9842628240585327,
+      "merges": 8,
+      "doc_id": "stream::00349",
+      "stream_tokens": 64000,
+      "seconds": 6594.680173482746
+    },
+    {
+      "step": 333,
+      "loss": 1.5592769384384155,
+      "merges": 8,
+      "doc_id": "stream::00421",
+      "stream_tokens": 64000,
+      "seconds": 6612.278449341655
+    },
+    {
+      "step": 334,
+      "loss": 0.8218631744384766,
+      "merges": 8,
+      "doc_id": "stream::00251",
+      "stream_tokens": 64000,
+      "seconds": 6629.71744407434
+    },
+    {
+      "step": 335,
+      "loss": 2.9233994483947754,
+      "merges": 8,
+      "doc_id": "stream::00161",
+      "stream_tokens": 64000,
+      "seconds": 6647.111135035753
+    },
+    {
+      "step": 336,
+      "loss": 2.8409535884857178,
+      "merges": 8,
+      "doc_id": "stream::00317",
+      "stream_tokens": 64000,
+      "seconds": 6664.498450118117
+    },
+    {
+      "step": 337,
+      "loss": 0.06534149497747421,
+      "merges": 8,
+      "doc_id": "stream::00235",
+      "stream_tokens": 64000,
+      "seconds": 6681.8493996998295
+    },
+    {
+      "step": 338,
+      "loss": 0.40880030393600464,
+      "merges": 8,
+      "doc_id": "stream::00322",
+      "stream_tokens": 64000,
+      "seconds": 6699.257349264808
+    },
+    {
+      "step": 339,
+      "loss": 4.457399845123291,
+      "merges": 8,
+      "doc_id": "stream::00131",
+      "stream_tokens": 64000,
+      "seconds": 6716.598211764358
+    },
+    {
+      "step": 340,
+      "loss": 4.2441816329956055,
+      "merges": 8,
+      "doc_id": "stream::00141",
+      "stream_tokens": 64000,
+      "seconds": 6734.00120509509
+    },
+    {
+      "step": 341,
+      "loss": 0.0769859030842781,
+      "merges": 8,
+      "doc_id": "stream::00288",
+      "stream_tokens": 64000,
+      "seconds": 6751.521159315482
+    },
+    {
+      "step": 342,
+      "loss": 2.3738603591918945,
+      "merges": 8,
+      "doc_id": "stream::00162",
+      "stream_tokens": 64000,
+      "seconds": 6768.8875887058675
+    },
+    {
+      "step": 343,
+      "loss": 3.369225025177002,
+      "merges": 8,
+      "doc_id": "stream::00289",
+      "stream_tokens": 64000,
+      "seconds": 6786.36462928541
+    },
+    {
+      "step": 344,
+      "loss": 0.7322432994842529,
+      "merges": 8,
+      "doc_id": "stream::00221",
+      "stream_tokens": 64000,
+      "seconds": 6803.7424528887495
+    },
+    {
+      "step": 345,
+      "loss": 1.2298929691314697,
+      "merges": 8,
+      "doc_id": "stream::00418",
+      "stream_tokens": 64000,
+      "seconds": 6821.2116310996935
+    },
+    {
+      "step": 346,
+      "loss": 4.357062339782715,
+      "merges": 8,
+      "doc_id": "stream::00406",
+      "stream_tokens": 64000,
+      "seconds": 6838.563459104858
+    },
+    {
+      "step": 347,
+      "loss": 0.7197136878967285,
+      "merges": 8,
+      "doc_id": "stream::00040",
+      "stream_tokens": 64000,
+      "seconds": 6855.967485059984
+    },
+    {
+      "step": 348,
+      "loss": 0.9400115609169006,
+      "merges": 8,
+      "doc_id": "stream::00097",
+      "stream_tokens": 64000,
+      "seconds": 6873.1860566549
+    },
+    {
+      "step": 349,
+      "loss": 1.9169212579727173,
+      "merges": 8,
+      "doc_id": "stream::00087",
+      "stream_tokens": 64000,
+      "seconds": 6890.465500647202
+    },
+    {
+      "step": 350,
+      "loss": 2.436394453048706,
+      "merges": 8,
+      "doc_id": "stream::00368",
+      "stream_tokens": 64000,
+      "seconds": 6907.702695783228
+    },
+    {
+      "step": 351,
+      "loss": 0.20906591415405273,
+      "merges": 8,
+      "doc_id": "stream::00066",
+      "stream_tokens": 64000,
+      "seconds": 7062.974807990715
+    },
+    {
+      "step": 352,
+      "loss": 1.2815394401550293,
+      "merges": 8,
+      "doc_id": "stream::00056",
+      "stream_tokens": 64000,
+      "seconds": 7080.380668998696
+    },
+    {
+      "step": 353,
+      "loss": 0.11183353513479233,
+      "merges": 8,
+      "doc_id": "stream::00264",
+      "stream_tokens": 64000,
+      "seconds": 7097.7812095293775
+    },
+    {
+      "step": 354,
+      "loss": 0.06439042091369629,
+      "merges": 8,
+      "doc_id": "stream::00457",
+      "stream_tokens": 64000,
+      "seconds": 7115.173854125664
+    },
+    {
+      "step": 355,
+      "loss": 0.09930384904146194,
+      "merges": 8,
+      "doc_id": "stream::00357",
+      "stream_tokens": 64000,
+      "seconds": 7132.599642490037
+    },
+    {
+      "step": 356,
+      "loss": 0.1374746710062027,
+      "merges": 8,
+      "doc_id": "stream::00426",
+      "stream_tokens": 64000,
+      "seconds": 7150.025607240386
+    },
+    {
+      "step": 357,
+      "loss": 2.6978349685668945,
+      "merges": 8,
+      "doc_id": "stream::00037",
+      "stream_tokens": 64000,
+      "seconds": 7167.405025803484
+    },
+    {
+      "step": 358,
+      "loss": 4.305042266845703,
+      "merges": 8,
+      "doc_id": "stream::00116",
+      "stream_tokens": 64000,
+      "seconds": 7184.773800690658
+    },
+    {
+      "step": 359,
+      "loss": 4.640176296234131,
+      "merges": 8,
+      "doc_id": "stream::00117",
+      "stream_tokens": 64000,
+      "seconds": 7202.197223836556
+    },
+    {
+      "step": 360,
+      "loss": 0.6556534767150879,
+      "merges": 8,
+      "doc_id": "stream::00115",
+      "stream_tokens": 64000,
+      "seconds": 7219.5714605003595
+    },
+    {
+      "step": 361,
+      "loss": 3.2729928493499756,
+      "merges": 8,
+      "doc_id": "stream::00169",
+      "stream_tokens": 64000,
+      "seconds": 7237.036437285133
+    },
+    {
+      "step": 362,
+      "loss": 0.8636307716369629,
+      "merges": 8,
+      "doc_id": "stream::00144",
+      "stream_tokens": 64000,
+      "seconds": 7254.515766845085
+    },
+    {
+      "step": 363,
+      "loss": 0.37045490741729736,
+      "merges": 8,
+      "doc_id": "stream::00315",
+      "stream_tokens": 64000,
+      "seconds": 7271.9977332940325
+    },
+    {
+      "step": 364,
+      "loss": 0.10306878387928009,
+      "merges": 8,
+      "doc_id": "stream::00183",
+      "stream_tokens": 64000,
+      "seconds": 7289.320556005463
+    },
+    {
+      "step": 365,
+      "loss": 0.1368042379617691,
+      "merges": 8,
+      "doc_id": "stream::00484",
+      "stream_tokens": 64000,
+      "seconds": 7306.609947024845
+    },
+    {
+      "step": 366,
+      "loss": 5.593301773071289,
+      "merges": 8,
+      "doc_id": "stream::00326",
+      "stream_tokens": 64000,
+      "seconds": 7324.016118399799
+    },
+    {
+      "step": 367,
+      "loss": 0.35260239243507385,
+      "merges": 8,
+      "doc_id": "stream::00464",
+      "stream_tokens": 64000,
+      "seconds": 7341.4590798402205
+    },
+    {
+      "step": 368,
+      "loss": 1.3831125497817993,
+      "merges": 8,
+      "doc_id": "stream::00248",
+      "stream_tokens": 64000,
+      "seconds": 7358.867673874833
+    },
+    {
+      "step": 369,
+      "loss": 1.4286983013153076,
+      "merges": 8,
+      "doc_id": "stream::00168",
+      "stream_tokens": 64000,
+      "seconds": 7376.4299772996455
+    },
+    {
+      "step": 370,
+      "loss": 5.835299015045166,
+      "merges": 8,
+      "doc_id": "stream::00321",
+      "stream_tokens": 64000,
+      "seconds": 7393.918921704404
+    },
+    {
+      "step": 371,
+      "loss": 1.3870888948440552,
+      "merges": 8,
+      "doc_id": "stream::00396",
+      "stream_tokens": 64000,
+      "seconds": 7411.407052524388
+    },
+    {
+      "step": 372,
+      "loss": 1.9254251718521118,
+      "merges": 8,
+      "doc_id": "stream::00456",
+      "stream_tokens": 64000,
+      "seconds": 7428.83574323263
+    },
+    {
+      "step": 373,
+      "loss": 0.3712952435016632,
+      "merges": 8,
+      "doc_id": "stream::00440",
+      "stream_tokens": 64000,
+      "seconds": 7446.33294314798
+    },
+    {
+      "step": 374,
+      "loss": 3.7992100715637207,
+      "merges": 8,
+      "doc_id": "stream::00297",
+      "stream_tokens": 64000,
+      "seconds": 7463.823653140105
+    },
+    {
+      "step": 375,
+      "loss": 2.1755120754241943,
+      "merges": 8,
+      "doc_id": "stream::00420",
+      "stream_tokens": 64000,
+      "seconds": 7481.330418469384
+    },
+    {
+      "step": 376,
+      "loss": 0.6551662087440491,
+      "merges": 8,
+      "doc_id": "stream::00432",
+      "stream_tokens": 64000,
+      "seconds": 7498.735844044015
+    },
+    {
+      "step": 377,
+      "loss": 0.05671835318207741,
+      "merges": 8,
+      "doc_id": "stream::00084",
+      "stream_tokens": 64000,
+      "seconds": 7516.223480688408
+    },
+    {
+      "step": 378,
+      "loss": 4.803989887237549,
+      "merges": 8,
+      "doc_id": "stream::00458",
+      "stream_tokens": 64000,
+      "seconds": 7533.6659723185
+    },
+    {
+      "step": 379,
+      "loss": 3.3306126594543457,
+      "merges": 8,
+      "doc_id": "stream::00170",
+      "stream_tokens": 64000,
+      "seconds": 7551.0553490407765
+    },
+    {
+      "step": 380,
+      "loss": 1.2452090978622437,
+      "merges": 8,
+      "doc_id": "stream::00439",
+      "stream_tokens": 64000,
+      "seconds": 7568.416724234819
+    },
+    {
+      "step": 381,
+      "loss": 2.8230018615722656,
+      "merges": 8,
+      "doc_id": "stream::00175",
+      "stream_tokens": 64000,
+      "seconds": 7585.847796634771
+    },
+    {
+      "step": 382,
+      "loss": 0.12680606544017792,
+      "merges": 8,
+      "doc_id": "stream::00076",
+      "stream_tokens": 64000,
+      "seconds": 7603.150639791042
+    },
+    {
+      "step": 383,
+      "loss": 0.03448420390486717,
+      "merges": 8,
+      "doc_id": "stream::00271",
+      "stream_tokens": 64000,
+      "seconds": 7620.347246512771
+    },
+    {
+      "step": 384,
+      "loss": 0.1622607558965683,
+      "merges": 8,
+      "doc_id": "stream::00281",
+      "stream_tokens": 64000,
+      "seconds": 7637.815167015418
+    },
+    {
+      "step": 385,
+      "loss": 2.1337969303131104,
+      "merges": 8,
+      "doc_id": "stream::00184",
+      "stream_tokens": 64000,
+      "seconds": 7655.200317906216
+    },
+    {
+      "step": 386,
+      "loss": 0.973781943321228,
+      "merges": 8,
+      "doc_id": "stream::00062",
+      "stream_tokens": 64000,
+      "seconds": 7672.620884432457
+    },
+    {
+      "step": 387,
+      "loss": 4.945204734802246,
+      "merges": 8,
+      "doc_id": "stream::00067",
+      "stream_tokens": 64000,
+      "seconds": 7690.030972633511
+    },
+    {
+      "step": 388,
+      "loss": 5.200450420379639,
+      "merges": 8,
+      "doc_id": "stream::00250",
+      "stream_tokens": 64000,
+      "seconds": 7707.460050879046
+    },
+    {
+      "step": 389,
+      "loss": 1.148848295211792,
+      "merges": 8,
+      "doc_id": "stream::00299",
+      "stream_tokens": 64000,
+      "seconds": 7724.932148333639
+    },
+    {
+      "step": 390,
+      "loss": 1.9705712795257568,
+      "merges": 8,
+      "doc_id": "stream::00093",
+      "stream_tokens": 64000,
+      "seconds": 7742.350168141536
+    },
+    {
+      "step": 391,
+      "loss": 0.3337109386920929,
+      "merges": 8,
+      "doc_id": "stream::00143",
+      "stream_tokens": 64000,
+      "seconds": 7759.811737822369
+    },
+    {
+      "step": 392,
+      "loss": 0.442592054605484,
+      "merges": 8,
+      "doc_id": "stream::00134",
+      "stream_tokens": 64000,
+      "seconds": 7777.186519823037
+    },
+    {
+      "step": 393,
+      "loss": 0.8141599297523499,
+      "merges": 8,
+      "doc_id": "stream::00311",
+      "stream_tokens": 64000,
+      "seconds": 7794.563273983076
+    },
+    {
+      "step": 394,
+      "loss": 3.5675573348999023,
+      "merges": 8,
+      "doc_id": "stream::00118",
+      "stream_tokens": 64000,
+      "seconds": 7811.97572208941
+    },
+    {
+      "step": 395,
+      "loss": 2.6533076763153076,
+      "merges": 8,
+      "doc_id": "stream::00053",
+      "stream_tokens": 64000,
+      "seconds": 7829.415864752606
+    },
+    {
+      "step": 396,
+      "loss": 0.60585618019104,
+      "merges": 8,
+      "doc_id": "stream::00381",
+      "stream_tokens": 64000,
+      "seconds": 7846.72257093247
+    },
+    {
+      "step": 397,
+      "loss": 0.3454711437225342,
+      "merges": 8,
+      "doc_id": "stream::00187",
+      "stream_tokens": 64000,
+      "seconds": 7864.100757862441
+    },
+    {
+      "step": 398,
+      "loss": 0.058528825640678406,
+      "merges": 8,
+      "doc_id": "stream::00452",
+      "stream_tokens": 64000,
+      "seconds": 7881.446645100601
+    },
+    {
+      "step": 399,
+      "loss": 3.308589458465576,
+      "merges": 8,
+      "doc_id": "stream::00145",
+      "stream_tokens": 64000,
+      "seconds": 7898.815493131056
+    },
+    {
+      "step": 400,
+      "loss": 0.8233768343925476,
+      "merges": 8,
+      "doc_id": "stream::00191",
+      "stream_tokens": 64000,
+      "seconds": 7916.139491658658
+    },
+    {
+      "step": 401,
+      "loss": 0.33278635144233704,
+      "merges": 8,
+      "doc_id": "stream::00273",
+      "stream_tokens": 64000,
+      "seconds": 8071.7519620535895
+    },
+    {
+      "step": 402,
+      "loss": 0.2502380907535553,
+      "merges": 8,
+      "doc_id": "stream::00334",
+      "stream_tokens": 64000,
+      "seconds": 8089.207192438655
+    },
+    {
+      "step": 403,
+      "loss": 3.301643133163452,
+      "merges": 8,
+      "doc_id": "stream::00021",
+      "stream_tokens": 64000,
+      "seconds": 8106.60301767569
+    },
+    {
+      "step": 404,
+      "loss": 0.008191922679543495,
+      "merges": 8,
+      "doc_id": "stream::00341",
+      "stream_tokens": 64000,
+      "seconds": 8123.887734702788
+    },
+    {
+      "step": 405,
+      "loss": 0.1958709955215454,
+      "merges": 8,
+      "doc_id": "stream::00363",
+      "stream_tokens": 64000,
+      "seconds": 8141.057753354311
+    },
+    {
+      "step": 406,
+      "loss": 0.11336065083742142,
+      "merges": 8,
+      "doc_id": "stream::00475",
+      "stream_tokens": 64000,
+      "seconds": 8158.39092486538
+    },
+    {
+      "step": 407,
+      "loss": 1.150498867034912,
+      "merges": 8,
+      "doc_id": "stream::00384",
+      "stream_tokens": 64000,
+      "seconds": 8175.611732317135
+    },
+    {
+      "step": 408,
+      "loss": 3.6337387561798096,
+      "merges": 8,
+      "doc_id": "stream::00225",
+      "stream_tokens": 64000,
+      "seconds": 8192.840845094062
+    },
+    {
+      "step": 409,
+      "loss": 10.496691703796387,
+      "merges": 8,
+      "doc_id": "stream::00389",
+      "stream_tokens": 64000,
+      "seconds": 8210.20717385877
+    },
+    {
+      "step": 410,
+      "loss": 0.6515516042709351,
+      "merges": 8,
+      "doc_id": "stream::00068",
+      "stream_tokens": 64000,
+      "seconds": 8227.518627704121
+    },
+    {
+      "step": 411,
+      "loss": 5.614863395690918,
+      "merges": 8,
+      "doc_id": "stream::00028",
+      "stream_tokens": 64000,
+      "seconds": 8245.017745738849
+    },
+    {
+      "step": 412,
+      "loss": 3.409410238265991,
+      "merges": 8,
+      "doc_id": "stream::00301",
+      "stream_tokens": 64000,
+      "seconds": 8262.360665122978
+    },
+    {
+      "step": 413,
+      "loss": 0.01760796830058098,
+      "merges": 8,
+      "doc_id": "stream::00433",
+      "stream_tokens": 64000,
+      "seconds": 8279.830792902038
+    },
+    {
+      "step": 414,
+      "loss": 1.7820619344711304,
+      "merges": 8,
+      "doc_id": "stream::00052",
+      "stream_tokens": 64000,
+      "seconds": 8297.237855349667
+    },
+    {
+      "step": 415,
+      "loss": 4.974205017089844,
+      "merges": 8,
+      "doc_id": "stream::00154",
+      "stream_tokens": 64000,
+      "seconds": 8314.619289682247
+    },
+    {
+      "step": 416,
+      "loss": 2.6468186378479004,
+      "merges": 8,
+      "doc_id": "stream::00287",
+      "stream_tokens": 64000,
+      "seconds": 8332.0121329315
+    },
+    {
+      "step": 417,
+      "loss": 5.339149475097656,
+      "merges": 8,
+      "doc_id": "stream::00247",
+      "stream_tokens": 64000,
+      "seconds": 8349.303169433028
+    },
+    {
+      "step": 418,
+      "loss": 1.1975399255752563,
+      "merges": 8,
+      "doc_id": "stream::00472",
+      "stream_tokens": 64000,
+      "seconds": 8366.540396971628
+    },
+    {
+      "step": 419,
+      "loss": 11.072324752807617,
+      "merges": 8,
+      "doc_id": "stream::00303",
+      "stream_tokens": 64000,
+      "seconds": 8383.755183471367
+    },
+    {
+      "step": 420,
+      "loss": 0.6482272148132324,
+      "merges": 8,
+      "doc_id": "stream::00125",
+      "stream_tokens": 64000,
+      "seconds": 8400.941360687837
+    },
+    {
+      "step": 421,
+      "loss": 1.124601125717163,
+      "merges": 8,
+      "doc_id": "stream::00348",
+      "stream_tokens": 64000,
+      "seconds": 8418.19651720766
+    },
+    {
+      "step": 422,
+      "loss": 1.4882769584655762,
+      "merges": 8,
+      "doc_id": "stream::00333",
+      "stream_tokens": 64000,
+      "seconds": 8435.524832301773
+    },
+    {
+      "step": 423,
+      "loss": 0.1935335397720337,
+      "merges": 8,
+      "doc_id": "stream::00182",
+      "stream_tokens": 64000,
+      "seconds": 8452.99264679756
+    },
+    {
+      "step": 424,
+      "loss": 4.301626205444336,
+      "merges": 8,
+      "doc_id": "stream::00243",
+      "stream_tokens": 64000,
+      "seconds": 8470.46500913985
+    },
+    {
+      "step": 425,
+      "loss": 3.766984701156616,
+      "merges": 8,
+      "doc_id": "stream::00202",
+      "stream_tokens": 64000,
+      "seconds": 8487.919735737145
+    },
+    {
+      "step": 426,
+      "loss": 0.34937262535095215,
+      "merges": 8,
+      "doc_id": "stream::00072",
+      "stream_tokens": 64000,
+      "seconds": 8505.425992641598
+    },
+    {
+      "step": 427,
+      "loss": 0.4879266023635864,
+      "merges": 8,
+      "doc_id": "stream::00307",
+      "stream_tokens": 64000,
+      "seconds": 8522.680999528617
+    },
+    {
+      "step": 428,
+      "loss": 2.3473758697509766,
+      "merges": 8,
+      "doc_id": "stream::00262",
+      "stream_tokens": 64000,
+      "seconds": 8540.16127928719
+    },
+    {
+      "step": 429,
+      "loss": 2.454287528991699,
+      "merges": 8,
+      "doc_id": "stream::00190",
+      "stream_tokens": 64000,
+      "seconds": 8557.67054632958
+    },
+    {
+      "step": 430,
+      "loss": 0.01690654270350933,
+      "merges": 8,
+      "doc_id": "stream::00371",
+      "stream_tokens": 64000,
+      "seconds": 8575.122215714306
+    },
+    {
+      "step": 431,
+      "loss": 0.32958540320396423,
+      "merges": 8,
+      "doc_id": "stream::00058",
+      "stream_tokens": 64000,
+      "seconds": 8592.55709733814
+    },
+    {
+      "step": 432,
+      "loss": 0.9827381372451782,
+      "merges": 8,
+      "doc_id": "stream::00394",
+      "stream_tokens": 64000,
+      "seconds": 8609.952587385662
+    },
+    {
+      "step": 433,
+      "loss": 8.710653305053711,
+      "merges": 8,
+      "doc_id": "stream::00071",
+      "stream_tokens": 64000,
+      "seconds": 8627.310352497734
+    },
+    {
+      "step": 434,
+      "loss": 1.4313411712646484,
+      "merges": 8,
+      "doc_id": "stream::00179",
+      "stream_tokens": 64000,
+      "seconds": 8644.598859945312
+    },
+    {
+      "step": 435,
+      "loss": 5.919633865356445,
+      "merges": 8,
+      "doc_id": "stream::00096",
+      "stream_tokens": 64000,
+      "seconds": 8661.987104528584
+    },
+    {
+      "step": 436,
+      "loss": 2.0387487411499023,
+      "merges": 8,
+      "doc_id": "stream::00329",
+      "stream_tokens": 64000,
+      "seconds": 8679.486208672635
+    },
+    {
+      "step": 437,
+      "loss": 5.445981025695801,
+      "merges": 8,
+      "doc_id": "stream::00435",
+      "stream_tokens": 64000,
+      "seconds": 8696.926887071691
+    },
+    {
+      "step": 438,
+      "loss": 0.7973592281341553,
+      "merges": 8,
+      "doc_id": "stream::00382",
+      "stream_tokens": 64000,
+      "seconds": 8714.275132814422
+    },
+    {
+      "step": 439,
+      "loss": 1.892735481262207,
+      "merges": 8,
+      "doc_id": "stream::00293",
+      "stream_tokens": 64000,
+      "seconds": 8731.570632802323
+    },
+    {
+      "step": 440,
+      "loss": 2.6457278728485107,
+      "merges": 8,
+      "doc_id": "stream::00149",
+      "stream_tokens": 64000,
+      "seconds": 8749.022700655274
+    },
+    {
+      "step": 441,
+      "loss": 3.5096194744110107,
+      "merges": 8,
+      "doc_id": "stream::00430",
+      "stream_tokens": 64000,
+      "seconds": 8766.530247571878
+    },
+    {
+      "step": 442,
+      "loss": 0.18584640324115753,
+      "merges": 8,
+      "doc_id": "stream::00337",
+      "stream_tokens": 64000,
+      "seconds": 8783.823672114871
+    },
+    {
+      "step": 443,
+      "loss": 0.4078711271286011,
+      "merges": 8,
+      "doc_id": "stream::00069",
+      "stream_tokens": 64000,
+      "seconds": 8801.36087356601
+    },
+    {
+      "step": 444,
+      "loss": 6.140302658081055,
+      "merges": 8,
+      "doc_id": "stream::00407",
+      "stream_tokens": 64000,
+      "seconds": 8818.788502029143
+    },
+    {
+      "step": 445,
+      "loss": 0.38824567198753357,
+      "merges": 8,
+      "doc_id": "stream::00467",
+      "stream_tokens": 64000,
+      "seconds": 8836.131382774562
+    },
+    {
+      "step": 446,
+      "loss": 1.4538100957870483,
+      "merges": 8,
+      "doc_id": "stream::00165",
+      "stream_tokens": 64000,
+      "seconds": 8853.577428393997
+    },
+    {
+      "step": 447,
+      "loss": 3.4653139114379883,
+      "merges": 8,
+      "doc_id": "stream::00092",
+      "stream_tokens": 64000,
+      "seconds": 8871.113830816
+    },
+    {
+      "step": 448,
+      "loss": 0.9891209006309509,
+      "merges": 8,
+      "doc_id": "stream::00279",
+      "stream_tokens": 64000,
+      "seconds": 8888.575899821706
+    },
+    {
+      "step": 449,
+      "loss": 7.032063961029053,
+      "merges": 8,
+      "doc_id": "stream::00132",
+      "stream_tokens": 64000,
+      "seconds": 8905.943286719732
+    },
+    {
+      "step": 450,
+      "loss": 2.972724676132202,
+      "merges": 8,
+      "doc_id": "stream::00319",
+      "stream_tokens": 64000,
+      "seconds": 8923.267327081412
+    },
+    {
+      "step": 451,
+      "loss": 2.6554439067840576,
+      "merges": 8,
+      "doc_id": "stream::00204",
+      "stream_tokens": 64000,
+      "seconds": 9078.948152830824
+    },
+    {
+      "step": 452,
+      "loss": 1.3644756078720093,
+      "merges": 8,
+      "doc_id": "stream::00265",
+      "stream_tokens": 64000,
+      "seconds": 9096.225704319775
+    },
+    {
+      "step": 453,
+      "loss": 0.9681599736213684,
+      "merges": 8,
+      "doc_id": "stream::00176",
+      "stream_tokens": 64000,
+      "seconds": 9113.624595197849
+    },
+    {
+      "step": 454,
+      "loss": 3.7100918292999268,
+      "merges": 8,
+      "doc_id": "stream::00445",
+      "stream_tokens": 64000,
+      "seconds": 9131.08739748504
+    },
+    {
+      "step": 455,
+      "loss": 0.2240266054868698,
+      "merges": 8,
+      "doc_id": "stream::00422",
+      "stream_tokens": 64000,
+      "seconds": 9148.549007190391
+    },
+    {
+      "step": 456,
+      "loss": 0.8388020396232605,
+      "merges": 8,
+      "doc_id": "stream::00228",
+      "stream_tokens": 64000,
+      "seconds": 9165.99150755722
+    },
+    {
+      "step": 457,
+      "loss": 0.3684294521808624,
+      "merges": 8,
+      "doc_id": "stream::00269",
+      "stream_tokens": 64000,
+      "seconds": 9183.243883571588
+    },
+    {
+      "step": 458,
+      "loss": 1.4911378622055054,
+      "merges": 8,
+      "doc_id": "stream::00282",
+      "stream_tokens": 64000,
+      "seconds": 9200.707913320512
+    },
+    {
+      "step": 459,
+      "loss": 0.4004891514778137,
+      "merges": 8,
+      "doc_id": "stream::00153",
+      "stream_tokens": 64000,
+      "seconds": 9218.069530464709
+    },
+    {
+      "step": 460,
+      "loss": 3.5320632457733154,
+      "merges": 8,
+      "doc_id": "stream::00041",
+      "stream_tokens": 64000,
+      "seconds": 9235.30682643503
+    },
+    {
+      "step": 461,
+      "loss": 0.4310583174228668,
+      "merges": 8,
+      "doc_id": "stream::00236",
+      "stream_tokens": 64000,
+      "seconds": 9252.72008481156
+    },
+    {
+      "step": 462,
+      "loss": 2.2515885829925537,
+      "merges": 8,
+      "doc_id": "stream::00476",
+      "stream_tokens": 64000,
+      "seconds": 9270.098979634233
+    },
+    {
+      "step": 463,
+      "loss": 0.8554243445396423,
+      "merges": 8,
+      "doc_id": "stream::00409",
+      "stream_tokens": 64000,
+      "seconds": 9287.438175117597
+    },
+    {
+      "step": 464,
+      "loss": 2.081526279449463,
+      "merges": 8,
+      "doc_id": "stream::00218",
+      "stream_tokens": 64000,
+      "seconds": 9304.823067638092
+    },
+    {
+      "step": 465,
+      "loss": 4.7921881675720215,
+      "merges": 8,
+      "doc_id": "stream::00453",
+      "stream_tokens": 64000,
+      "seconds": 9322.410123387352
+    },
+    {
+      "step": 466,
+      "loss": 0.0030718017369508743,
+      "merges": 8,
+      "doc_id": "stream::00362",
+      "stream_tokens": 64000,
+      "seconds": 9340.016608870588
+    },
+    {
+      "step": 467,
+      "loss": 3.1846585273742676,
+      "merges": 8,
+      "doc_id": "stream::00411",
+      "stream_tokens": 64000,
+      "seconds": 9357.404201337136
+    },
+    {
+      "step": 468,
+      "loss": 2.8040223121643066,
+      "merges": 8,
+      "doc_id": "stream::00121",
+      "stream_tokens": 64000,
+      "seconds": 9374.74421604164
+    },
+    {
+      "step": 469,
+      "loss": 0.09727782011032104,
+      "merges": 8,
+      "doc_id": "stream::00366",
+      "stream_tokens": 64000,
+      "seconds": 9392.181145694107
+    },
+    {
+      "step": 470,
+      "loss": 0.12271212786436081,
+      "merges": 8,
+      "doc_id": "stream::00479",
+      "stream_tokens": 64000,
+      "seconds": 9409.56422994379
+    },
+    {
+      "step": 471,
+      "loss": 0.7305075526237488,
+      "merges": 8,
+      "doc_id": "stream::00130",
+      "stream_tokens": 64000,
+      "seconds": 9426.96936370153
+    },
+    {
+      "step": 472,
+      "loss": 3.620389699935913,
+      "merges": 8,
+      "doc_id": "stream::00242",
+      "stream_tokens": 64000,
+      "seconds": 9444.321316301823
+    },
+    {
+      "step": 473,
+      "loss": 9.955057144165039,
+      "merges": 8,
+      "doc_id": "stream::00328",
+      "stream_tokens": 64000,
+      "seconds": 9461.578331554309
+    },
+    {
+      "step": 474,
+      "loss": 1.8000227212905884,
+      "merges": 8,
+      "doc_id": "stream::00342",
+      "stream_tokens": 64000,
+      "seconds": 9479.004680417478
+    },
+    {
+      "step": 475,
+      "loss": 5.523861408233643,
+      "merges": 8,
+      "doc_id": "stream::00386",
+      "stream_tokens": 64000,
+      "seconds": 9496.42175210081
+    },
+    {
+      "step": 476,
+      "loss": 0.12324202060699463,
+      "merges": 8,
+      "doc_id": "stream::00152",
+      "stream_tokens": 64000,
+      "seconds": 9513.90308326669
+    },
+    {
+      "step": 477,
+      "loss": 7.975478649139404,
+      "merges": 8,
+      "doc_id": "stream::00105",
+      "stream_tokens": 64000,
+      "seconds": 9531.363245014101
+    },
+    {
+      "step": 478,
+      "loss": 2.7097525596618652,
+      "merges": 8,
+      "doc_id": "stream::00099",
+      "stream_tokens": 64000,
+      "seconds": 9548.915822281502
+    },
+    {
+      "step": 479,
+      "loss": 2.0941741466522217,
+      "merges": 8,
+      "doc_id": "stream::00049",
+      "stream_tokens": 64000,
+      "seconds": 9566.232811320573
+    },
+    {
+      "step": 480,
+      "loss": 2.7866714000701904,
+      "merges": 8,
+      "doc_id": "stream::00353",
+      "stream_tokens": 64000,
+      "seconds": 9583.755114822648
+    },
+    {
+      "step": 481,
+      "loss": 5.2999773025512695,
+      "merges": 8,
+      "doc_id": "stream::00231",
+      "stream_tokens": 64000,
+      "seconds": 9601.124583562836
+    },
+    {
+      "step": 482,
+      "loss": 1.6659873723983765,
+      "merges": 8,
+      "doc_id": "stream::00428",
+      "stream_tokens": 64000,
+      "seconds": 9618.550316159613
+    },
+    {
+      "step": 483,
+      "loss": 0.1569972187280655,
+      "merges": 8,
+      "doc_id": "stream::00444",
+      "stream_tokens": 64000,
+      "seconds": 9635.88978444878
+    },
+    {
+      "step": 484,
+      "loss": 4.498167037963867,
+      "merges": 8,
+      "doc_id": "stream::00450",
+      "stream_tokens": 64000,
+      "seconds": 9653.243232380599
+    },
+    {
+      "step": 485,
+      "loss": 0.5210068821907043,
+      "merges": 8,
+      "doc_id": "stream::00324",
+      "stream_tokens": 64000,
+      "seconds": 9670.541593439877
+    },
+    {
+      "step": 486,
+      "loss": 1.8374484777450562,
+      "merges": 8,
+      "doc_id": "stream::00158",
+      "stream_tokens": 64000,
+      "seconds": 9687.8038983671
+    },
+    {
+      "step": 487,
+      "loss": 0.5836206078529358,
+      "merges": 8,
+      "doc_id": "stream::00391",
+      "stream_tokens": 64000,
+      "seconds": 9705.2015017448
+    },
+    {
+      "step": 488,
+      "loss": 2.3144326210021973,
+      "merges": 8,
+      "doc_id": "stream::00345",
+      "stream_tokens": 64000,
+      "seconds": 9722.430895579048
+    },
+    {
+      "step": 489,
+      "loss": 1.0032637119293213,
+      "merges": 8,
+      "doc_id": "stream::00036",
+      "stream_tokens": 64000,
+      "seconds": 9739.80279283505
+    },
+    {
+      "step": 490,
+      "loss": 3.040482997894287,
+      "merges": 8,
+      "doc_id": "stream::00477",
+      "stream_tokens": 64000,
+      "seconds": 9757.238908447325
+    },
+    {
+      "step": 491,
+      "loss": 0.335229754447937,
+      "merges": 8,
+      "doc_id": "stream::00305",
+      "stream_tokens": 64000,
+      "seconds": 9774.722925396636
+    },
+    {
+      "step": 492,
+      "loss": 0.12873093783855438,
+      "merges": 8,
+      "doc_id": "stream::00392",
+      "stream_tokens": 64000,
+      "seconds": 9792.135751091875
+    },
+    {
+      "step": 493,
+      "loss": 0.5979757905006409,
+      "merges": 8,
+      "doc_id": "stream::00217",
+      "stream_tokens": 64000,
+      "seconds": 9809.509272846393
+    },
+    {
+      "step": 494,
+      "loss": 1.0918114185333252,
+      "merges": 8,
+      "doc_id": "stream::00223",
+      "stream_tokens": 64000,
+      "seconds": 9826.919743224978
+    },
+    {
+      "step": 495,
+      "loss": 2.585808753967285,
+      "merges": 8,
+      "doc_id": "stream::00415",
+      "stream_tokens": 64000,
+      "seconds": 9844.346968365833
+    },
+    {
+      "step": 496,
+      "loss": 2.30885648727417,
+      "merges": 8,
+      "doc_id": "stream::00226",
+      "stream_tokens": 64000,
+      "seconds": 9861.567237222567
+    },
+    {
+      "step": 497,
+      "loss": 3.032487154006958,
+      "merges": 8,
+      "doc_id": "stream::00459",
+      "stream_tokens": 64000,
+      "seconds": 9878.770720695145
+    },
+    {
+      "step": 498,
+      "loss": 3.0218400955200195,
+      "merges": 8,
+      "doc_id": "stream::00174",
+      "stream_tokens": 64000,
+      "seconds": 9895.932458960451
+    },
+    {
+      "step": 499,
+      "loss": 0.11264757812023163,
+      "merges": 8,
+      "doc_id": "stream::00232",
+      "stream_tokens": 64000,
+      "seconds": 9913.223952809349
+    },
+    {
+      "step": 500,
+      "loss": 1.6637300252914429,
+      "merges": 8,
+      "doc_id": "stream::00229",
+      "stream_tokens": 64000,
+      "seconds": 9930.513166768476
+    },
+    {
+      "step": 501,
+      "loss": 3.98749041557312,
+      "merges": 8,
+      "doc_id": "stream::00370",
+      "stream_tokens": 64000,
+      "seconds": 10085.393084400333
+    },
+    {
+      "step": 502,
+      "loss": 4.0699334144592285,
+      "merges": 8,
+      "doc_id": "stream::00280",
+      "stream_tokens": 64000,
+      "seconds": 10102.813475008123
+    },
+    {
+      "step": 503,
+      "loss": 0.5020897388458252,
+      "merges": 8,
+      "doc_id": "stream::00285",
+      "stream_tokens": 64000,
+      "seconds": 10120.208812947385
+    },
+    {
+      "step": 504,
+      "loss": 0.0036418375093489885,
+      "merges": 8,
+      "doc_id": "stream::00045",
+      "stream_tokens": 64000,
+      "seconds": 10137.606209602207
+    },
+    {
+      "step": 505,
+      "loss": 0.11135192960500717,
+      "merges": 8,
+      "doc_id": "stream::00300",
+      "stream_tokens": 64000,
+      "seconds": 10155.060416862369
+    },
+    {
+      "step": 506,
+      "loss": 1.097185730934143,
+      "merges": 8,
+      "doc_id": "stream::00163",
+      "stream_tokens": 64000,
+      "seconds": 10172.49812258035
+    },
+    {
+      "step": 507,
+      "loss": 1.889257550239563,
+      "merges": 8,
+      "doc_id": "stream::00148",
+      "stream_tokens": 64000,
+      "seconds": 10189.758968241513
+    },
+    {
+      "step": 508,
+      "loss": 1.806724190711975,
+      "merges": 8,
+      "doc_id": "stream::00124",
+      "stream_tokens": 64000,
+      "seconds": 10206.979453108273
+    },
+    {
+      "step": 509,
+      "loss": 0.16929054260253906,
+      "merges": 8,
+      "doc_id": "stream::00073",
+      "stream_tokens": 64000,
+      "seconds": 10224.372447583824
+    },
+    {
+      "step": 510,
+      "loss": 0.23572708666324615,
+      "merges": 8,
+      "doc_id": "stream::00469",
+      "stream_tokens": 64000,
+      "seconds": 10241.726139237173
+    },
+    {
+      "step": 511,
+      "loss": 6.574005126953125,
+      "merges": 8,
+      "doc_id": "stream::00023",
+      "stream_tokens": 64000,
+      "seconds": 10259.044317239895
+    },
+    {
+      "step": 512,
+      "loss": 2.2176599502563477,
+      "merges": 8,
+      "doc_id": "stream::00048",
+      "stream_tokens": 64000,
+      "seconds": 10276.318207214586
+    }
+  ],
+  "val": [
+    {
+      "step": 50,
+      "ce": 2.440105650573969,
+      "n": 8
+    },
+    {
+      "step": 100,
+      "ce": 2.1517885513603687,
+      "n": 8
+    },
+    {
+      "step": 150,
+      "ce": 2.08059898391366,
+      "n": 8
+    },
+    {
+      "step": 200,
+      "ce": 2.080560375005007,
+      "n": 8
+    },
+    {
+      "step": 250,
+      "ce": 2.0458495281636715,
+      "n": 8
+    },
+    {
+      "step": 300,
+      "ce": 2.124310987070203,
+      "n": 8
+    },
+    {
+      "step": 350,
+      "ce": 2.0517677143216133,
+      "n": 8
+    },
+    {
+      "step": 400,
+      "ce": 2.0839895009994507,
+      "n": 8
+    },
+    {
+      "step": 450,
+      "ce": 1.9066930506378412,
+      "n": 8
+    },
+    {
+      "step": 500,
+      "ce": 2.215424954891205,
+      "n": 8
+    }
+  ],
+  "status": "complete",
+  "wall_seconds": 10276.3338242108
+}

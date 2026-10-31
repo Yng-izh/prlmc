@@ -110,12 +110,16 @@ def validate_v9_plan(plan, base=None):
     if plan.get("schema") != SCHEMA:
         raise ValueError("v9 schema required")
     training = plan["training"]
-    if training["geometry"] != dict(budget_blocks=20, window_blocks=13, target_blocks=9):
-        raise ValueError("v9 keeps the sealed 20/13->9 merge geometry")
-    if training["trigger_blocks"] != TRIGGER_BLOCKS:
-        raise ValueError("v9 trigger must be 20 blocks")
-    if training["recurrent_event_before_writes"] != RECURRENT_EVENTS:
-        raise ValueError("v9 recurrent events must be [20, 24]")
+    allowed_geometries = (dict(budget_blocks=20, window_blocks=13, target_blocks=9),
+                          dict(budget_blocks=50, window_blocks=19, target_blocks=9))
+    if training["geometry"] not in allowed_geometries:
+        raise ValueError("unsupported merge geometry (sealed 20/13->9 or paper 50/19->9)")
+    allowed_triggers = (TRIGGER_BLOCKS, 50)
+    if training["trigger_blocks"] not in allowed_triggers:
+        raise ValueError("trigger must be 20 (sealed) or 50 (paper)")
+    allowed_events = (RECURRENT_EVENTS, [50, 60, 70, 80, 90, 100, 110, 120])
+    if training["recurrent_event_before_writes"] not in allowed_events:
+        raise ValueError("unsupported recurrent event schedule")
     if training["single_window_contexts"] != SINGLE_WINDOW_CONTEXTS:
         raise ValueError("single-merge curriculum stays sealed")
     if training["single_window_starts"] != SINGLE_STARTS:
