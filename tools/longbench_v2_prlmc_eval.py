@@ -160,6 +160,16 @@ def evaluate(args):
         raise ValueError("output exists; refuse overwrite")
 
     rows = lbv2.load_rows(args.data_json, args.length)
+    if args.sample_ids:
+        # A/B pinning: the id list decides the questions, never the ordering flags.
+        wanted = [str(x) for x in json.loads(Path(args.sample_ids).read_text())]
+        if len(set(wanted)) != len(wanted):
+            raise ValueError("--sample-ids contains duplicate ids")
+        table = {str(r.get("_id")): r for r in rows}
+        missing = [w for w in wanted if w not in table]
+        if missing:
+            raise ValueError(f"--sample-ids ids not found in {args.data_json}: {missing}")
+        rows = [table[w] for w in wanted]
     if args.max_samples is not None:
         rows = rows[:args.max_samples]
     if args.group_by_context:
@@ -185,11 +195,22 @@ def evaluate(args):
         fusion_mode=args.fusion_mode, training=checkpoint_training)
     tokenizer.pad_token = tokenizer.eos_token
     lora_state = None
+    reader_lora = None
     if args.reader_lora:
-        from reader_lora_train import load_lora_state, set_lora_enabled
+        from reader_lora_train import load_lora_state, lora_modules, set_lora_enabled
         lora_state = torch.load(args.reader_lora, map_location="cpu")
-        load_lora_state(model, lora_state)
+        load_lora_state(model, lora_state)      # raises on any unmatched key
         set_lora_enabled(model, True)
+        reader_lora = dict(
+            schema=lora_state.get("schema"), rank=lora_state.get("rank"),
+            alpha=lora_state.get("alpha"), last_layers=lora_state.get("last_layers"),
+            geometry=lora_state.get("geometry"), source=lora_state.get("source"),
+            events_with_grad=lora_state.get("events_with_grad"),
+            n_state_tensors=len(lora_state["state"]),
+            n_attached_modules=len(lora_modules(model)),
+            n_enabled_modules=sum(1 for m in lora_modules(model) if m.enabled),
+            tensors_copied=len(lora_state["state"]),
+            sample_keys=sorted(lora_state["state"])[:2])
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
     if args.budget_blocks == NATIVE_BUDGET:
@@ -231,14 +252,18 @@ def evaluate(args):
             scoring="official four-choice extraction, accuracy",
             write_cache_dir=args.write_cache_dir,
             group_by_context=args.group_by_context,
+            sample_ids=args.sample_ids,
             shard=([args.shard_index, args.num_shards] if args.num_shards > 1 else None),
             caveat=BUDGET_CAVEAT),
         identity=dict(checkpoint=args.checkpoint,
                       checkpoint_sha256=sha(args.checkpoint) if args.checkpoint else None,
                       model_path=args.model_path, data_json_sha256=sha(args.data_json),
+                      sample_ids_sha256=sha(args.sample_ids) if args.sample_ids else None,
+                      reader_lora=reader_lora,
                       entrypoint_sha256=sha(__file__)),
         samples=[], training_performed=False, optimizer_created=False,
-        full_test_split=args.max_samples is None, max_samples=args.max_samples)
+        full_test_split=(args.max_samples is None and args.sample_ids is None),
+        max_samples=args.max_samples)
     atomic_json(output, report)
 
     started = time.monotonic()
@@ -342,6 +367,9 @@ def build_parser():
     p.add_argument("--tail-tokens", type=int, default=2048, choices=(512, 1024, 2048))
     p.add_argument("--doc-truncation", default="middle", choices=("middle", "tail"))
     p.add_argument("--max-samples", type=int, default=None)
+    p.add_argument("--sample-ids", dest="sample_ids", default=None,
+                   help="JSON list of LongBench v2 row ids; evaluates exactly these rows "
+                        "in this order (pins an A/B to a frozen sample set)")
     p.add_argument("--reader-lora", default=None,
                    help="frozen Reader LoRA payload from reader_lora_train.py")
     p.add_argument("--checkpoint", default=None)
