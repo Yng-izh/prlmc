@@ -36,7 +36,7 @@ import longbench_prlmc_eval as pe            # noqa: E402
 import longbench_v2_eval as lbv2             # noqa: E402
 from longbench_memoryllm_eval import atomic_json, digest, seed_everything, sha  # noqa: E402
 
-MAX_NEW = 32
+MAX_NEW = 128   # native main-table row generates 128 tokens
 TOTAL_CHOICES = (8192, 16384, 32768, 128000)
 VALIDATED_TOTALS = (8192, 16384)
 NATIVE_BUDGET = 50          # native 50-block / 12,800-slot capacity

@@ -15,6 +15,10 @@ built from the official SQuAD 2.0 train and HotpotQA distractor train splits.
 Split by doc_id; every evaluation benchmark (LongBench / LooGLE / InfiniteBench /
 LongBench v2) is excluded upstream.
 """
+
+
+import hashlib
+import contextlib
 import argparse
 import json
 import math
@@ -154,6 +158,43 @@ def load_lora_state(model, payload):
 
 
 # ------------------------------------------------------------------- memory stream ---
+class AdapterHandle:
+    """Trainable view of the attached LoRA deltas.
+
+    The adapter is enabled only around the supervised QA read; every memory write
+    runs the native reader, so the stored representation is unchanged.
+    """
+
+    def __init__(self, model):
+        self.model = model
+        self.names = [n for n, m in model.named_modules() if isinstance(m, LoRALinear)]
+        if not self.names:
+            raise ValueError("no LoRA module attached")
+
+    def active(self):
+        model = self.model
+
+        @contextlib.contextmanager
+        def scope():
+            set_lora_enabled(model, True)
+            try:
+                yield
+            finally:
+                set_lora_enabled(model, False)
+
+        return scope()
+
+    def parameters(self):
+        return lora_parameters(self.model)
+
+    def digest(self):
+        handle = hashlib.sha256()
+        for name, tensor in sorted(lora_named_state(self.model).items()):
+            handle.update(name.encode())
+            handle.update(tensor.float().numpy().tobytes())
+        return handle.hexdigest()
+
+
 def read_stream(manager, merge, initial, tokenizer, context, stream_tokens):
     """Write one 512-token-chunked stream at the paper geometry, as Selection.
 

@@ -21,6 +21,8 @@ This module extends `natural_merge_v4_objective` with:
 Everything else (recovery gate, cohorts, EOS handling, optimizer, frozen
 reader) is inherited from the v7 objective unchanged.
 """
+
+import contextlib
 import torch
 import torch.nn.functional as F
 
@@ -100,7 +102,7 @@ def full_targets(manager, qas):
 
 
 def train_event(manager, merge, optimizer, qas, targets, variant, origins,
-                scaler=None, plan=None):
+                scaler=None, plan=None, adapter=None):
     """v9 train_event: v8 loop with the v9 structure wired in.
 
     The sealed v4/v7 objective file is not modified; this duplicates the v7
@@ -188,7 +190,10 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
             for i, qa in enumerate(qas):
                 pool = injection.reinject()
                 with differentiable_memory(m.model, pool):
-                    logits, gold = answer_logits(m.model, qa, m._memory.device)
+                    # Only the QA read uses the reader adapter; the write path
+                    # that produced this memory never did.
+                    with (adapter.active() if adapter is not None else contextlib.nullcontext()):
+                        logits, gold = answer_logits(m.model, qa, m._memory.device)
                 teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
                 anchor = None
                 if coefficients[i]["protect"] > 0:
@@ -226,6 +231,18 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     rebuilt = merge(source, **kwargs); torch.autograd.backward(rebuilt, leaf.grad)
     del rebuilt, leaf, value
     if scaler: scaler.unscale_(optimizer)
+    adapter_grads = None
+    if adapter is not None:
+        params = [p for p in adapter.parameters() if p.requires_grad]
+        grads = [p.grad for p in params if p.grad is not None]
+        if len(grads) != len(params):
+            raise ValueError("reader adapter received no gradient")
+        norms = [float(g.norm()) for g in grads]
+        if not any(n > 0. for n in norms):
+            raise ValueError("reader adapter gradient is identically zero")
+        torch.nn.utils.clip_grad_norm_(params, plan["gradient_clip"])
+        adapter_grads = dict(tensors=len(params), nonzero=sum(n > 0. for n in norms),
+                             grad_norm=float(sum(n * n for n in norms) ** .5))
     gradients = {n:p.grad for n,p in merge.named_parameters() if p.grad is not None}
     if not gradients or any(not torch.isfinite(g).all() for g in gradients.values()):
         raise ValueError("missing/nonfinite module gradient")
@@ -273,7 +290,8 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         teacher_weight=plan["teacher_weight"], original_qa_count=len(qas), qas=rows,
         cohorts=means, carrier_indices=index_list, retained_native_origins=list(origins.blocks),
         gradient_norms_before_clip=gradient_norms, grad_norm_before_clip=norm,
-        fusion=fusion, realized_residual=stored,
+        fusion=fusion, realized_residual=stored, reader_adapter=adapter_grads,
+        window_blocks=window_blocks, target_blocks=target // m.block,
         selection_reference="same pre-event student history; current window uses identical native carriers",
         qa_measurement="content-only CE/KL/teacher eligibility; per-token Selection-correct protection;"
                        " separate EOS; context-balanced loss before update; stored budget after update")

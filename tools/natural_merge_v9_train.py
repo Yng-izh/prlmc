@@ -31,6 +31,8 @@ from natural_merge_runtime import (MergeStream, install, load_runtime, reset,
     source_manifest, state_digest, costs, model_identity)  # noqa: E402
 from natural_merge_v4_objective import NativeOrigins, make_optimizer  # noqa: E402
 import natural_merge_v9_objective as objective_v9  # noqa: E402
+from reader_lora_train import (AdapterHandle, attach_lora, load_lora_state,  # noqa: E402
+                               lora_named_state, set_lora_enabled)
 
 
 def run(args):
@@ -87,10 +89,32 @@ def run(args):
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         model.model.gradient_checkpointing = True
         model.model._gradient_checkpointing_func = _checkpoint_func()
-    model.train()  # Reader parameters stay frozen; activates gradient checkpointing.
+    model.train()  # Reader body stays frozen; activates gradient checkpointing.
+    # Joint reader adapter. Only the deltas train, and they are switched on only
+    # around the supervised QA read: every memory write (teacher and student) runs
+    # the native reader, so the stored representation is bit-identical to the one
+    # the evaluation stream produces.
+    adapter = None
+    adapter_before = None
+    if args.joint_reader_lora:
+        attached = attach_lora(model, last_layers=args.lora_layers,
+                               r=args.lora_rank, alpha=args.lora_alpha)
+        if args.reader_lora_init:
+            load_lora_state(model, torch.load(args.reader_lora_init, map_location="cpu"))
+        adapter = AdapterHandle(model)
+        set_lora_enabled(model, False)
+        adapter_before = adapter.digest()
+        card["reader_adapter"] = dict(modules=len(attached), rank=args.lora_rank,
+                                      alpha=args.lora_alpha, layers=args.lora_layers,
+                                      lr=args.lora_lr, targets=list(attached[:2]),
+                                      init=args.reader_lora_init)
     from prepare_natural_merge_v4 import check_answer_encoding
     check_answer_encoding(plan, tokenizer)
     optimizer = make_optimizer(merge, plan=training)
+    if adapter is not None:
+        optimizer.add_param_group(dict(params=adapter.parameters(), lr=args.lora_lr,
+                                       weight_decay=0., name="reader_adapter",
+                                       parameter_names=adapter.names))
     scaler = torch.amp.GradScaler("cuda", init_scale=128.)
     episodes = plan["episodes"]
     events_by_stream = {}
@@ -99,31 +123,36 @@ def run(args):
     base = plan["base_plan"]; begun = time.monotonic()
     train_event = objective_v9.train_event
     full_targets = objective_v9.full_targets
+    provenance = {(e["stream"], e["round"], e["before_write"]): e["source_indices"]
+                  for e in plan["qa_events"] if e["stage"] == "recurrent"}
+    evidence_budget = geometry["budget_blocks"]
     recurrent_targets = None  # teacher references built per episode below
 
     def build_recurrent_references(episode, round_index):
-        """Full-teacher targets at each v8 recurrent event position.
+        """Local raw-evidence teacher targets at each recurrent event.
 
-        Mirrors `natural_merge_v4_objective.recurrent_targets` but the teacher
-        stream also runs trigger_blocks=20 so its capacity matches the student
-        stream; and it uses the v8 full_targets (v7 teacher + Selection
-        per-token reference).
+        The old teacher replayed every write through an uncompressed stream, which
+        cannot hold 125 writes in a 50-block pool. The teacher now writes the raw
+        contexts that the supervised window actually summarises (the plan's
+        provenance record), truncated to the pool capacity, so every reference is a
+        realisable no-compression state over the same evidence. The Selection
+        per-token reference still comes from `full_targets`.
         """
-        from natural_merge_runtime import reset as _reset, MergeStream as _MS
         result = {}
-        _reset(manager, initial)
-        stream = _MS(manager, merge, "Full",
-                     budget_blocks=geometry["budget_blocks"],
-                     window_blocks=geometry["window_blocks"],
-                     target_blocks=geometry["target_blocks"],
-                     trigger_blocks=training["trigger_blocks"])
-        for i, write in enumerate(episode["writes"]):
-            if i in training["recurrent_event_before_writes"]:
-                result[i] = full_targets(
-                    manager, event_qas(plan, round_index, episode, "recurrent", i))
+        for i in training["recurrent_event_before_writes"]:
+            qas = event_qas(plan, round_index, episode, "recurrent", i)
+            keep = provenance[(episode["id"], round_index, i)][-evidence_budget:]
+            reset(manager, initial)
+            stream = MergeStream(manager, merge, "Full",
+                                 budget_blocks=geometry["budget_blocks"],
+                                 window_blocks=geometry["window_blocks"],
+                                 target_blocks=geometry["target_blocks"],
+                                 trigger_blocks=training["trigger_blocks"])
             with torch.no_grad():
-                if stream.write(write, i) is None:
-                    raise ValueError("Full teacher capacity exceeded")
+                for position, write_index in enumerate(keep):
+                    if stream.write(episode["writes"][write_index], position) is None:
+                        raise ValueError("local evidence teacher exceeds pool capacity")
+                result[i] = full_targets(manager, qas)
         if sorted(result) != training["recurrent_event_before_writes"]:
             raise ValueError("incomplete teacher events")
         return result
@@ -166,7 +195,8 @@ def run(args):
                         qas = event_qas(plan, round_index, episode, "single_merge", start)
                         targets = full_targets(manager, qas)
                         event = train_event(manager, merge, optimizer, qas, targets,
-                                            args.variant, origins, scaler, plan=training)
+                                            args.variant, origins, scaler, plan=training,
+                                            adapter=adapter)
                         event.update(stage="single_merge", window_start=start, before_write=len(writes))
                         record_event(report, event, round_index, episode, args.out, begun)
                         del targets
@@ -189,7 +219,8 @@ def run(args):
                                 raise ValueError("recurrent event is not at the 20-block trigger")
                             qas = event_qas(plan, round_index, episode, "recurrent", i)
                             event = train_event(manager, merge, optimizer, qas, references[i],
-                                                args.variant, origins, scaler, plan=training)
+                                                args.variant, origins, scaler, plan=training,
+                                                adapter=adapter)
                             event.update(stage="recurrent", before_write=i)
                             record_event(report, event, round_index, episode, args.out, begun)
                             if len(report["updates"]) >= maximum: break
@@ -202,22 +233,28 @@ def run(args):
             if len(report["updates"]) >= maximum: break
         if len(report["updates"]) != maximum:
             raise ValueError("training schedule incomplete")
-        if any(p.requires_grad or p.grad is not None for p in model.parameters()):
-            raise ValueError("reader not frozen")
+        adapter_ids = {id(p) for p in adapter.parameters()} if adapter else set()
+        if any((p.requires_grad or p.grad is not None) and id(p) not in adapter_ids
+               for p in model.parameters()):
+            raise ValueError("reader body (non-adapter parameters) must stay frozen")
         final = state_digest(merge)
         if final == report["shared_state_sha256_before"]:
             raise ValueError("training performed no parameter update")
         seen = sorted({q["context_sha256"] for u in report["updates"] for q in u["qas"]})
         expected = sorted({c["context_sha256"] for e in plan["episodes"] for c in e["contexts"]})
         eligible = args.smoke_updates is None and len(report["updates"]) == training["planned_updates"]
-        if eligible and [u["stage"] for u in report["updates"]] != ["single_merge"] * 64 + ["recurrent"] * 64:
+        counts = training.get("curriculum_updates") or dict(single_merge=64, recurrent=64)
+        expected_stages = (["single_merge"] * counts["single_merge"]
+                           + ["recurrent"] * counts["recurrent"])
+        if eligible and [u["stage"] for u in report["updates"]] != expected_stages:
             raise ValueError("single/recurrent training curriculum changed")
-        if eligible and seen != expected:
-            raise ValueError("some train contexts never entered compression supervision")
         covered_qas = sorted({q["id"] for u in report["updates"] for q in u["qas"]})
         expected_qas = sorted({q["id"] for e in plan["episodes"] for c in e["contexts"] for q in c["qas"]})
-        if eligible and covered_qas != expected_qas:
-            raise ValueError("not every original training QA was supervised")
+        if eligible and counts["recurrent"] == 64:      # sealed full-coverage contract
+            if seen != expected:
+                raise ValueError("some train contexts never entered compression supervision")
+            if covered_qas != expected_qas:
+                raise ValueError("not every original training QA was supervised")
         checkpoint = dict(schema="natural_merge_checkpoint/1", architecture=variant["architecture"],
                           variant=args.variant, state_dict={k: v.detach().cpu() for k, v in merge.state_dict().items()},
                           final_state_sha256=final, effective_gamma_max=.05, rank=32, evaluation_eligible=eligible,
@@ -231,6 +268,24 @@ def run(args):
                           train_articles=sorted({c["article"] for e in plan["episodes"] for c in e["contexts"]}))
         Path(args.checkpoint_out).parent.mkdir(parents=True, exist_ok=True)
         torch.save(checkpoint, args.checkpoint_out)
+        compressions = sum(1 for u in report["updates"]
+                           if u.get("window_blocks", 0) > u.get("target_blocks", 0))
+        if eligible and compressions == 0:
+            raise ValueError("no real 19->9 compression happened during training")
+        adapter_metrics = None
+        if adapter is not None:
+            after = adapter.digest()
+            if after == adapter_before:
+                raise ValueError("reader adapter performed no parameter update")
+            Path(args.lora_out).parent.mkdir(parents=True, exist_ok=True)
+            torch.save(lora_named_state(model), args.lora_out)
+            adapter_metrics = dict(modules=len(adapter.names),
+                                   state_digest_before=adapter_before,
+                                   state_digest_after=after,
+                                   events_with_grad=sum(1 for u in report["updates"]
+                                                        if u.get("reader_adapter")),
+                                   payload=args.lora_out)
+        report.update(compressions=compressions, reader_adapter=adapter_metrics)
         report.update(status="complete", evaluation_eligible=eligible, checkpoint_sha256=sha(args.checkpoint_out),
                       shared_state_sha256_after=final, supervised_contexts=seen, supervised_qa_ids=covered_qas,
                       elapsed_seconds=time.monotonic() - begun,
@@ -265,6 +320,15 @@ def main():
                         "(faster, needs more VRAM; identical gradients)")
     p.add_argument("--out", required=True); p.add_argument("--checkpoint-out", required=True)
     p.add_argument("--smoke-updates", type=int)
+    p.add_argument("--joint-reader-lora", action="store_true",
+                   help="train the reader adapter and the merge module on one loss")
+    p.add_argument("--reader-lora-init", default=None,
+                   help="optional warm start for the adapter (reader_lora_train payload)")
+    p.add_argument("--lora-out", default="runs/natural_merge_v9/reader_lora_joint.pt")
+    p.add_argument("--lora-layers", type=int, default=8)
+    p.add_argument("--lora-rank", type=int, default=8)
+    p.add_argument("--lora-alpha", type=int, default=16)
+    p.add_argument("--lora-lr", type=float, default=1e-4)
     args = p.parse_args()
     if args.smoke_updates is not None:
         planned = json.loads(Path(args.plan).read_text())["training"]["planned_updates"]

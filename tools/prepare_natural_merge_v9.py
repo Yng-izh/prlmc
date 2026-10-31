@@ -110,22 +110,29 @@ def validate_v9_plan(plan, base=None):
     if plan.get("schema") != SCHEMA:
         raise ValueError("v9 schema required")
     training = plan["training"]
-    allowed_geometries = (dict(budget_blocks=20, window_blocks=13, target_blocks=9),
-                          dict(budget_blocks=50, window_blocks=19, target_blocks=9))
-    if training["geometry"] not in allowed_geometries:
+    # Two geometries are legitimate: the sealed v9 20/13->9 training set and the
+    # paper's 50-block pool, where the stream first fills 50 blocks and every
+    # 19->9 merge releases 10. The update budget scales with the event count
+    # (4 isolated windows + 8 compactions per episode over 2 rounds each).
+    geometries = {
+        (20, 13, 9): dict(trigger=TRIGGER_BLOCKS, events=RECURRENT_EVENTS, updates=128),
+        (50, 19, 9): dict(trigger=50, events=[50, 60, 70, 80, 90, 100, 110, 120], updates=320),
+    }
+    key = (training["geometry"]["budget_blocks"], training["geometry"]["window_blocks"],
+           training["geometry"]["target_blocks"])
+    if key not in geometries:
         raise ValueError("unsupported merge geometry (sealed 20/13->9 or paper 50/19->9)")
-    allowed_triggers = (TRIGGER_BLOCKS, 50)
-    if training["trigger_blocks"] not in allowed_triggers:
+    expected = geometries[key]
+    if training["trigger_blocks"] != expected["trigger"]:
         raise ValueError("trigger must be 20 (sealed) or 50 (paper)")
-    allowed_events = (RECURRENT_EVENTS, [50, 60, 70, 80, 90, 100, 110, 120])
-    if training["recurrent_event_before_writes"] not in allowed_events:
-        raise ValueError("unsupported recurrent event schedule")
+    if training["recurrent_event_before_writes"] != expected["events"]:
+        raise ValueError("recurrent events must match the sealed or paper schedule")
     if training["single_window_contexts"] != SINGLE_WINDOW_CONTEXTS:
         raise ValueError("single-merge curriculum stays sealed")
     if training["single_window_starts"] != SINGLE_STARTS:
         raise ValueError("single-merge window starts stay sealed")
-    if training["planned_updates"] != 128 or training["streams"] != 16:
-        raise ValueError("v9 runs 16 episodes x 4 rounds = 128 updates")
+    if training["planned_updates"] != expected["updates"] or training["streams"] != 16:
+        raise ValueError("planned updates must be 128 (sealed) or 320 (paper) over 16 streams")
     if (training["token_protection_weight"], training["token_kl_weight"]) != (0., 0.):
         raise ValueError("v9 disables the per-token protection term")
     if training["global_rms_budget"] != GLOBAL_RMS_BUDGET:
