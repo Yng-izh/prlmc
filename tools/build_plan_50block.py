@@ -99,11 +99,17 @@ def main():
         raise ValueError(f"unexpected compaction schedule {event_writes}")
 
     def qas_of(indices, episode):
+        """One supervised QA per original context.
+
+        The cohort contract maps a QA to exactly one native origin, so a context
+        contributes a single question; queueing several QAs from the same write
+        would hand `qa_cohorts` duplicate origins.
+        """
         ids = []
         for index in indices:
-            for qa in episode["contexts"][index]["qas"]:
-                if qa["id"] not in ids:
-                    ids.append(qa["id"])
+            qas = episode["contexts"][index]["qas"]
+            if qas and qas[0]["id"] not in ids:
+                ids.append(qas[0]["id"])
         return ids[:QA_CAP]
 
     events = []
