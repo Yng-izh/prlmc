@@ -60,15 +60,17 @@ def pick(provenance, cap=10):
 
 def main():
     src = json.loads(SRC.read_text())
-    pool, tokens = {}, {}
+    pool, write_records = {}, {}
     for part in (src["episodes"], src["base_plan"]["episodes"]):
         for ep in part:
             for ctx in ep["contexts"]:
                 if ctx["qas"]:                          # supervision needs at least one QA
                     pool.setdefault(ctx["context_sha256"], ctx)
             for write in ep["writes"]:
-                tokens.setdefault(write["context_sha256"], write["token_ids"])
-    shas = sorted(s for s in pool if s in tokens)
+                # Keep the sealed write record verbatim: the streaming manager needs
+                # its token_sha256, and its token ids are the sealed write payload.
+                write_records.setdefault(write["context_sha256"], write)
+    shas = sorted(s for s in pool if s in write_records)
     if len(shas) < 60:
         raise ValueError(f"only {len(shas)} reusable contexts")
 
@@ -86,9 +88,7 @@ def main():
         # position, which is what the cohort labelling maps back to a block.
         for j, ctx in enumerate(contexts):
             ctx["qas"] = [dict(qa, source_index=j) for qa in ctx["qas"]]
-        writes = [dict(context_sha256=c["context_sha256"],
-                       raw_tokens=len(tokens[c["context_sha256"]]), role="related",
-                       source_index=j, token_ids=tokens[c["context_sha256"]])
+        writes = [dict(write_records[c["context_sha256"]], source_index=j)
                   for j, c in enumerate(contexts)]
         episodes.append(dict(id=src["episodes"][k]["id"], contexts=contexts, writes=writes))
 
