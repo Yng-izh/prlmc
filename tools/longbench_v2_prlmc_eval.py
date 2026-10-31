@@ -275,7 +275,10 @@ def evaluate(args):
             if lora_state is not None:
                 set_lora_enabled(model, False)   # writes stay native
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
-            with torch.inference_mode():
+            # no_grad, not inference_mode: the write path leaves bookkeeping tensors
+            # (block ages, active masks) alive past the block, and inference tensors
+            # cannot be updated in place afterwards.
+            with torch.no_grad():
                 merge_module = pe.build_consolidate_merge(merge, args.arm, manager)
                 stream = pe.MergeStream(manager, merge_module, args.arm, **stream_arguments)
                 events = pe.run_sample(stream, writes)
