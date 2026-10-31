@@ -192,6 +192,12 @@ class AdapterHandle:
     def parameters(self):
         return lora_parameters(self.model)
 
+    def on(self):
+        set_lora_enabled(self.model, True)
+
+    def off(self):
+        set_lora_enabled(self.model, False)
+
     def enable_grad(self):
         """`load_lora_state` freezes the deltas for inference; joint training needs
         them trainable, so thaw them explicitly after a warm start."""

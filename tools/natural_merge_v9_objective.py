@@ -221,8 +221,14 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                 with differentiable_memory(m.model, pool):
                     # Only the QA read uses the reader adapter; the write path
                     # that produced this memory never did.
-                    with (adapter.active() if adapter is not None else contextlib.nullcontext()):
-                        logits, gold = answer_logits(m.model, qa, m._memory.device)
+                    # Only the QA read uses the reader adapter; the write path stays native.
+                    # The activation has to survive the backward pass: gradient
+                    # checkpointing recomputes this forward inside backward, and a
+                    # toggled-off adapter saves a different tensor set there, which trips
+                    # CheckpointError.
+                    if adapter is not None:
+                        adapter.on()
+                    logits, gold = answer_logits(m.model, qa, m._memory.device)
                 teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
                 anchor = None
                 if coefficients[i]["protect"] > 0:
@@ -240,6 +246,8 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                 loss = recovery + distillation + protection + eos + token_term
                 if not torch.isfinite(loss): raise ValueError("nonfinite v9 objective")
                 (scaler.scale(loss) if scaler else loss).backward()
+                if adapter is not None:
+                    adapter.off()      # recomputation happened inside backward
                 recovery_sum += float(recovery.detach()); kd_sum += float(distillation.detach())
                 protect_sum += float(protection.detach()); eos_sum += float(eos.detach())
                 token_sum += float(token_term.detach()); total += float(loss.detach())
