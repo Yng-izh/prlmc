@@ -102,7 +102,12 @@ def attach_lora(model, last_layers=8, targets=("self_attn.q_proj", "self_attn.o_
             continue
         for name in targets:
             parent, attr, module = _resolve_target(layer, name)
-            if isinstance(module, LoRALinear):
+            # Idempotent: `load_lora_state` re-attaches to load weights into an
+            # adapter the caller may already have installed. This reader ships some
+            # projections pre-wrapped, and our delta then sits on their base layer,
+            # so both placements count as "already adapted".
+            if isinstance(module, LoRALinear) or isinstance(
+                    getattr(module, "base_layer", None), LoRALinear):
                 continue
             if isinstance(module, nn.Linear):
                 setattr(parent, attr, LoRALinear(module, r, alpha, dropout))
