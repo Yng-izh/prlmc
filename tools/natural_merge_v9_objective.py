@@ -93,6 +93,35 @@ def token_protection_terms(logits, gold, sel_log_probs, sel_correct,
     return hinge, kl, int(mask.sum()), int(mask.numel())
 
 
+def qa_cohorts(origins, qas, index_list, window_blocks):
+    """Provenance-exact cohort label per QA, plus resident-pool coverage.
+
+    `NativeOrigins.cohorts` additionally demands that every resident origin appear
+    in `qas`, i.e. one supervised QA per resident block -- up to 120 forwards per
+    event on the 50-block stream. The labels only need the provenance record the
+    origins object already holds, so they are computed from the same rule here and
+    the coverage of the resident pool is reported instead of assumed.
+    """
+    blocks = list(origins.blocks)
+    if len(blocks) < window_blocks:
+        raise ValueError("incomplete provenance window")
+    if len({q["source_index"] for q in qas}) != len(qas):
+        raise ValueError("one QA per original context required")
+    known = set(blocks)
+    retained = {blocks[i] for i in index_list} | set(blocks[window_blocks:])
+    current = set(blocks[:window_blocks])
+    # An origin that no longer appears in the residence record was dropped by an
+    # earlier merge: that is exactly the "previously_discarded" recovery case, so
+    # such QAs stay recover rather than being rejected.
+    labels = [("protect" if q["source_index"] in retained else "recover",
+               "current_window" if q["source_index"] in current else
+               "untouched_tail" if q["source_index"] in retained else "previously_discarded")
+              for q in qas]
+    covered = len({q["source_index"] for q in qas})
+    return labels, dict(resident_origins=len(known), covered_origins=covered,
+                        coverage=covered / max(1, len(known)))
+
+
 def full_targets(manager, qas):
     """v7 Full-teacher targets + per-token Selection reference in one record."""
     targets = v7_full_targets(manager, qas)
@@ -150,7 +179,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     # -----------------------------------------------------------------------
     index_list = indices.cpu().tolist()
     window_blocks = window // m.block
-    cohorts = origins.cohorts(qas, index_list, window_blocks)
+    cohorts, provenance_coverage = qa_cohorts(origins, qas, index_list, window_blocks)
     recover_ids = [i for i, (cohort, _) in enumerate(cohorts) if cohort == "recover"]
     protect_count = len(qas)-len(recover_ids)
     if not recover_ids or not protect_count:
@@ -290,6 +319,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         teacher_weight=plan["teacher_weight"], original_qa_count=len(qas), qas=rows,
         cohorts=means, carrier_indices=index_list, retained_native_origins=list(origins.blocks),
         gradient_norms_before_clip=gradient_norms, grad_norm_before_clip=norm,
+        provenance=provenance_coverage,
         fusion=fusion, realized_residual=stored, reader_adapter=adapter_grads,
         window_blocks=window_blocks, target_blocks=target // m.block,
         selection_reference="same pre-event student history; current window uses identical native carriers",

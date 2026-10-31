@@ -187,6 +187,12 @@ class AdapterHandle:
     def parameters(self):
         return lora_parameters(self.model)
 
+    def enable_grad(self):
+        """`load_lora_state` freezes the deltas for inference; joint training needs
+        them trainable, so thaw them explicitly after a warm start."""
+        for p in self.parameters():
+            p.requires_grad_(True)
+
     def digest(self):
         handle = hashlib.sha256()
         for name, tensor in sorted(lora_named_state(self.model).items()):

@@ -40,20 +40,17 @@ def pool_schedule(n_writes, budget=BUDGET, window=WINDOW, target=TARGET):
     blocks, events = [], {}
     for index in range(n_writes):
         if len(blocks) >= budget:                      # trigger: compact before this write
-            provenance = sorted({j for block in blocks[:window] for j in block})
-            events[index] = provenance
-            blocks = [list(provenance) for _ in range(target)] + blocks[window:]
+            window_provenance = sorted({j for block in blocks[:window] for j in block})
+            tail_origins = sorted({j for block in blocks[window:] for j in block})
+            events[index] = dict(window=window_provenance, tail=tail_origins)
+            merged = [list(window_provenance) for _ in range(target)]
+            blocks = merged + blocks[window:]
         blocks.append([index])
     return events
 
 
-def pick(provenance, cap=QA_CAP):
-    """Oldest and newest halves of the provenance.
-
-    A merge keeps `target` of the `window` blocks by importance and drops the
-    rest, so sampling both ends keeps the recovery cohort (dropped evidence) and
-    the preservation cohort (retained evidence) reachable in every event.
-    """
+def pick(provenance, cap=10):
+    """Oldest and newest halves of a provenance set (bounded QA count)."""
     if len(provenance) <= cap:
         return list(provenance)
     head = provenance[: cap // 2]
@@ -82,7 +79,13 @@ def main():
             sha = shas[(k * 37 + j * 7) % len(shas)]
             if contexts and sha == contexts[-1]["context_sha256"]:   # no adjacent repeats
                 sha = shas[(shas.index(sha) + 1) % len(shas)]
-            contexts.append(pool[sha])
+            contexts.append(dict(pool[sha]))                            # per-episode copy
+        # Every write gets its own native origin: the pool reuses sealed contexts
+        # across episodes, so their recorded `source_index` collides and
+        # `NativeOrigins.append` rejects duplicates. The QA copies carry the write
+        # position, which is what the cohort labelling maps back to a block.
+        for j, ctx in enumerate(contexts):
+            ctx["qas"] = [dict(qa, source_index=j) for qa in ctx["qas"]]
         writes = [dict(context_sha256=c["context_sha256"],
                        raw_tokens=len(tokens[c["context_sha256"]]), role="related",
                        source_index=j, token_ids=tokens[c["context_sha256"]])
@@ -113,10 +116,16 @@ def main():
                                    window_start=start, source_indices=span))
         for rnd in (2, 3):
             for write_index in event_writes:
+                # Supervision must span both cohorts: the window supplies the
+                # evidence the merge may drop (recover), the untouched tail the
+                # evidence it never touches (protect).
                 provenance = schedule[write_index]
-                events.append(dict(qa_ids=qas_of(pick(provenance), episode), round=rnd,
-                                   stage="recurrent", stream=episode["id"],
-                                   before_write=write_index, source_indices=provenance))
+                supervised = pick(provenance["window"]) + pick(provenance["tail"])
+                events.append(dict(qa_ids=qas_of(sorted(set(supervised)), episode),
+                                   round=rnd, stage="recurrent", stream=episode["id"],
+                                   before_write=write_index,
+                                   source_indices=provenance["window"],
+                                   tail_indices=provenance["tail"]))
 
     counts = dict(single_merge=EPISODES * 4, recurrent=EPISODES * 2 * len(event_writes))
     training = dict(src["training"])

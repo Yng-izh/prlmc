@@ -24,7 +24,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(Path(__file__).resolve().parent))
-from prepare_natural_merge_v9 import validate_v9_plan  # noqa: E402
+from prepare_natural_merge_v9 import ensure_train_v9, validate_v9_plan  # noqa: E402
 from prepare_natural_merge_v4 import event_qas  # noqa: E402
 from prepare_public_retention import sha, tokenizer_manifest  # noqa: E402
 from natural_merge_runtime import (MergeStream, install, load_runtime, reset,
@@ -72,11 +72,27 @@ def run(args):
     from methods.prlmc.probes import _checkpoint_func
     variant = training["variants"][args.variant]
     geometry = training["geometry"]
+    # `build_merge` reads the v9 gate/route spec from the module-level TRAIN_V9
+    # record and silently falls back to bare defaults (rank 32, gamma_max .05, no
+    # bridge) while that record is unmaterialised. Build the operator only after it
+    # exists, then verify the module really carries the plan's config.
+    ensure_train_v9()
     model, tokenizer, manager, merge, initial, cfg, _ = load_runtime(
         args.model_path, train=True, architecture=variant["architecture"],
         budget_blocks=geometry["budget_blocks"],
         window_blocks=geometry["window_blocks"],
         target_blocks=geometry["target_blocks"])
+    effective_config = {k: getattr(merge, k) for k in
+                        ("rank", "topk", "gamma_max", "bridge_blocks", "bridge_fraction",
+                         "bridge_gamma_max", "native_init", "global_rms_budget")
+                        if hasattr(merge, k)}
+    expected_config = dict(topk=variant["topk"], bridge_blocks=training["bridge_blocks"],
+                           native_init=training["native_init"],
+                           gamma_max=variant["local_gate_max"])
+    wrong_config = {k: (effective_config[k], v) for k, v in expected_config.items()
+                    if k in effective_config and effective_config[k] != v}
+    if wrong_config:
+        raise ValueError(f"merge module built with the wrong v9 config: {wrong_config}")
     if float(getattr(model.config, "attention_dropout", 0.)) != 0.:
         raise ValueError("reader checkpointing requires deterministic zero dropout")
     # Recompute-versus-residency trade. Checkpointing keeps the 20-QA backward
@@ -102,6 +118,7 @@ def run(args):
         if args.reader_lora_init:
             load_lora_state(model, torch.load(args.reader_lora_init, map_location="cpu"))
         adapter = AdapterHandle(model)
+        adapter.enable_grad()          # load_lora_state freezes; joint training does not
         set_lora_enabled(model, False)
         adapter_before = adapter.digest()
         card["reader_adapter"] = dict(modules=len(attached), rank=args.lora_rank,
@@ -164,6 +181,7 @@ def run(args):
                   plan_sha256=sha(args.plan), train_content_sha256=plan["content_sha256"],
                   dataset=base["dataset"], split_audit=base["split_audit"], sources=source_manifest(),
                   model=model_identity(args.model_path), manager_config=cfg, resources=costs(manager, merge),
+                  effective_module_config=effective_config,
                   runtime=dict(torch=torch.__version__, transformers=__import__("transformers").__version__,
                                cuda=torch.version.cuda, gpu=torch.cuda.get_device_name(0),
                                physical_device=args.cuda_device, card=card),
@@ -278,7 +296,12 @@ def run(args):
             if after == adapter_before:
                 raise ValueError("reader adapter performed no parameter update")
             Path(args.lora_out).parent.mkdir(parents=True, exist_ok=True)
-            torch.save(lora_named_state(model), args.lora_out)
+            event_count = sum(1 for u in report["updates"] if u.get("reader_adapter"))
+            torch.save(dict(schema="reader_lora/1", state=lora_named_state(model),
+                            rank=args.lora_rank, alpha=args.lora_alpha, dropout=0.0,
+                            last_layers=args.lora_layers, targets=list(adapter.names),
+                            geometry=dict(geometry), source="natural_merge_v9_train.joint",
+                            events_with_grad=event_count), args.lora_out)
             adapter_metrics = dict(modules=len(adapter.names),
                                    state_digest_before=adapter_before,
                                    state_digest_after=after,
