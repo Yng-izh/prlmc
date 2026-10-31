@@ -83,11 +83,13 @@ def evaluate(args):
     seed_everything(args.seed)
     pe.install_generation_compatibility()
 
+    checkpoint_training = (torch.load(args.checkpoint, map_location="cpu").get("training")
+                           if args.checkpoint else None)
     model, tokenizer, manager, merge, initial, cfg, saved = pe.load_runtime(
         args.model_path, checkpoint=args.checkpoint, train=False,
         architecture=(None if args.checkpoint else "grouped_gated_sparse_native_v9"),
         budget_blocks=args.budget_blocks, strict_code_hash=args.strict_code_hash,
-        fusion_mode=args.fusion_mode)
+        fusion_mode=args.fusion_mode, training=checkpoint_training)
     tokenizer.pad_token = tokenizer.eos_token
     lora_state = None
     if args.reader_lora:

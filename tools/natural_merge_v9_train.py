@@ -24,7 +24,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(Path(__file__).resolve().parent))
-from prepare_natural_merge_v9 import ensure_train_v9, validate_v9_plan  # noqa: E402
+from prepare_natural_merge_v9 import validate_v9_plan  # noqa: E402
 from prepare_natural_merge_v4 import event_qas  # noqa: E402
 from prepare_public_retention import sha, tokenizer_manifest  # noqa: E402
 from natural_merge_runtime import (MergeStream, install, load_runtime, reset,
@@ -72,16 +72,16 @@ def run(args):
     from methods.prlmc.probes import _checkpoint_func
     variant = training["variants"][args.variant]
     geometry = training["geometry"]
-    # `build_merge` reads the v9 gate/route spec from the module-level TRAIN_V9
-    # record and silently falls back to bare defaults (rank 32, gamma_max .05, no
-    # bridge) while that record is unmaterialised. Build the operator only after it
-    # exists, then verify the module really carries the plan's config.
-    ensure_train_v9()
+    # `build_merge` would otherwise read the v9 gate/route spec from the module-level
+    # TRAIN_V9 record built out of the sealed v8 plan, and silently fall back to bare
+    # defaults (rank 32, gamma_max .05, no bridge) when that record is unavailable.
+    # The plan carries the complete record, so hand it in explicitly and verify the
+    # operator really came out with it.
     model, tokenizer, manager, merge, initial, cfg, _ = load_runtime(
         args.model_path, train=True, architecture=variant["architecture"],
         budget_blocks=geometry["budget_blocks"],
         window_blocks=geometry["window_blocks"],
-        target_blocks=geometry["target_blocks"])
+        target_blocks=geometry["target_blocks"], training=training)
     effective_config = {k: getattr(merge, k) for k in
                         ("rank", "topk", "gamma_max", "bridge_blocks", "bridge_fraction",
                          "bridge_gamma_max", "native_init", "global_rms_budget")

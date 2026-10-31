@@ -393,7 +393,7 @@ def v7_merge_classes():
             "grouped_gated_sparse_native_v7": NativeSkipSlotMergeV7}
 
 
-def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed"):
+def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed", training=None):
     from methods.prlmc.merge import SharedMemoryMerge
     from methods.prlmc.slot_merge import SlotMemoryMerge
     from methods.prlmc.gated_slot_merge import (BudgetedSlotMemoryMerge, GraftedSlotMemoryMerge,
@@ -436,7 +436,9 @@ def build_merge(architecture, num_layers, hidden, block, fusion_mode="sealed"):
     if architecture not in classes:
         raise ValueError("unknown shared merge architecture")
     kwargs = dict(rank=32, gamma_max=.05)
-    training = training_for(architecture)
+    # Callers that own a training record (the paper geometry) hand it in directly;
+    # otherwise fall back to the sealed record registered for the architecture.
+    training = training if training is not None else training_for(architecture)
     if training is not None:
         spec = next(v for v in training["variants"].values() if v["architecture"] == architecture)
         kwargs.update(gamma_max=spec["local_gate_max"], initial_gate=training["initial_gate"],
@@ -592,7 +594,7 @@ def load_merge_state(merge, saved, architecture, strict_code_hash=True):
 
 def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
                  budget_blocks=20, strict_code_hash=True, window_blocks=None,
-                 target_blocks=None, fusion_mode="sealed"):
+                 target_blocks=None, fusion_mode="sealed", training=None):
     import torch
     import yaml
     from transformers import AutoTokenizer
@@ -632,7 +634,7 @@ def load_runtime(model_path, checkpoint=None, train=False, architecture=None,
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True) if checkpoint else None
     architecture = resolve_architecture(saved, architecture)
     merge = build_merge(architecture, manager.num_layers, manager.hidden, manager.block,
-                        fusion_mode=fusion_mode).to("cuda:0")
+                        fusion_mode=fusion_mode, training=training).to("cuda:0")
     if checkpoint:
         check_similarity_margin(saved, merge)
         verified = load_merge_state(merge, saved, architecture, strict_code_hash=strict_code_hash)
