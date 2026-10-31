@@ -31,10 +31,12 @@ CONFIGS = (
 )
 
 
-def pin_ids(source, out, expect):
+def pin_ids(source, out, expect, take=None):
     """Freeze the id list once; never silently replace an existing pin."""
     report = json.loads(Path(source).read_text())
     ids = [s.get("id") for s in report["samples"]]
+    if take is not None:
+        ids = ids[:take]
     if any(i is None for i in ids):
         raise SystemExit(f"{source} has samples without ids")
     if len(set(ids)) != len(ids):
@@ -61,6 +63,7 @@ def build(spec, args, ids_path, out):
            "--target-blocks", "9", "--trigger-blocks", "50",
            "--model-path", args.model_path, "--total-tokens", "128000",
            "--write-cache-slots", "1", "--num-shards", str(args.num_shards),
+           "--cuda-device", str(args.cuda_device),
            "--out", str(out)]
     # --arm Selection refuses a checkpoint on purpose: C must not inherit V9 fusion.
     if spec.get("checkpoint"):
@@ -170,6 +173,9 @@ def main():
                    help="report whose samples define the frozen id list")
     p.add_argument("--ids-out", default="reports/main_table/ab13_ids.json")
     p.add_argument("--expect-ids", type=int, default=13)
+    p.add_argument("--take", type=int, default=None,
+                   help="keep only the first N ids of the source report")
+    p.add_argument("--cuda-device", default="0")
     p.add_argument("--num-shards", type=int, default=1)
     p.add_argument("--tag", default="r1")
     p.add_argument("--only", default=None,
@@ -177,7 +183,7 @@ def main():
     args = p.parse_args()
 
     ids_path = ROOT / args.ids_out
-    ids = pin_ids(ROOT / args.source_report, ids_path, args.expect_ids)
+    ids = pin_ids(ROOT / args.source_report, ids_path, args.expect_ids, args.take)
 
     wanted = set(args.only.split(",")) if args.only else None
     reports = {}
