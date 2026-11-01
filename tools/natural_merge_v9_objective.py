@@ -131,7 +131,7 @@ def full_targets(manager, qas):
 
 
 def train_event(manager, merge, optimizer, qas, targets, variant, origins,
-                scaler=None, plan=None, adapter=None):
+                scaler=None, plan=None, adapter=None, merge_forward="single"):
     """v9 train_event: v8 loop with the v9 structure wired in.
 
     The sealed v4/v7 objective file is not modified; this duplicates the v7
@@ -206,13 +206,24 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     eligible_count = sum(eligible)
     coefficients = balanced_coefficients(qas, cohorts, eligible, full_ce, selection_ce, plan)
     optimizer.zero_grad(set_to_none=True)
-    # The no_grad call used to compute the same operator on the same input as the
-    # graph-bearing call further down; `merge` has no dropout, so the two results
-    # are identical and one forward is pure duplication.
-    rebuilt = merge(source, **kwargs)
+    if merge_forward == "single":
+        # One operator evaluation serves both the pooled value and the backward.
+        # `merge` has no dropout, so a second no_grad forward would be identical.
+        rebuilt = merge(source, **kwargs)
+        value = None
+    elif merge_forward == "split":
+        # Reader activations stay resident (--no-reader-checkpointing), so the
+        # fusion graph must not coexist with the 20-QA loop; pay the extra
+        # no_grad forward, exactly as the pre-optimization code did.
+        with torch.no_grad():
+            value = merge(source, **kwargs)
+        rebuilt = None
+    else:
+        raise ValueError("merge_forward must be 'single' or 'split'")
     source_host = source.detach().cpu() if source.is_cuda else source.detach()
     del source, carriers
-    leaf = rebuilt.detach().requires_grad_(True)
+    leaf = value.detach().requires_grad_(True) if value is not None \
+        else rebuilt.detach().requires_grad_(True)
     tpw = plan["token_protection_weight"]
     tkw = plan["token_kl_weight"]
     rows = []; recovery_sum = kd_sum = protect_sum = eos_sum = token_sum = total = 0.
@@ -268,8 +279,14 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     if leaf.grad is None or not torch.isfinite(leaf.grad).all():
         raise ValueError("missing/nonfinite frozen-reader memory gradient")
     source = source_host.to(m._memory.device)
-    torch.autograd.backward(rebuilt, leaf.grad)     # no second forward, no rebuild
-    del rebuilt, leaf
+    if merge_forward == "single":
+        torch.autograd.backward(rebuilt, leaf.grad)   # no second forward, no rebuild
+        del rebuilt
+    else:
+        rebuilt = merge(source, **kwargs)
+        torch.autograd.backward(rebuilt, leaf.grad)
+        del rebuilt, value
+    del leaf
     if scaler: scaler.unscale_(optimizer)
     adapter_grads = None
     if adapter is not None:
