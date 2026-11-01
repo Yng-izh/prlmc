@@ -64,14 +64,10 @@ def run(args):
                 min_free_mib=int(args.min_free_mib),
                 alloc_conf=os.environ.get("PYTORCH_CUDA_ALLOC_CONF", ""),
                 reader_weight_dtype="float16")
-    required_mib = (args.min_free_mib_no_ckpt if args.no_reader_checkpointing
-                    else args.min_free_mib)
-    if free_mib < required_mib:
+    if free_mib < args.min_free_mib:
         raise ValueError("insufficient free VRAM on %s: %d MiB free < %d MiB required "
-                         "(checkpointing %s; measured peak is ~25900 MiB with it and "
-                         "higher without; free the card first)"
-                         % (card["name"], free_mib, required_mib,
-                            "off" if args.no_reader_checkpointing else "on"))
+                         "(measured peak is ~25800 MiB; free the card first)"
+                         % (card["name"], free_mib, args.min_free_mib))
     from native_qa_compare import atomic_json
     from methods.prlmc.probes import _checkpoint_func
     variant = training["variants"][args.variant]
@@ -105,13 +101,6 @@ def run(args):
     # lost time, and the gradient is bit-identical either way because the
     # recomputation is deterministic.
     card["reader_checkpointing"] = not args.no_reader_checkpointing
-    # Item 1 (no recompute) and item 2 (one merge forward) fight over the same
-    # headroom: resident reader activations cannot coexist with a fusion graph
-    # held across the whole QA loop, so the fusion forward is split when the
-    # recompute is off unless the caller overrides it explicitly.
-    merge_forward = (args.merge_forward if args.merge_forward != "auto"
-                     else ("split" if not card["reader_checkpointing"] else "single"))
-    card["merge_forward"] = merge_forward
     if not args.no_reader_checkpointing:
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         model.model.gradient_checkpointing = True
@@ -196,9 +185,7 @@ def run(args):
                   runtime=dict(torch=torch.__version__, transformers=__import__("transformers").__version__,
                                cuda=torch.version.cuda, gpu=torch.cuda.get_device_name(0),
                                physical_device=args.cuda_device, card=card),
-                  reader_weights_frozen=True, shared_state_sha256_before=state_digest(merge),
-                  merge_forward=merge_forward,
-                  reader_checkpointing=card["reader_checkpointing"], updates=[],
+                  reader_weights_frozen=True, shared_state_sha256_before=state_digest(merge), updates=[],
                   smoke=args.smoke_updates is not None, evaluation_eligible=False,
                   initialization="fresh identity residual, effective gate .02, fixed seed0; no warm start",
                   optimizer_groups=[{k: v for k, v in g.items() if k != "params"} for g in optimizer.param_groups])
@@ -227,7 +214,7 @@ def run(args):
                         targets = full_targets(manager, qas)
                         event = train_event(manager, merge, optimizer, qas, targets,
                                             args.variant, origins, scaler, plan=training,
-                                            adapter=adapter, merge_forward=merge_forward)
+                                            adapter=adapter)
                         event.update(stage="single_merge", window_start=start, before_write=len(writes))
                         record_event(report, event, round_index, episode, args.out, begun)
                         del targets
@@ -251,7 +238,7 @@ def run(args):
                             qas = event_qas(plan, round_index, episode, "recurrent", i)
                             event = train_event(manager, merge, optimizer, qas, references[i],
                                                 args.variant, origins, scaler, plan=training,
-                                                adapter=adapter, merge_forward=merge_forward)
+                                                adapter=adapter)
                             event.update(stage="recurrent", before_write=i)
                             record_event(report, event, round_index, episode, args.out, begun)
                             if len(report["updates"]) >= maximum: break
@@ -351,13 +338,6 @@ def main():
     p.add_argument("--cuda-device", type=int, required=True)
     p.add_argument("--min-free-mib", type=int, default=29000,
                    help="refuse to start unless this much VRAM is free (peak is ~25800 MiB)")
-    p.add_argument("--min-free-mib-no-ckpt", type=int, default=36000,
-                   help="free VRAM required when --no-reader-checkpointing is used")
-    p.add_argument("--merge-forward", default="auto", choices=("auto", "single", "split"),
-                   help="single = one fusion forward per update (item 2, needs the "
-                        "checkpointed reader); split = two forwards (pre-item-2 path, "
-                        "needed when activations stay resident); auto = split iff "
-                        "--no-reader-checkpointing")
     p.add_argument("--no-reader-checkpointing", action="store_true",
                    help="keep reader activations resident instead of recomputing them "
                         "(faster, needs more VRAM; identical gradients)")
