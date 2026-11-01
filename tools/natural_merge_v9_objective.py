@@ -27,8 +27,7 @@ import torch
 import torch.nn.functional as F
 
 from natural_merge_v2_train import answer_logits, realized_residual
-from natural_merge_v4_objective import (balanced_coefficients, full_targets
-                                        as v7_full_targets, objective_terms)
+from natural_merge_v4_objective import balanced_coefficients, objective_terms
 import natural_merge_v4_objective  # noqa: F401  (sealed objective module, inherited helpers)
 
 
@@ -42,30 +41,6 @@ V8_TRAINING_OVERRIDES = dict(
               " relu(ce_t - sel_ce_t - 0.30) hinge at weight 0.5 and Selection KL at weight 0.25)"
               " + separate EOS CE",
 )
-
-
-def selection_token_targets(manager, qas):
-    """Per-token Selection reference for the whole answer content.
-
-    Stored per QA: `sel_token_log_probs` [T, V] CPU fp16 and
-    `sel_token_correct` [T] bool (argmax == gold). The fused stream must
-    preserve what Selection already got right; Selection-wrong positions are
-    left to the recovery losses.
-    """
-    result = {}
-    with torch.no_grad():
-        for qa in qas:
-            logits, gold = answer_logits(manager.model, qa, manager._memory.device)
-            content_logits, content_gold = logits[:-1], gold[:-1]
-            log_probs = F.log_softmax(content_logits.float(), -1)
-            correct = content_logits.argmax(-1) == content_gold
-            result[qa["id"]] = dict(
-                sel_token_log_probs=log_probs.to(device="cpu", dtype=torch.float16),
-                sel_token_correct=correct.cpu(),
-                sel_token_ce=log_probs.gather(1, content_gold.unsqueeze(1)).squeeze(1).cpu(),
-                context_sha256=qa["context_sha256"],
-                prompt_ids=list(qa["prompt_ids"]), answer_ids=list(qa["answer_ids"]))
-    return result
 
 
 def token_protection_terms(logits, gold, sel_log_probs, sel_correct,
@@ -123,11 +98,36 @@ def qa_cohorts(origins, qas, index_list, window_blocks):
 
 
 def full_targets(manager, qas):
-    """v7 Full-teacher targets + per-token Selection reference in one record."""
-    targets = v7_full_targets(manager, qas)
-    for qa_id, extra in selection_token_targets(manager, qas).items():
-        targets[qa_id].update(extra)
-    return targets
+    """Full-teacher targets + per-token Selection reference from ONE forward.
+
+    `natural_merge_v4_objective.full_targets` and `selection_token_targets` each ran
+    their own `answer_logits` over the same teacher memory for the same QA. Both
+    read the same `content_logits`, so they are computed together here: the output
+    is byte-identical to the two-pass version (the v7 teacher keeps raw-dtype
+    log-softmax, the per-token reference keeps the fp32 one) at half the forwards.
+    """
+    result = {}
+    with torch.no_grad():
+        for qa in qas:
+            logits, gold = answer_logits(manager.model, qa, manager._memory.device)
+            content_logits, content_gold = logits[:-1], gold[:-1]
+            # v7 teacher: unchanged dtype path, unchanged numbers.
+            teacher_log_probs = F.log_softmax(content_logits, -1)
+            # v9 per-token Selection reference: fp32 before the log-softmax, as before.
+            log_probs = F.log_softmax(content_logits.float(), -1)
+            correct = content_logits.argmax(-1) == content_gold
+            result[qa["id"]] = dict(
+                gold_ce=float(F.cross_entropy(content_logits, content_gold)),
+                eos_ce=float(F.cross_entropy(logits[-1:], gold[-1:])),
+                log_probs=teacher_log_probs.to(device="cpu", dtype=torch.float16),
+                sel_token_log_probs=log_probs.to(device="cpu", dtype=torch.float16),
+                sel_token_correct=correct.cpu(),
+                sel_token_ce=log_probs.gather(
+                    1, content_gold.unsqueeze(1)).squeeze(1).cpu(),
+                context_sha256=qa["context_sha256"],
+                prompt_ids=list(qa["prompt_ids"]), answer_ids=list(qa["answer_ids"]))
+            del logits, gold, content_logits, content_gold, teacher_log_probs, log_probs
+    return result
 
 
 def train_event(manager, merge, optimizer, qas, targets, variant, origins,
@@ -206,10 +206,13 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     eligible_count = sum(eligible)
     coefficients = balanced_coefficients(qas, cohorts, eligible, full_ce, selection_ce, plan)
     optimizer.zero_grad(set_to_none=True)
-    with torch.no_grad(): value = merge(source, **kwargs)
+    # The no_grad call used to compute the same operator on the same input as the
+    # graph-bearing call further down; `merge` has no dropout, so the two results
+    # are identical and one forward is pure duplication.
+    rebuilt = merge(source, **kwargs)
     source_host = source.detach().cpu() if source.is_cuda else source.detach()
     del source, carriers
-    leaf = value.detach().requires_grad_(True)
+    leaf = rebuilt.detach().requires_grad_(True)
     tpw = plan["token_protection_weight"]
     tkw = plan["token_kl_weight"]
     rows = []; recovery_sum = kd_sum = protect_sum = eos_sum = token_sum = total = 0.
@@ -265,8 +268,8 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     if leaf.grad is None or not torch.isfinite(leaf.grad).all():
         raise ValueError("missing/nonfinite frozen-reader memory gradient")
     source = source_host.to(m._memory.device)
-    rebuilt = merge(source, **kwargs); torch.autograd.backward(rebuilt, leaf.grad)
-    del rebuilt, leaf, value
+    torch.autograd.backward(rebuilt, leaf.grad)     # no second forward, no rebuild
+    del rebuilt, leaf
     if scaler: scaler.unscale_(optimizer)
     adapter_grads = None
     if adapter is not None:
