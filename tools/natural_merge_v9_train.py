@@ -180,7 +180,8 @@ def run(args):
             print(f"[stage] reader adapter trainable at update {update_index}", flush=True)
     full_targets = objective_v9.full_targets
     provenance = {(e["stream"], e["round"], e["before_write"]): e["source_indices"]
-                  for e in plan["qa_events"] if e["stage"] == "recurrent"}
+                  for e in plan["qa_events"] if e["stage"].startswith("recurrent")}
+    recurrent_stage_at = training.get("recurrent_stage_by_position") or {}
     evidence_budget = geometry["budget_blocks"]
     recurrent_targets = None  # teacher references built per episode below
 
@@ -196,8 +197,15 @@ def run(args):
         """
         result = {}
         for i in training["recurrent_event_before_writes"]:
-            qas = event_qas(plan, round_index, episode, "recurrent", i)
+            stage = recurrent_stage_at.get(str(i), "recurrent")
+            qas = event_qas(plan, round_index, episode, stage, i)
             keep = provenance[(episode["id"], round_index, i)][-evidence_budget:]
+            # `keep` holds write positions, and the teacher memory below literally
+            # contains only those writes. A QA whose origin is outside this set is
+            # supervised against a teacher that never saw its evidence, so record
+            # that per QA and let `qa_cohorts` skip it instead of fitting noise.
+            kept_origins = {episode["contexts"][w]["qas"][0]["source_index"]
+                            for w in keep}
             reset(manager, initial)
             stream = MergeStream(manager, merge, "Full",
                                  budget_blocks=geometry["budget_blocks"],
@@ -209,6 +217,9 @@ def run(args):
                     if stream.write(episode["writes"][write_index], position) is None:
                         raise ValueError("local evidence teacher exceeds pool capacity")
                 result[i] = full_targets(manager, qas)
+                for qa in qas:
+                    result[i][qa["id"]]["teacher_evidence"] = (
+                        qa["source_index"] in kept_origins)
         if sorted(result) != training["recurrent_event_before_writes"]:
             raise ValueError("incomplete teacher events")
         return result
@@ -278,12 +289,13 @@ def run(args):
                         if i in training["recurrent_event_before_writes"]:
                             if manager.used < training["trigger_blocks"] * manager.block:
                                 raise ValueError("recurrent event is not at the 20-block trigger")
-                            qas = event_qas(plan, round_index, episode, "recurrent", i)
+                            stage_here = recurrent_stage_at.get(str(i), "recurrent")
+                            qas = event_qas(plan, round_index, episode, stage_here, i)
                             sync_adapter_stage(len(report["updates"]))
                             event = train_event(manager, merge, optimizer, qas, references[i],
                                                 args.variant, origins, scaler, plan=training,
                                                 adapter=adapter)
-                            event.update(stage="recurrent", before_write=i)
+                            event.update(stage=stage_here, before_write=i)
                             record_event(report, event, round_index, episode, args.out, begun)
                             if len(report["updates"]) >= maximum: break
                         with torch.no_grad():
@@ -341,11 +353,22 @@ def run(args):
                 raise ValueError("reader adapter performed no parameter update")
             Path(args.lora_out).parent.mkdir(parents=True, exist_ok=True)
             event_count = sum(1 for u in report["updates"] if u.get("reader_adapter"))
-            torch.save(dict(schema="reader_lora/1", state=lora_named_state(model),
-                            rank=args.lora_rank, alpha=args.lora_alpha, dropout=0.0,
-                            last_layers=args.lora_layers, targets=list(adapter.names),
-                            geometry=dict(geometry), source="natural_merge_v9_train.joint",
-                            events_with_grad=event_count), args.lora_out)
+            if args.bridge_adapter:
+                # The bridge adapter is not a LoRALinear: its tensors live in its own
+                # ModuleDict, so `lora_named_state` cannot see them.
+                payload = dict(schema="reader_adapter/2", kind="bridge_kv_masked",
+                               state=adapter.state_dict(), layers=args.bridge_layers,
+                               rank=args.lora_rank, alpha=args.lora_alpha,
+                               dropout=0.0, targets=list(adapter.names),
+                               geometry=dict(geometry), source="natural_merge_v9_train.joint",
+                               events_with_grad=event_count)
+            else:
+                payload = dict(schema="reader_lora/1", state=lora_named_state(model),
+                               rank=args.lora_rank, alpha=args.lora_alpha, dropout=0.0,
+                               last_layers=args.lora_layers, targets=list(adapter.names),
+                               geometry=dict(geometry), source="natural_merge_v9_train.joint",
+                               events_with_grad=event_count)
+            torch.save(payload, args.lora_out)
             adapter_metrics = dict(modules=len(adapter.names),
                                    state_digest_before=adapter_before,
                                    state_digest_after=after,

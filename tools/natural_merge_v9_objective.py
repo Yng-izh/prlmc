@@ -252,6 +252,20 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     source_host = source.detach().cpu() if source.is_cuda else source.detach()
     del source, carriers
     leaf = rebuilt.detach().requires_grad_(True)
+    # The slots this event writes as bridges are only marked in the manager at
+    # `install`, which runs after the backward. Hand them to the adapter now, so
+    # the supervised read sees the fusion this event actually produced instead of
+    # only the bridges of previous rounds.
+    if adapter is not None and hasattr(adapter, "set_event_bridge"):
+        fusion = getattr(merge, "last_fusion", None) or {}
+        offsets = fusion.get("bridge_slot_offsets") or []
+        if offsets:
+            base = m.total - (m.used - window + target)
+            index = torch.as_tensor([base + int(o) for o in offsets], dtype=torch.long,
+                                    device=m._memory.device)
+            adapter.set_event_bridge(index[(index >= 0) & (index < m.total)])
+        else:
+            adapter.set_event_bridge(None)
     tpw = plan["token_protection_weight"]
     tkw = plan["token_kl_weight"]
     rows = []; recovery_sum = kd_sum = protect_sum = eos_sum = token_sum = total = 0.

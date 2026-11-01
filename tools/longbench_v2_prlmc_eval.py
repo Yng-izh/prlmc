@@ -251,21 +251,41 @@ def evaluate(args):
     tokenizer.pad_token = tokenizer.eos_token
     lora_state = None
     reader_lora = None
+    bridge_adapter = None
     if args.reader_lora:
         from reader_lora_train import load_lora_state, lora_modules, set_lora_enabled
         lora_state = torch.load(args.reader_lora, map_location="cpu")
-        load_lora_state(model, lora_state)      # raises on any unmatched key
-        set_lora_enabled(model, True)
-        reader_lora = dict(
-            schema=lora_state.get("schema"), rank=lora_state.get("rank"),
-            alpha=lora_state.get("alpha"), last_layers=lora_state.get("last_layers"),
-            geometry=lora_state.get("geometry"), source=lora_state.get("source"),
-            events_with_grad=lora_state.get("events_with_grad"),
-            n_state_tensors=len(lora_state["state"]),
-            n_attached_modules=len(lora_modules(model)),
-            n_enabled_modules=sum(1 for m in lora_modules(model) if m.enabled),
-            tensors_copied=len(lora_state["state"]),
-            sample_keys=sorted(lora_state["state"])[:2])
+        if lora_state.get("kind") == "bridge_kv_masked":
+            from bridge_kv_adapter import attach_bridge_adapter
+            low, high = (int(x) for x in lora_state["layers"].split("-"))
+            bridge_adapter = attach_bridge_adapter(
+                model, manager, layers=range(low, high + 1),
+                rank=lora_state["rank"], lora_alpha=lora_state["alpha"])
+            keys = bridge_adapter.load_state_dict(lora_state["state"])  # strict
+            bridge_adapter.on()
+            reader_lora = dict(kind="bridge_kv_masked", schema=lora_state.get("schema"),
+                               layers=lora_state.get("layers"),
+                               rank=lora_state.get("rank"), alpha=lora_state.get("alpha"),
+                               geometry=lora_state.get("geometry"),
+                               source=lora_state.get("source"),
+                               events_with_grad=lora_state.get("events_with_grad"),
+                               n_state_tensors=len(lora_state["state"]),
+                               tensors_copied=len(keys),
+                               digest=bridge_adapter.digest(),
+                               sample_keys=keys[:2])
+        else:
+            load_lora_state(model, lora_state)      # raises on any unmatched key
+            set_lora_enabled(model, True)
+            reader_lora = dict(
+                schema=lora_state.get("schema"), rank=lora_state.get("rank"),
+                alpha=lora_state.get("alpha"), last_layers=lora_state.get("last_layers"),
+                geometry=lora_state.get("geometry"), source=lora_state.get("source"),
+                events_with_grad=lora_state.get("events_with_grad"),
+                n_state_tensors=len(lora_state["state"]),
+                n_attached_modules=len(lora_modules(model)),
+                n_enabled_modules=sum(1 for m in lora_modules(model) if m.enabled),
+                tensors_copied=len(lora_state["state"]),
+                sample_keys=sorted(lora_state["state"])[:2])
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
     if args.budget_blocks == NATIVE_BUDGET:
@@ -354,6 +374,8 @@ def evaluate(args):
         else:
             if lora_state is not None:
                 set_lora_enabled(model, False)   # writes stay native
+            if bridge_adapter is not None:
+                bridge_adapter.off()             # writes stay native here too
             writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
             # no_grad, not inference_mode: the write path leaves bookkeeping tensors
             # (block ages, active masks) alive past the block, and inference tensors
@@ -371,6 +393,8 @@ def evaluate(args):
                 torch.save(entry, path)
         if lora_state is not None:
             set_lora_enabled(model, True)
+        if bridge_adapter is not None:
+            bridge_adapter.on()
         prediction, output_ids = pe.generate(model, tokenizer, query_ids, MAX_NEW)
         scores, single_token = option_scores(model, tokenizer, query_ids)
         scored = [k for k in OPTION_LETTERS if scores[k] is not None]

@@ -136,7 +136,7 @@ def validate_paper_schedule(plan, training):
         stream = event["stream"]
         if stream not in episodes:
             raise ValueError(f"event for unknown stream {stream!r}")
-        position = (event.get("before_write") if event["stage"] == "recurrent"
+        position = (event.get("before_write") if event["stage"].startswith("recurrent")
                     else event.get("window_start"))
         key = (event["round"], stream, event["stage"], position)
         if key in keys:
@@ -147,7 +147,7 @@ def validate_paper_schedule(plan, training):
             raise ValueError(f"event {key} has empty or duplicated QAs")
         if not set(ids).issubset(qa_by_stream[stream]):
             raise ValueError(f"event {key} supervises QAs from another stream")
-        if event["stage"] == "recurrent":
+        if event["stage"].startswith("recurrent"):
             if position not in training["recurrent_event_before_writes"]:
                 raise ValueError(f"event {key} is not at a declared compaction")
             if not event.get("source_indices") or not event.get("tail_indices"):

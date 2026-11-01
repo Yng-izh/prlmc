@@ -24,7 +24,13 @@ from pathlib import Path
 SRC = Path("data/natural_merge_v9/train.json")
 OUT = Path("data/natural_merge_v9_50block/train.json")
 EPISODES = 16
-CONTEXTS = 125                 # 64k tokens at 512-token writes
+# 246 writes at a 50-block budget and a 19->9 window: the trigger fires at write 50
+# and then every 10 writes, i.e. 20 merges. A 128k evaluation sample performs 246
+# writes / 20 merges, so the training stream must reach that recursion depth
+# instead of stopping at the 8 merges a 125-write stream produces.
+CONTEXTS = 246
+EARLY_EVENTS = 8               # writes 50..120: the shallow, single-hop regime
+DEEP_STAGE = "recurrent_deep"  # writes 130..240: deep recursive state
 WINDOW, TARGET, BUDGET, TRIGGER = 19, 9, 50, 50
 QA_CAP = 20                    # sealed events supervise ~20 QAs; keep the backward loop bounded
 
@@ -94,7 +100,9 @@ def main():
 
     schedule = pool_schedule(CONTEXTS)
     event_writes = sorted(schedule)
-    expected_events = [BUDGET + step * (WINDOW - TARGET) for step in range(8)]
+    steps = (CONTEXTS - BUDGET) // (WINDOW - TARGET) + 1
+    expected_events = [BUDGET + step * (WINDOW - TARGET) for step in range(steps)]
+    deep_from = BUDGET + EARLY_EVENTS * (WINDOW - TARGET)
     if event_writes != expected_events:
         raise ValueError(f"unexpected compaction schedule {event_writes}")
 
@@ -128,22 +136,30 @@ def main():
                 provenance = schedule[write_index]
                 supervised = pick(provenance["window"]) + pick(provenance["tail"])
                 events.append(dict(qa_ids=qas_of(sorted(set(supervised)), episode),
-                                   round=rnd, stage="recurrent", stream=episode["id"],
-                                   before_write=write_index,
+                                   round=rnd,
+                                   stage=(DEEP_STAGE if write_index >= deep_from
+                                          else "recurrent"),
+                                   stream=episode["id"], before_write=write_index,
                                    source_indices=provenance["window"],
                                    tail_indices=provenance["tail"]))
 
-    counts = dict(single_merge=EPISODES * 4, recurrent=EPISODES * 2 * len(event_writes))
+    early = [w for w in event_writes if w < deep_from]
+    deep = [w for w in event_writes if w >= deep_from]
+    counts = dict(single_merge=EPISODES * 4, recurrent=EPISODES * 2 * len(early),
+                  **{DEEP_STAGE: EPISODES * 2 * len(deep)})
     training = dict(src["training"])
     training.update(
         geometry=dict(budget_blocks=BUDGET, window_blocks=WINDOW, target_blocks=TARGET),
         trigger_blocks=TRIGGER, recurrent_event_before_writes=event_writes,
+        recurrent_stage_by_position={str(w): (DEEP_STAGE if w >= deep_from else "recurrent")
+                                     for w in event_writes},
         single_window_contexts=WINDOW, single_window_starts=[[0, 20], [1, 20]],
         streams=EPISODES, planned_updates=sum(counts.values()),
         curriculum_updates=counts, teacher="local_raw_evidence",
         curriculum=(f"rounds 0/1: {counts['single_merge']} isolated {WINDOW}-context windows; "
                     f"rounds 2/3: {CONTEXTS}-write recurrent streams compacted at the "
-                    f"{TRIGGER}-block trigger, {len(event_writes)} events per stream, "
+                    f"{TRIGGER}-block trigger, {len(event_writes)} events per stream "
+                    f"({len(early)} early, {len(deep)} deep from write {deep_from}), "
                     f"supervised on the merge window's provenance"))
     # The validator in prepare_natural_merge_v9 compares this key to its own
     # constant, so the plan and the runtime merge can never disagree.
