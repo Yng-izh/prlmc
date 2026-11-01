@@ -145,6 +145,14 @@ def main():
                     f"rounds 2/3: {CONTEXTS}-write recurrent streams compacted at the "
                     f"{TRIGGER}-block trigger, {len(event_writes)} events per stream, "
                     f"supervised on the merge window's provenance"))
+    # The validator in prepare_natural_merge_v9 compares this key to its own
+    # constant, so the plan and the runtime merge can never disagree.
+    from prepare_natural_merge_v9 import GLOBAL_RMS_BUDGET
+    training["global_rms_budget"] = GLOBAL_RMS_BUDGET
+    assert training["global_rms_budget"] == GLOBAL_RMS_BUDGET
+    # v9 stop-token scheme: one damped CE instead of an independent EOS margin.
+    training["eos_scheme"] = "damped_single_ce"
+    training["eos_token_weight"] = .2
 
     plan = dict(src)        # base_plan / hotpot_episodes / provenance stay untouched
     plan.update(episodes=episodes, qa_events=events, training=training,

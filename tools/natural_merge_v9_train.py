@@ -125,13 +125,36 @@ def run(args):
                                       alpha=args.lora_alpha, layers=args.lora_layers,
                                       lr=args.lora_lr, targets=list(attached[:2]),
                                       init=args.reader_lora_init)
+    if args.bridge_adapter:
+        if args.joint_reader_lora:
+            raise ValueError("--bridge-adapter replaces --joint-reader-lora, not adds to it")
+        from bridge_kv_adapter import attach_bridge_adapter
+        low, high = (int(x) for x in args.bridge_layers.split("-"))
+        adapter = attach_bridge_adapter(model, manager, layers=range(low, high + 1),
+                                       rank=args.lora_rank, lora_alpha=args.lora_alpha)
+        adapter.enable_grad()
+        adapter.off()
+        adapter_before = adapter.digest()
+        card["reader_adapter"] = dict(kind="bridge_kv_masked", layers=args.bridge_layers,
+                                      rank=args.lora_rank, alpha=args.lora_alpha,
+                                      lr=args.adapter_lr, targets="memory_kv")
+    # Stage 1 keeps the reader untouched, so the adapter stays structurally off and
+    # frozen until the split; stage 2 turns it on and hands it the low learning rate.
+    stage_split = int(args.stage_split)
+    if adapter is not None:
+        adapter.stage_active = not stage_split
+        if stage_split:
+            for p in adapter.parameters():
+                p.requires_grad_(False)
     from prepare_natural_merge_v4 import check_answer_encoding
     check_answer_encoding(plan, tokenizer)
     optimizer = make_optimizer(merge, plan=training)
     if adapter is not None:
-        optimizer.add_param_group(dict(params=adapter.parameters(), lr=args.lora_lr,
-                                       weight_decay=0., name="reader_adapter",
-                                       parameter_names=adapter.names))
+        optimizer.add_param_group(dict(
+            params=adapter.parameters(),
+            lr=args.adapter_lr if stage_split else args.lora_lr,
+            weight_decay=0., name="reader_adapter",
+            parameter_names=adapter.names))
     scaler = torch.amp.GradScaler("cuda", init_scale=128.)
     episodes = plan["episodes"]
     events_by_stream = {}
@@ -139,6 +162,22 @@ def run(args):
         events_by_stream.setdefault(event["stream"], []).append(event)
     base = plan["base_plan"]; begun = time.monotonic()
     train_event = objective_v9.train_event
+    stage_two = False
+
+    def sync_adapter_stage(update_index):
+        """Flip the adapter on exactly once, at the planned update."""
+        nonlocal stage_two
+        if adapter is None or not stage_split:
+            return
+        wanted = update_index >= stage_split
+        if wanted == stage_two:
+            return
+        stage_two = wanted
+        adapter.stage_active = wanted
+        for p in adapter.parameters():
+            p.requires_grad_(wanted)
+        if wanted:
+            print(f"[stage] reader adapter trainable at update {update_index}", flush=True)
     full_targets = objective_v9.full_targets
     provenance = {(e["stream"], e["round"], e["before_write"]): e["source_indices"]
                   for e in plan["qa_events"] if e["stage"] == "recurrent"}
@@ -186,6 +225,9 @@ def run(args):
                                cuda=torch.version.cuda, gpu=torch.cuda.get_device_name(0),
                                physical_device=args.cuda_device, card=card),
                   reader_weights_frozen=True, shared_state_sha256_before=state_digest(merge), updates=[],
+                  two_stage=dict(split=args.stage_split, adapter_lr=args.adapter_lr,
+                                 bridge_adapter=args.bridge_adapter,
+                                 bridge_layers=args.bridge_layers),
                   smoke=args.smoke_updates is not None, evaluation_eligible=False,
                   initialization="fresh identity residual, effective gate .02, fixed seed0; no warm start",
                   optimizer_groups=[{k: v for k, v in g.items() if k != "params"} for g in optimizer.param_groups])
@@ -212,6 +254,7 @@ def run(args):
                                 origins.append(contexts[i]["qas"][0]["source_index"])
                         qas = event_qas(plan, round_index, episode, "single_merge", start)
                         targets = full_targets(manager, qas)
+                        sync_adapter_stage(len(report["updates"]))
                         event = train_event(manager, merge, optimizer, qas, targets,
                                             args.variant, origins, scaler, plan=training,
                                             adapter=adapter)
@@ -236,6 +279,7 @@ def run(args):
                             if manager.used < training["trigger_blocks"] * manager.block:
                                 raise ValueError("recurrent event is not at the 20-block trigger")
                             qas = event_qas(plan, round_index, episode, "recurrent", i)
+                            sync_adapter_stage(len(report["updates"]))
                             event = train_event(manager, merge, optimizer, qas, references[i],
                                                 args.variant, origins, scaler, plan=training,
                                                 adapter=adapter)
@@ -345,6 +389,16 @@ def main():
     p.add_argument("--smoke-updates", type=int)
     p.add_argument("--joint-reader-lora", action="store_true",
                    help="train the reader adapter and the merge module on one loss")
+    p.add_argument("--stage-split", type=int, default=0,
+                   help="switch the reader adapter on at this update index "
+                        "(0 keeps the old single-stage run)")
+    p.add_argument("--adapter-lr", type=float, default=1e-5,
+                   help="reader-adapter learning rate for the second stage")
+    p.add_argument("--bridge-adapter", action="store_true",
+                   help="use the bridge-masked K/V adapter instead of the legacy "
+                        "q/o LoRA (memory-read only, bridge slots only)")
+    p.add_argument("--bridge-layers", default="12-31",
+                   help="inclusive decoder-layer range for the bridge adapter")
     p.add_argument("--reader-lora-init", default=None,
                    help="optional warm start for the adapter (reader_lora_train payload)")
     p.add_argument("--lora-out", default="runs/natural_merge_v9/reader_lora_joint.pt")

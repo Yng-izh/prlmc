@@ -68,33 +68,64 @@ def token_protection_terms(logits, gold, sel_log_probs, sel_correct,
     return hinge, kl, int(mask.sum()), int(mask.numel())
 
 
-def qa_cohorts(origins, qas, index_list, window_blocks):
-    """Provenance-exact cohort label per QA, plus resident-pool coverage.
+def qa_cohorts(origins, qas, index_list, window_blocks, teacher_seen=None):
+    """Provenance-exact cohort label per QA, with the local teacher's evidence gated.
 
     `NativeOrigins.cohorts` additionally demands that every resident origin appear
     in `qas`, i.e. one supervised QA per resident block -- up to 120 forwards per
     event on the 50-block stream. The labels only need the provenance record the
     origins object already holds, so they are computed from the same rule here and
     the coverage of the resident pool is reported instead of assumed.
+
+    Three outcomes:
+
+    protect  the origin is still resident (kept carrier or untouched tail), so a
+             Selection forward over the same pool is a valid anchor and no local
+             teacher is needed at all;
+    recover  the origin was discarded by this merge AND the local full teacher
+             really holds it, so the KL is distillation and not noise fitting;
+    skip     the origin is gone (truncated by an earlier merge) or the teacher
+             could not see it. Supervising against a blind teacher teaches
+             guessing, so such a QA gets no term in this event.
+
+    `teacher_seen` maps qa id -> bool; a missing key means "assume visible", which
+    is the pre-existing behaviour for single-window events whose teacher memory is
+    the uncompressed stream.
     """
     blocks = list(origins.blocks)
     if len(blocks) < window_blocks:
         raise ValueError("incomplete provenance window")
     if len({q["source_index"] for q in qas}) != len(qas):
         raise ValueError("one QA per original context required")
+    seen = dict(teacher_seen or {})
     known = set(blocks)
-    retained = {blocks[i] for i in index_list} | set(blocks[window_blocks:])
+    carriers = {blocks[i] for i in index_list}
+    tail = set(blocks[window_blocks:])
     current = set(blocks[:window_blocks])
-    # An origin that no longer appears in the residence record was dropped by an
-    # earlier merge: that is exactly the "previously_discarded" recovery case, so
-    # such QAs stay recover rather than being rejected.
-    labels = [("protect" if q["source_index"] in retained else "recover",
-               "current_window" if q["source_index"] in current else
-               "untouched_tail" if q["source_index"] in retained else "previously_discarded")
-              for q in qas]
-    covered = len({q["source_index"] for q in qas})
+    discarded = current - carriers
+    labels, skipped = [], []
+    for q in qas:
+        origin = q["source_index"]
+        visible = bool(seen.get(q["id"], True))
+        if origin in carriers:
+            labels.append(("protect", "retained_carrier"))
+        elif origin in tail:
+            labels.append(("protect", "untouched_tail"))
+        elif origin in discarded and visible:
+            labels.append(("recover", "discarded_this_round"))
+        elif origin in discarded:
+            labels.append(("skip", "teacher_evidence_missing"))
+            skipped.append(q["id"])
+        else:
+            labels.append(("skip", "previously_discarded_out_of_residence"))
+            skipped.append(q["id"])
+    covered = len({q["source_index"] for q in qas if q["source_index"] in known})
     return labels, dict(resident_origins=len(known), covered_origins=covered,
-                        coverage=covered / max(1, len(known)))
+                        coverage=covered / max(1, len(known)), skipped=list(skipped),
+                        skip_teacher_missing=sum(1 for _, r in labels
+                                                 if r == "teacher_evidence_missing"),
+                        skip_out_of_residence=sum(1 for _, r in labels
+                                                  if r == "previously_discarded_out_of_residence"))
 
 
 def full_targets(manager, qas):
@@ -179,7 +210,15 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     # -----------------------------------------------------------------------
     index_list = indices.cpu().tolist()
     window_blocks = window // m.block
-    cohorts, provenance_coverage = qa_cohorts(origins, qas, index_list, window_blocks)
+    teacher_seen = {q["id"]: targets[q["id"]].get("teacher_evidence", True) for q in qas}
+    cohorts, provenance_coverage = qa_cohorts(origins, qas, index_list, window_blocks,
+                                              teacher_seen=teacher_seen)
+    # A skipped QA must not contribute anything: not the shared CE, not the
+    # teacher KL, and not the Selection reference it would otherwise anchor.
+    active = [i for i, (cohort, _) in enumerate(cohorts) if cohort != "skip"]
+    if len(active) != len(qas):
+        qas = [qas[i] for i in active]
+        cohorts = [cohorts[i] for i in active]
     recover_ids = [i for i, (cohort, _) in enumerate(cohorts) if cohort == "recover"]
     protect_count = len(qas)-len(recover_ids)
     if not recover_ids or not protect_count:
@@ -229,7 +268,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                     # checkpointing recomputes this forward inside backward, and a
                     # toggled-off adapter saves a different tensor set there, which trips
                     # CheckpointError.
-                    if adapter is not None:
+                    if adapter is not None and getattr(adapter, "stage_active", True):
                         adapter.on()
                     logits, gold = answer_logits(m.model, qa, m._memory.device)
                 teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
@@ -238,7 +277,9 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                     anchor = F.kl_div(F.log_softmax(logits[0].float(), -1),
                                       selection_first[i].to(logits.device), reduction="sum")
                 ce, kd, recovery, distillation, protection, eos_ce, eos = objective_terms(
-                    logits, gold, selection_ce[i], teacher, coefficients[i], anchor)
+                    logits, gold, selection_ce[i], teacher, coefficients[i], anchor,
+                    eos_scheme=plan.get("eos_scheme", "legacy"),
+                    eos_token_weight=plan.get("eos_token_weight", .2))
                 # ---- v8: per-token degraded-token protection ----
                 sel_lp = targets[qa["id"]]["sel_token_log_probs"]
                 sel_ok = targets[qa["id"]]["sel_token_correct"]

@@ -41,7 +41,12 @@ TRIGGER_BLOCKS = 20
 SINGLE_STARTS = [[0, 20], [1, 20]]
 SINGLE_WINDOW_CONTEXTS = 19
 ARCHITECTURE = "grouped_gated_sparse_native_v9"
-GLOBAL_RMS_BUDGET = .08
+# 40 of 256 slots per carrier are bridges (bridge_fraction .156) and the core 216
+# are hard-masked to exactly zero residual, so a whole-block budget of .08 caps the
+# bridge amplitude at .08/sqrt(.156) ~ .20 and makes bridge_gamma_max .60 dead code.
+# .24/sqrt(.156) ~ .608 >= .60, so the bridge cap becomes the active bound while the
+# core slots stay untouched either way.
+GLOBAL_RMS_BUDGET = .24
 BRIDGE_BLOCKS = 3
 NGRAM_KERNEL = (.25, .5, .25)
 NATIVE_INIT = 0.

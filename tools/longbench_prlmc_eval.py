@@ -459,10 +459,15 @@ def protocol_record(args, tasks, saved, geometry):
         memory_reset="checkpoint values, used=0 and full active mask before every sample")
 
 
-def generate(model, tokenizer, query_ids, max_new_tokens):
+def generate(model, tokenizer, query_ids, max_new_tokens, min_new_tokens=2):
+    """Greedy decode with a leading newline allowed.
+
+    `newline_id` used to sit inside `eos_token_id`, so a reader that opens its
+    answer with a blank line was truncated at token 1 and scored as an empty
+    prediction. The newline is now an ordinary token and the answer is the first
+    non-blank line, which is what every downstream extractor already assumes.
+    """
     ids = torch.tensor([query_ids], dtype=torch.long, device=model.memory.device)
-    newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
-    eos_ids = [tokenizer.eos_token_id, newline_id]
     attention = torch.ones((1, model.memory.shape[1] + len(query_ids)),
                            dtype=torch.long, device=ids.device)
     with torch.no_grad():
@@ -470,9 +475,12 @@ def generate(model, tokenizer, query_ids, max_new_tokens):
                                 max_new_tokens=max_new_tokens, num_beams=1,
                                 do_sample=False, temperature=1.0, top_p=1.0, top_k=0,
                                 pad_token_id=tokenizer.pad_token_id,
-                                eos_token_id=eos_ids)
+                                eos_token_id=tokenizer.eos_token_id,
+                                min_new_tokens=min_new_tokens)
     out = output[0, ids.shape[1]:].detach().cpu().tolist()
-    return tokenizer.decode(out, skip_special_tokens=True), out
+    text = tokenizer.decode(out, skip_special_tokens=True)
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    return first_line, out          # `out` keeps the raw ids for the report
 
 
 def run_sample(stream, writes):

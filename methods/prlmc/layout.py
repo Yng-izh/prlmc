@@ -441,6 +441,15 @@ class ProtectedResidualMemory:
         pinned = torch.nonzero(per_block >= self.archive_fraction).flatten().tolist()
         return frozen, [int(i) for i in pinned if i < window // block][:self.archive_max_blocks]
 
+    def fused_slot_mask(self):
+        """Bool [total] over pool slots: True where a bridge write has landed.
+
+        Public view of the M4 write-once flags that `mark_fused_slots` sets and
+        `remap_fused` moves, so the bridge-masked K/V adapter's mask follows every
+        install without extra bookkeeping.
+        """
+        return self._fused_flags()
+
     def mark_fused_slots(self, offsets, base: int = 0) -> int:
         """Freeze the candidate slots that just received a bridge write."""
         if not offsets:

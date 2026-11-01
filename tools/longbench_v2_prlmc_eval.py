@@ -39,7 +39,43 @@ import longbench_prlmc_eval as pe            # noqa: E402
 import longbench_v2_eval as lbv2             # noqa: E402
 from longbench_memoryllm_eval import atomic_json, digest, seed_everything, sha  # noqa: E402
 
-MAX_NEW = 128   # native main-table row generates 128 tokens
+MAX_NEW = 128
+# A base (non-chat) reader continues the prompt instead of answering it, which is
+# what produced the `For example, "The ...` echoes. Closing the sentence turns the
+# continuation into an option at zero training cost.
+ANSWER_CUE = "\nThe correct answer is ("
+OPTION_LETTERS = ("A", "B", "C", "D")
+ECHO_NGRAM = 24
+
+
+def option_scores(model, tokenizer, query_ids):
+    """Logits of the four option tokens at the single position after ANSWER_CUE.
+
+    Deterministic, cannot echo the template and cannot early-stop, so it is a
+    100%-effective companion to the greedy path and the highest-resolution view of
+    what the reader actually prefers.
+    """
+    ids = torch.tensor([query_ids], dtype=torch.long, device=model.memory.device)
+    attention = torch.ones((1, model.memory.shape[1] + len(query_ids)),
+                           dtype=torch.long, device=ids.device)
+    with torch.no_grad():
+        logits = model(input_ids=ids, attention_mask=attention,
+                       use_cache=False).logits[0, -1].float()
+    scores, single = {}, {}
+    for letter in OPTION_LETTERS:
+        token_ids = tokenizer.encode(letter, add_special_tokens=False)
+        single[letter] = len(token_ids) == 1
+        scores[letter] = float(logits[token_ids[0]]) if single[letter] else None
+    return scores, single
+
+
+def template_echo(prediction):
+    """True when the reader continued the instruction instead of answering."""
+    text = (prediction or "").strip()
+    if not text:
+        return False
+    return (text.startswith(("For example", '"', "The correct answer is"))
+            or "For example" in text[:ECHO_NGRAM])
 TOTAL_CHOICES = (8192, 16384, 32768, 128000)
 VALIDATED_TOTALS = (8192, 16384)
 NATIVE_BUDGET = 50          # native 50-block / 12,800-slot capacity
@@ -50,7 +86,7 @@ BUDGET_CAVEAT = (
 
 
 def build_input(tokenizer, row, total_tokens, tail_tokens, mode):
-    prompt = lbv2.build_prompt(row, row["context"])
+    prompt = lbv2.build_prompt(row, row["context"]) + ANSWER_CUE
     ids = tokenizer(prompt, add_special_tokens=False, truncation=False).input_ids
     original = len(ids)
     if len(ids) > total_tokens:
@@ -127,11 +163,30 @@ def remember(cache, key, value, slots):
 
 
 def summarize(samples):
+    n = max(1, len(samples))
+    empty = [s for s in samples if not (s.get("prediction") or "").strip()]
+    echo = [s for s in samples if s.get("template_echo")]
+    options = [s for s in samples if s.get("option_letter")]
+    effective = len(samples) - len(empty)
     summary = dict(longbench_v2=dict(
         n=len(samples),
         accuracy=100.0 * float(np.mean([s["correct"] for s in samples])),
         compression_samples=int(sum(1 for s in samples if s["compression_count"] > 0)),
-        mean_active_slots=float(np.mean([s["final_active_slots"] for s in samples]))))
+        mean_active_slots=float(np.mean([s["final_active_slots"] for s in samples])),
+        # Effective-answer diagnostics: a headline number averaged over empty or
+        # echoed predictions is not a capability measurement.
+        empty_count=len(empty), empty_rate=len(empty) / n,
+        first_token_eos_rate=float(np.mean([s.get("first_token_is_eos", 0)
+                                            for s in samples])),
+        template_echo_count=len(echo), template_echo_rate=len(echo) / n,
+        effective_count=effective, effective_answer_rate=effective / n,
+        effective_accuracy=(100.0 * float(np.mean(
+            [s["correct"] for s in samples if (s.get("prediction") or "").strip()]))
+            if effective else 0.0),
+        # First-position option scoring: unaffected by stop-token behaviour.
+        option_count=len(options),
+        option_accuracy=(100.0 * float(np.mean([s["option_correct"] for s in options]))
+                         if options else 0.0)))
     for group in ("short", "medium", "long"):
         picked = [s for s in samples if s["length"] == group]
         if picked:
@@ -317,6 +372,9 @@ def evaluate(args):
         if lora_state is not None:
             set_lora_enabled(model, True)
         prediction, output_ids = pe.generate(model, tokenizer, query_ids, MAX_NEW)
+        scores, single_token = option_scores(model, tokenizer, query_ids)
+        scored = [k for k in OPTION_LETTERS if scores[k] is not None]
+        option_letter = max(scored, key=lambda k: scores[k]) if scored else None
         letter = lbv2.extract_answer(prediction)
         active = int(model.memory_active_mask.sum())
         if active != manager.used or active > capacity_blocks * model.num_tokens:
@@ -332,6 +390,13 @@ def evaluate(args):
             peak_active_slots=peak, final_active_slots=active,
             write_cache_hit=int(cache_source is not None), write_cache_source=cache_source,
             write_cache_key=key,
+            option_scores=scores, option_single_token=single_token,
+            option_letter=option_letter,
+            option_correct=int(option_letter == row["answer"]),
+            first_token=(output_ids[0] if output_ids else None),
+            first_token_is_eos=int(bool(output_ids)
+                                   and output_ids[0] == tokenizer.eos_token_id),
+            template_echo=int(template_echo(prediction)),
             seconds=time.monotonic() - sample_started,
             prediction=prediction, output_tokens=output_ids,
             extracted_letter=letter, answer=row["answer"],

@@ -134,9 +134,29 @@ def make_optimizer(module, plan=None):
 BAD_CONTINUATION_IDS = (2014, 14924, 36349)  # " Context", " Question", " Questions"
 
 
-def objective_terms(logits, gold, reference_ce, teacher, coefficients, anchor=None):
+def objective_terms(logits, gold, reference_ce, teacher, coefficients, anchor=None,
+                    eos_scheme="legacy", eos_token_weight=0.2):
     ce = F.cross_entropy(logits[:-1], gold[:-1])
     eos_ce = F.cross_entropy(logits[-1:], gold[-1:])
+    if eos_scheme == "damped_single_ce":
+        # One normaliser over answer+stop, with the stop row damped instead of
+        # carrying its own weighted margin term. The legacy term rewarded raising
+        # logit(EOS) above the whole vocabulary, which is exactly the cheapest
+        # way for an unfrozen reader to lower the loss on a hard sample: kill the
+        # generation at token 1. This keeps a stop-token gradient but removes the
+        # incentive to buy loss with it. `legacy` keeps v7/v8 bit-identical.
+        weights = torch.ones(logits.shape[0], dtype=logits.dtype, device=logits.device)
+        weights[-1] = eos_token_weight
+        per_token = F.cross_entropy(logits, gold, reduction="none")
+        eos = (weights*per_token).sum()/weights.sum()
+        kd = teacher_kl(logits[:-1], teacher) if teacher is not None else ce.new_zeros(())
+        recovery = coefficients["recovery"]*ce
+        distillation = TRAIN_V4["teacher_weight"]*coefficients["teacher"]*kd
+        hinge = F.relu(ce-reference_ce-TRAIN_V4["protection_margin"])
+        if anchor is not None:
+            hinge = hinge + TRAIN_V4["protection_anchor_weight"]*anchor
+        protection = coefficients["protect"]*TRAIN_V4["protection_weight"]*hinge
+        return ce, kd, recovery, distillation, protection, eos_ce, eos
     vocab = logits.shape[-1]
     bad_ids = [i for i in BAD_CONTINUATION_IDS if i < vocab]
     if bad_ids:
