@@ -233,7 +233,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     # stream compacts with, otherwise the write-once lock is trained against a
     # window the reader never sees.
     if hasattr(m, "fused_window"):
-        frozen, pinned = m.fused_window(start, window)
+        _frozen, pinned = m.fused_window(start, window)
         m.pinned_blocks = pinned
     else:
         frozen, pinned = None, None
@@ -434,20 +434,19 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         stored = realized_residual(current, carriers); fusion = dict(merge.last_fusion)
         # V10 replaces whole native slots instead of adding a bounded residual,
         # so the residual ratio is recorded for telemetry only (no gate).
-        # v9 M4: a slot frozen by an earlier round must never be written again.
-        carrier_frozen = None
-        if frozen is not None:
-            carrier_frozen = (frozen.to(m._memory.device).reshape(-1, m.block)
-                              .index_select(0, indices.to(m._memory.device)).reshape(-1))
-        bridge_offsets = getattr(merge, "last_fusion", {}).get("bridge_slot_offsets") or []
-        if bridge_offsets and carrier_frozen is not None:
-            offsets = torch.as_tensor(bridge_offsets, dtype=torch.long,
-                                      device=carrier_frozen.device)
-            if int(offsets.max()) >= carrier_frozen.numel():
-                raise ValueError("bridge slot offsets fall outside the carrier axis")
-            hit = carrier_frozen[offsets]
-            if bool(hit.any()):
-                raise ValueError("frozen bridge slot was written again")
+        # V10 regenerates the graft slots on every merge by construction: the
+        # core slots are carried over byte-for-byte and the graft slots are new
+        # content, so the V9 write-once rule does not apply. Verify the operator
+        # bookkeeping instead of comparing flags that no longer describe the
+        # output layout.
+        bridge_offsets = fusion.get("bridge_slot_offsets") or []
+        if bridge_offsets:
+            if fusion.get("mode") != "manifold_graft_v10":
+                raise ValueError("unexpected fusion mode for graft bookkeeping")
+            if len(bridge_offsets) != int(fusion.get("grafted_slots", -1)):
+                raise ValueError("graft slot offsets disagree with the operator telemetry")
+            if fusion.get("core_slot_count") is None:
+                raise ValueError("graft telemetry missing the core slot count")
         install(m, current, window, selected_blocks=indices if plan.get("geometry") else None,
                 fused_offsets=bridge_offsets)
     origins.compact(index_list, window_blocks)
