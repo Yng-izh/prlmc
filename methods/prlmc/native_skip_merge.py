@@ -151,7 +151,6 @@ class ManifoldGraftedSlotMerge(nn.Module):
 
         # 加入轻量可学习路由修正 (初始化为 0)
         q_learned = self.route_q(ref_span)
-        k_learned = self.route_k(ref_span)
         route_repr = F.normalize(ref_span + 0.1 * F.linear(q_learned, self.route_k.weight.t()), dim=-1)
 
         # ==================== 1. 保留块内分区：识别 216 个 Core Slots 与 40 个待腾退冗余槽位 ====================
