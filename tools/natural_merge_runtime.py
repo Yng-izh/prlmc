@@ -273,12 +273,6 @@ class MergeStream(StreamingMemory):
             published = getattr(self, "last_selected_blocks", None)
             if published is not None:
                 m.note_merge(published, self.window // m.block)
-        from tools.v9_geometry_50block import DISTILL_LAYERS
-        taps = list(DISTILL_LAYERS)
-        self.last_windows = dict(
-            pre={layer: source[layer].detach() for layer in taps},
-            post={layer: candidate[layer].detach() for layer in taps},
-        )
         if self.on_compression:
             self.on_compression("after", write_index, selected)
 
