@@ -233,7 +233,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     # stream compacts with, otherwise the write-once lock is trained against a
     # window the reader never sees.
     if hasattr(m, "fused_window"):
-        _frozen, pinned = m.fused_window(start, window)
+        frozen, pinned = m.fused_window(start, window)
         m.pinned_blocks = pinned
     else:
         frozen, pinned = None, None
