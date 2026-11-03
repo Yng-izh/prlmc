@@ -183,6 +183,14 @@ def summarize(samples):
         effective_accuracy=(100.0 * float(np.mean(
             [s["correct"] for s in samples if (s.get("prediction") or "").strip()]))
             if effective else 0.0),
+        # Two separate questions: did the reader choose the right option, and
+        # did it follow the official answer format. Neither substitutes for the
+        # other, so both are reported side by side.
+        cue_accuracy=100.0 * float(np.mean([s.get("cue_correct", 0) for s in samples])),
+        cue_extraction_rate=float(np.mean([1.0 if s.get("cue_letter") else 0.0
+                                           for s in samples])),
+        official_extraction_rate=float(np.mean([1.0 if s.get("extracted_letter") else 0.0
+                                                for s in samples])),
         # First-position option scoring: unaffected by stop-token behaviour.
         option_count=len(options),
         option_accuracy=(100.0 * float(np.mean([s["option_correct"] for s in options]))
@@ -191,8 +199,33 @@ def summarize(samples):
         picked = [s for s in samples if s["length"] == group]
         if picked:
             summary[f"longbench_v2_{group}"] = dict(
-                n=len(picked), accuracy=100.0 * float(np.mean([s["correct"] for s in picked])))
+                n=len(picked),
+                accuracy=100.0 * float(np.mean([s["correct"] for s in picked])),
+                cue_accuracy=100.0 * float(np.mean([s.get("cue_correct", 0) for s in picked])))
     return summary
+
+
+def rescore(args):
+    """Re-judge an existing report with the cue prefix, no inference."""
+    source = Path(args.rescore)
+    report = json.loads(source.read_text())
+    samples = report.get("samples") or []
+    if not samples:
+        raise ValueError("no samples to rescore")
+    for sample in samples:
+        sample["cue_letter"] = lbv2.extract_answer(ANSWER_CUE + (sample.get("prediction") or ""))
+        sample["cue_correct"] = int(sample["cue_letter"] == sample.get("answer"))
+    report["summary"] = summarize(samples)
+    report["rescored_from"] = str(source)
+    output = Path(args.out)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    atomic_json(output, report)
+    head = report["summary"]["longbench_v2"]
+    print(json.dumps(dict(rescored=len(samples), out=str(output),
+                          cue_accuracy=head["cue_accuracy"],
+                          official_accuracy=head["accuracy"],
+                          cue_extraction_rate=head["cue_extraction_rate"],
+                          official_extraction_rate=head["official_extraction_rate"])))
 
 
 def evaluate(args):
@@ -400,6 +433,10 @@ def evaluate(args):
         scored = [k for k in OPTION_LETTERS if scores[k] is not None]
         option_letter = max(scored, key=lambda k: scores[k]) if scored else None
         letter = lbv2.extract_answer(prediction)
+        cue_letter = lbv2.extract_answer(ANSWER_CUE + (prediction or ""))
+        # The prompt already ends with ANSWER_CUE, so the reader's answer is
+        # the cue plus the continuation; scoring the continuation alone
+        # throws away the prefix the official regex needs.
         active = int(model.memory_active_mask.sum())
         if active != manager.used or active > capacity_blocks * model.num_tokens:
             raise ValueError("active budget violation after writes")
@@ -424,7 +461,9 @@ def evaluate(args):
             seconds=time.monotonic() - sample_started,
             prediction=prediction, output_tokens=output_ids,
             extracted_letter=letter, answer=row["answer"],
-            correct=int(letter == row["answer"])))
+            correct=int(letter == row["answer"]),
+            cue_letter=cue_letter,
+            cue_correct=int(cue_letter == row["answer"])))
         report["progress"] = dict(sample=index + 1, total=len(rows))
         report["elapsed_seconds"] = time.monotonic() - started
         atomic_json(output, report)
@@ -473,6 +512,8 @@ def build_parser():
                    choices=("sealed", "block_ortho"))
     p.add_argument("--strict-code-hash", dest="strict_code_hash", default="true",
                    choices=("true", "false"))
+    p.add_argument("--rescore", default=None,
+                   help="re-judge an existing report with the cue prefix; no inference")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--write-cache-dir", dest="write_cache_dir", default=None,
                    help="persist completed write states here (3.35 GB per entry); the key "
@@ -535,6 +576,9 @@ def run_shards(args):
 
 def main():
     args = build_parser().parse_args()
+    if args.rescore:
+        rescore(args)
+        return
     args.strict_code_hash = args.strict_code_hash == "true"
     if args.model_path is None:
         args.model_path = pe.MODEL_PATH
