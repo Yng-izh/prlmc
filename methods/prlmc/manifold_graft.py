@@ -232,8 +232,18 @@ class ManifoldGraftedSlotMerge(nn.Module):
         final_memory = all_layers.index_select(1, chronological_order)
         final_cond_mask = all_cond_flags.index_select(0, chronological_order)
 
+        core_count = int(flat_core_pos.numel())
+        graft_out_mask = chronological_order >= core_count
+        bridge_slot_offsets = torch.nonzero(graft_out_mask, as_tuple=False).flatten().tolist()
+        graft_src_blocks = disc_t[graft_pick_idx // B]
+        core_src_blocks = sel_t.repeat_interleave(self.core_slots_per_block)
+        slot_source_blocks = torch.cat([core_src_blocks, graft_src_blocks])[chronological_order].tolist()
+
         telemetry = {
             "mode": "manifold_graft_v10",
+            "bridge_slot_offsets": bridge_slot_offsets,
+            "slot_source_blocks": slot_source_blocks,
+            "core_slot_count": core_count,
             "selected_blocks": [int(x) for x in selected_blocks],
             "core_slots_kept": int(flat_core_pos.numel()),
             "grafted_slots": int(num_graft_total),
