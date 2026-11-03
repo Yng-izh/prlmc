@@ -207,15 +207,15 @@ class MergeStream(StreamingMemory):
             m.pinned_blocks = pinned
         else:  # lighter managers used by the CPU contracts carry no lock
             frozen, pinned = None, None
-        bridge = int(getattr(self.compactor, "bridge_blocks", 0))
-        if bridge or pinned:
-            picked = select_bridge_aware(source, self.target, m.block, weights, None,
-                                         m.select_weights, block_ages=ages,
-                                         pinned=pinned, bridge_blocks=bridge)
-            selected = torch.as_tensor(picked["index"], device=source.device, dtype=torch.long)
-        else:
-            selected = _select_block_indices(source, self.target, m.block, weights, None,
-                                             m.select_weights, block_ages=ages)
+        from methods.prlmc.consolidate import select_window_carrier_blocks
+        picked = select_window_carrier_blocks(
+            window_memory=source,
+            target_blocks=self.target // m.block,
+            block_size=m.block,
+            block_ages=ages,
+            condensed_slot_mask=None,
+        )
+        selected = torch.as_tensor(picked, device=source.device, dtype=torch.long)
         if self.carrier_schedule is not None:
             if len(self.events) >= len(self.carrier_schedule):
                 raise ValueError("replayed carrier schedule ended early")
@@ -374,9 +374,9 @@ V9_ARCHITECTURES = ("grouped_gated_sparse_native_v9",)
 
 
 def v9_merge_classes():
-    """Resolve the v9 class at call time (M1-M4 of the v9 architecture patch)."""
-    from methods.prlmc.native_skip_merge import NativeSkipSlotMergeV9
-    return {"grouped_gated_sparse_native_v9": NativeSkipSlotMergeV9}
+    """Resolve the main-line operator: V10 manifold grafting."""
+    from methods.prlmc.native_skip_merge import NativeSkipSlotMergeV10
+    return {"grouped_gated_sparse_native_v9": NativeSkipSlotMergeV10}
 
 
 def v7_merge_classes():

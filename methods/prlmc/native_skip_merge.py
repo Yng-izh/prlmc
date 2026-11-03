@@ -382,3 +382,53 @@ class NativeSkipSlotMergeV9(SupervisedDSlotMergeV7):
                 structural_core="alpha hard-masked to 0 on the protected core",
                 **self.bridge_report)
         return output
+
+
+import torch
+
+from methods.prlmc.manifold_graft import ManifoldGraftedSlotMerge
+from tools.v9_geometry_50block import GEOMETRY_50B
+
+
+class NativeSkipSlotMergeV10(ManifoldGraftedSlotMerge):
+    """V10 operator in the streaming compactor contract.
+
+    StreamingMemory calls ``forward(source, weights=..., target=..., block=...,
+    carrier_indices=...)`` and expects the compacted window back, so this class
+    is only the signature adapter: all geometry lives in the operator above.
+    """
+
+    architecture = "manifold_grafted_native_v10"
+    bridge_blocks = GEOMETRY_50B.bridge_blocks_quota
+
+    def __init__(self, num_layers=None, hidden_size=None, block_size=None, **kwargs):
+        # build_merge passes the legacy operator kwargs positionally; V10 keeps
+        # only the geometry it actually uses and records the rest for telemetry.
+        kwargs.pop("training", None)
+        super().__init__(
+            num_layers=int(num_layers or GEOMETRY_50B.num_layers),
+            hidden_size=int(hidden_size or GEOMETRY_50B.hidden_size),
+            block_size=int(block_size or GEOMETRY_50B.slots_per_block),
+        )
+        self.gamma_max = float(kwargs.get("gamma_max", GEOMETRY_50B.global_rms_budget))
+        self.topk = int(kwargs.get("topk", 8))
+
+    def forward(self, source, weights=None, target=None, block=None, goal_direction=None,
+                select_weights=None, carrier_indices=None, source_allow_mask=None,
+                frozen_slots=None, pinned_blocks=None):
+        L, total_slots, D = source.shape
+        block = int(block or self.block_size)
+        self.block = block
+        target = int(target or (GEOMETRY_50B.target_blocks * block))
+        num_blocks = total_slots // block
+        if carrier_indices is None:
+            keep = max(1, target // block)
+            selected = list(range(num_blocks - keep, num_blocks))
+        else:
+            selected = [int(i) for i in carrier_indices]
+        memory, _, telemetry = super().forward(
+            source, selected, None, disable_source_fusion=False, enable_grafting=True
+        )
+        self.last_fusion = dict(telemetry, architecture=self.architecture)
+        self.bridge_report = dict(telemetry)
+        return memory

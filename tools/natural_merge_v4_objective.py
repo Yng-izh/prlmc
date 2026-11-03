@@ -113,8 +113,8 @@ def make_optimizer(module, plan=None):
     gates, matrices = [], []
     gate_names, matrix_names = [], []
     for name, parameter in module.named_parameters():
-        if (name == "gamma_logit" or name.startswith("slot_gate.") or name.startswith("rel_gate.")
-                or name == "native_gain"):
+        if (name == "cluster_logit_scale" or name.startswith("ortho_gate_logits")
+                or name.startswith("homo_gate_logits")):
             gates.append(parameter); gate_names.append(name)
         else:
             matrices.append(parameter); matrix_names.append(name)
