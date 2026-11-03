@@ -1,0 +1,29 @@
+pinned ids written: /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_ids.json (13 ids)
+[A_ours_lora] /data/zhangjiayang/yyz/env/bin/python /data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py --data-json /data/zhangjiayang/yyz/datasets/LongBench-v2/data.json --length medium --sample-ids /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_ids.json --arm SharedMerge --budget-blocks 50 --window-blocks 19 --target-blocks 9 --trigger-blocks 50 --model-path /dev/shm/s1d_reader_fp16 --total-tokens 128000 --write-cache-slots 1 --num-shards 1 --cuda-device 0 --out /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_r1_A_ours_lora.json --checkpoint runs/natural_merge_v9/DnativeV9.50block.joint.pt --reader-lora runs/natural_merge_v9/reader_lora_joint.pt
+[B_ours_nolora] /data/zhangjiayang/yyz/env/bin/python /data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py --data-json /data/zhangjiayang/yyz/datasets/LongBench-v2/data.json --length medium --sample-ids /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_ids.json --arm SharedMerge --budget-blocks 50 --window-blocks 19 --target-blocks 9 --trigger-blocks 50 --model-path /dev/shm/s1d_reader_fp16 --total-tokens 128000 --write-cache-slots 1 --num-shards 1 --cuda-device 0 --out /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_r1_B_ours_nolora.json --checkpoint runs/natural_merge_v9/DnativeV9.50block.joint.pt
+[C_selection_lora] /data/zhangjiayang/yyz/env/bin/python /data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py --data-json /data/zhangjiayang/yyz/datasets/LongBench-v2/data.json --length medium --sample-ids /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_ids.json --arm Selection --budget-blocks 50 --window-blocks 19 --target-blocks 9 --trigger-blocks 50 --model-path /dev/shm/s1d_reader_fp16 --total-tokens 128000 --write-cache-slots 1 --num-shards 1 --cuda-device 0 --out /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_r1_C_selection_lora.json --reader-lora runs/natural_merge_v9/reader_lora_joint.pt
+
+## per-sample (letter / n_out)
+| # | id | answer | A_ours_lora (V9 + joint LoRA) | B_ours_nolora (V9, LoRA off) | C_selection_lora (Selection + joint LoRA) |
+|---|---|---|---|---|---|
+| 0 | `66f3e58c821e116aacb2fabc` | B | - / 1 | A / 19 | - / 1 |
+| 1 | `66ecfdbd821e116aacb1e3f7` | C | - / 1 | A / 45 | - / 1 |
+| 2 | `672861afbb02136c067d90d8` | C | - / 1 | A / 128 | - / 1 |
+| 3 | `67285e1dbb02136c067d901b` | A | - / 1 | A / 128 | - / 1 |
+| 4 | `66f2a414821e116aacb2a3af` | B | - / 1 | A / 128 | - / 1 |
+| 5 | `66f016e6821e116aacb25497` | D | - / 1 | - / 128 | - / 1 |
+| 6 | `6724c788bb02136c067d792d` | B | - / 1 | A / 56 | - / 1 |
+| 7 | `67239fd9bb02136c067d6ff7` | A | - / 1 | - / 128 | - / 1 |
+| 8 | `66f2b11c821e116aacb2aeb6` | A | - / 1 | A / 128 | - / 1 |
+| 9 | `6725dc28bb02136c067d8555` | D | - / 1 | D / 34 | - / 1 |
+| 10 | `671b99e5bb02136c067d583d` | C | - / 1 | B / 128 | - / 1 |
+| 11 | `66f2c44e821e116aacb2b826` | C | - / 1 | A / 128 | - / 1 |
+| 12 | `66ed875e821e116aacb2023e` | A | - / 1 | A / 49 | - / 1 |
+
+## per-config
+A_ours_lora        V9 + joint LoRA            n=13 correct= 0 empty=13 mean_out=  1.0 compressions=[20, 20, 20, 20, 20, 17, 20, 20, 13, 14, 18, 20, 7] elapsed=490s
+B_ours_nolora      V9, LoRA off               n=13 correct= 4 empty= 0 mean_out= 94.4 compressions=[20, 20, 20, 20, 20, 17, 20, 20, 13, 14, 18, 20, 7] elapsed=581s
+C_selection_lora   Selection + joint LoRA     n=13 correct= 0 empty=13 mean_out=  1.0 compressions=[20, 20, 20, 20, 20, 17, 20, 20, 13, 14, 18, 20, 7] elapsed=451s
+
+prediction differs on 13/13 samples
+written: /data/zhangjiayang/yyz/PRLM-C/reports/main_table/ab13_r1_compare.json

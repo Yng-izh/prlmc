@@ -1,0 +1,20 @@
+warning: --total-tokens 128000 is outside the validated (8192, 16384) range; smoke only
+budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  5.91it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  5.75it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:00,  5.46it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:00<00:00,  5.32it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:00<00:00,  5.27it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  5.21it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  5.13it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.47it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.39it/s]
+/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py:257: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  lora_state = torch.load(args.reader_lora, map_location="cpu")
+Traceback (most recent call last):
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 550, in <module>
+    main()
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 546, in main
+    evaluate(args)
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 354, in evaluate
+    pe.reset(manager, initial)
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_runtime.py", line 655, in reset
+    model.memory.copy_(initial.to(model.memory.device))
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 3.12 GiB. GPU 0 has a total capacity of 39.49 GiB of which 1.25 GiB is free. Process 2608059 has 562.00 MiB memory in use. Including non-PyTorch memory, this process has 18.84 GiB memory in use. Process 1223330 has 18.84 GiB memory in use. Of the allocated memory 18.24 GiB is allocated by PyTorch, and 121.07 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

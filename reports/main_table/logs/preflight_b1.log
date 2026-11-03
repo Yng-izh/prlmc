@@ -1,0 +1,14 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.77it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.59it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.36it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.33it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.33it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.29it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  3.27it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.33it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.35it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+{"update": 1, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.5716455253331285, "weighted_gold_ce": 3.172627946245484, "teacher_kl": 1.0193520179018378, "token_protection": 0.0}
+{"update": 2, "stage": "single_merge", "stream": "train-0", "gold_ce": 2.084682053445201, "weighted_gold_ce": 3.095045844442211, "teacher_kl": 1.0443226136267185, "token_protection": 0.0}
+[stage] reader adapter trainable at update 2
+{"update": 3, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.6579070031642913, "weighted_gold_ce": 3.8763989666476846, "teacher_kl": 0.09460824693087488, "token_protection": 0.0}
+{"update": 4, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.049062838157018, "weighted_gold_ce": 2.30701070278883, "teacher_kl": 0.49314903281629086, "token_protection": 0.0}
+{"update": 5, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.6522077888250353, "weighted_gold_ce": 3.873919925186783, "teacher_kl": 0.09346213063690811, "token_protection": 0.0}
+{"update": 6, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.0344428519407907, "weighted_gold_ce": 2.2959928400814533, "teacher_kl": 0.4933719811961055, "token_protection": 0.0}

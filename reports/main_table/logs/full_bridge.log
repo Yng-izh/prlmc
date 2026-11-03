@@ -1,0 +1,82 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.99it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.87it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.68it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.60it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.57it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.54it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.51it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.69it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.65it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+{"update": 1, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.5716455253331285, "weighted_gold_ce": 3.172627946245484, "teacher_kl": 1.0193520179018378, "token_protection": 0.0}
+{"update": 2, "stage": "single_merge", "stream": "train-0", "gold_ce": 3.7201106769866064, "weighted_gold_ce": 3.515128988190554, "teacher_kl": 0.5970929134637117, "token_protection": 0.0}
+{"update": 3, "stage": "single_merge", "stream": "train-1", "gold_ce": 2.6826616455065575, "weighted_gold_ce": 3.0256186984479427, "teacher_kl": 1.2378080277703702, "token_protection": 0.0}
+{"update": 4, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.403271780986535, "weighted_gold_ce": 2.430350163253024, "teacher_kl": 0.8320931870257482, "token_protection": 0.0}
+{"update": 5, "stage": "single_merge", "stream": "train-2", "gold_ce": 1.88107388897946, "weighted_gold_ce": 2.73507660580799, "teacher_kl": 0.37419920787215233, "token_protection": 0.0}
+{"update": 6, "stage": "single_merge", "stream": "train-2", "gold_ce": 2.6515391404299358, "weighted_gold_ce": 4.070351114729419, "teacher_kl": 1.7750379890203476, "token_protection": 0.0}
+{"update": 7, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.8289142603936948, "weighted_gold_ce": 2.0109575763344765, "teacher_kl": 0.04973193700425327, "token_protection": 0.0}
+{"update": 8, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.9593367706003941, "weighted_gold_ce": 2.984564315411262, "teacher_kl": 1.1137224361300468, "token_protection": 0.0}
+{"update": 9, "stage": "single_merge", "stream": "train-4", "gold_ce": 2.4228897651559427, "weighted_gold_ce": 2.1880525157321244, "teacher_kl": 0.4048796147108078, "token_protection": 0.0}
+{"update": 10, "stage": "single_merge", "stream": "train-4", "gold_ce": 2.594551478561602, "weighted_gold_ce": 3.6361299650743604, "teacher_kl": 1.1429509446024895, "token_protection": 0.0}
+{"update": 11, "stage": "single_merge", "stream": "train-5", "gold_ce": 2.2355526479843415, "weighted_gold_ce": 3.451400365214795, "teacher_kl": 0.5276100561022758, "token_protection": 0.0}
+{"update": 12, "stage": "single_merge", "stream": "train-5", "gold_ce": 2.35814222536589, "weighted_gold_ce": 3.0834170007146895, "teacher_kl": 1.2138740802183747, "token_protection": 0.0}
+{"update": 13, "stage": "single_merge", "stream": "train-6", "gold_ce": 2.466179670471894, "weighted_gold_ce": 2.817271898733452, "teacher_kl": 0.8720365189947188, "token_protection": 0.0}
+{"update": 14, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.9429582059383392, "weighted_gold_ce": 3.3391845491714776, "teacher_kl": 1.0388718923786655, "token_protection": 0.0}
+{"update": 15, "stage": "single_merge", "stream": "train-7", "gold_ce": 2.0243251602116383, "weighted_gold_ce": 3.341198725393042, "teacher_kl": 1.145471113268286, "token_protection": 0.0}
+{"update": 16, "stage": "single_merge", "stream": "train-7", "gold_ce": 2.3812887354900965, "weighted_gold_ce": 2.8412977466359735, "teacher_kl": 0.7019217247143388, "token_protection": 0.0}
+{"update": 17, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.2982779078577695, "weighted_gold_ce": 3.828565916744992, "teacher_kl": 0.2685238984413445, "token_protection": 0.0}
+{"update": 18, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.1626945718338617, "weighted_gold_ce": 3.5770447683753446, "teacher_kl": 1.6636717095971107, "token_protection": 0.0}
+{"update": 19, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 1.7257081464325126, "weighted_gold_ce": 4.141487138229422, "teacher_kl": 1.5607876814901829, "token_protection": 0.0}
+{"update": 20, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 2.431283157907034, "weighted_gold_ce": 2.966791636776179, "teacher_kl": 0.976930171251297, "token_protection": 0.0}
+{"update": 21, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 2.749166037201097, "weighted_gold_ce": 7.049145427852636, "teacher_kl": 2.16359880566597, "token_protection": 0.0}
+{"update": 22, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 1.5645198188722134, "weighted_gold_ce": 3.4079855328891426, "teacher_kl": 1.4428289979696274, "token_protection": 0.0}
+{"update": 23, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.1284945804233615, "weighted_gold_ce": 2.1356947431340814, "teacher_kl": 0.43300814321264625, "token_protection": 0.0}
+{"update": 24, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.9582213210432153, "weighted_gold_ce": 3.0759544607717544, "teacher_kl": 0.6974277645349503, "token_protection": 0.0}
+{"update": 25, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 1.7878169162493003, "weighted_gold_ce": 3.3984643709263764, "teacher_kl": 1.5799207277595997, "token_protection": 0.0}
+{"update": 26, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 1.9414626902067347, "weighted_gold_ce": 3.9771487915422767, "teacher_kl": 1.3772804737091064, "token_protection": 0.0}
+{"update": 27, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 2.0410528037893143, "weighted_gold_ce": 3.6845266360323876, "teacher_kl": 1.9966114796698093, "token_protection": 0.0}
+{"update": 28, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 2.0419806447860442, "weighted_gold_ce": 3.778997019806411, "teacher_kl": 2.746885731816292, "token_protection": 0.0}
+{"update": 29, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.493444957819424, "weighted_gold_ce": 3.540202029282227, "teacher_kl": 2.4974061101675034, "token_protection": 0.0}
+{"update": 30, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.1590228143491244, "weighted_gold_ce": 2.7521879642881686, "teacher_kl": 1.9354522656649351, "token_protection": 0.0}
+{"update": 31, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.9285021260576813, "weighted_gold_ce": 5.088122566696256, "teacher_kl": 1.082759971730411, "token_protection": 0.0}
+{"update": 32, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.5179827867173834, "weighted_gold_ce": 2.547171466925647, "teacher_kl": 0.6787085891701281, "token_protection": 0.0}
+{"update": 33, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.8779637129291107, "weighted_gold_ce": 2.5979675872949883, "teacher_kl": 1.9002798721194267, "token_protection": 0.0}
+{"update": 34, "stage": "single_merge", "stream": "train-0", "gold_ce": 2.3548010662198067, "weighted_gold_ce": 2.970284651266411, "teacher_kl": 1.4858955889940262, "token_protection": 0.0}
+{"update": 35, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.529065758872189, "weighted_gold_ce": 2.2626064755604602, "teacher_kl": 1.3068621940910816, "token_protection": 0.0}
+{"update": 36, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.1187829107389247, "weighted_gold_ce": 2.2342341007170035, "teacher_kl": 1.4615976139903069, "token_protection": 0.0}
+{"update": 37, "stage": "single_merge", "stream": "train-2", "gold_ce": 1.5161884169854027, "weighted_gold_ce": 2.5921438412260613, "teacher_kl": 1.4050632119178772, "token_protection": 0.0}
+{"update": 38, "stage": "single_merge", "stream": "train-2", "gold_ce": 2.371106483091257, "weighted_gold_ce": 3.0785144162364304, "teacher_kl": 1.9828054904937744, "token_protection": 0.0}
+{"update": 39, "stage": "single_merge", "stream": "train-3", "gold_ce": 0.8350559816156563, "weighted_gold_ce": 1.8012023142073303, "teacher_kl": 0.4187196893617511, "token_protection": 0.0}
+{"update": 40, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.447418653063084, "weighted_gold_ce": 2.5166938682668842, "teacher_kl": 1.8914445154368877, "token_protection": 0.0}
+{"update": 41, "stage": "single_merge", "stream": "train-4", "gold_ce": 1.351703230291605, "weighted_gold_ce": 1.5045073908695485, "teacher_kl": 0.981548897922039, "token_protection": 0.0}
+{"update": 42, "stage": "single_merge", "stream": "train-4", "gold_ce": 1.8698716344017732, "weighted_gold_ce": 2.8559251432307065, "teacher_kl": 1.6372255459427834, "token_protection": 0.0}
+{"update": 43, "stage": "single_merge", "stream": "train-5", "gold_ce": 1.4307825428090597, "weighted_gold_ce": 2.560755811515264, "teacher_kl": 1.030251182615757, "token_protection": 0.0}
+{"update": 44, "stage": "single_merge", "stream": "train-5", "gold_ce": 1.759078831313864, "weighted_gold_ce": 2.7087378761498258, "teacher_kl": 2.104698196053505, "token_protection": 0.0}
+{"update": 45, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.475266841436295, "weighted_gold_ce": 2.6727942629077006, "teacher_kl": 1.372690089046955, "token_protection": 0.0}
+{"update": 46, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.5407000640897375, "weighted_gold_ce": 2.378909785649739, "teacher_kl": 1.198073485866189, "token_protection": 0.0}
+{"update": 47, "stage": "single_merge", "stream": "train-7", "gold_ce": 1.5238080397248268, "weighted_gold_ce": 3.0790323867695406, "teacher_kl": 1.53913988545537, "token_protection": 0.0}
+{"update": 48, "stage": "single_merge", "stream": "train-7", "gold_ce": 1.9172456321355544, "weighted_gold_ce": 2.3041472827317193, "teacher_kl": 1.185749612748623, "token_protection": 0.0}
+{"update": 49, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 1.6513350768701027, "weighted_gold_ce": 2.5845682743238285, "teacher_kl": 0.7274475656449795, "token_protection": 0.0}
+{"update": 50, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.064013883655303, "weighted_gold_ce": 3.1748845133843133, "teacher_kl": 1.94813571870327, "token_protection": 0.0}
+{"update": 51, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 1.4704204372277385, "weighted_gold_ce": 3.779527508188039, "teacher_kl": 1.7450954988598824, "token_protection": 0.0}
+{"update": 52, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 2.0970875871808907, "weighted_gold_ce": 2.8193175175692886, "teacher_kl": 1.1937298774719238, "token_protection": 0.0}
+{"update": 53, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 2.307760431284183, "weighted_gold_ce": 6.48802787438035, "teacher_kl": 2.555504336953163, "token_protection": 0.0}
+{"update": 54, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 1.2797616738335866, "weighted_gold_ce": 2.9238366622303147, "teacher_kl": 1.3505588695406914, "token_protection": 0.0}
+{"update": 55, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.1686782547713894, "weighted_gold_ce": 2.062092816668155, "teacher_kl": 0.9184941537678242, "token_protection": 0.0}
+{"update": 56, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.7758633534080888, "weighted_gold_ce": 2.842565610408201, "teacher_kl": 0.7131769955158234, "token_protection": 0.0}
+{"update": 57, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 2.0165355391800404, "weighted_gold_ce": 5.078299842891283, "teacher_kl": 1.6390520557761192, "token_protection": 0.0}
+{"update": 58, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 1.6775511700267856, "weighted_gold_ce": 3.709489856963046, "teacher_kl": 1.5388871282339096, "token_protection": 0.0}
+{"update": 59, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 1.4871133681827862, "weighted_gold_ce": 2.406124563640333, "teacher_kl": 1.6599074676632881, "token_protection": 0.0}
+{"update": 60, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 1.7229518148753988, "weighted_gold_ce": 3.180462462682044, "teacher_kl": 2.281348466873169, "token_protection": 0.0}
+{"update": 61, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.0240382978594615, "weighted_gold_ce": 3.26103319241156, "teacher_kl": 2.191031724214554, "token_protection": 0.0}
+{"update": 62, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.4934243508859684, "weighted_gold_ce": 3.323594982328359, "teacher_kl": 0.8185337744653225, "token_protection": 0.0}
+{"update": 63, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.5826373185570304, "weighted_gold_ce": 4.659072722060955, "teacher_kl": 1.309865515679121, "token_protection": 0.0}
+{"update": 64, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.40882565576191, "weighted_gold_ce": 2.5537085471733008, "teacher_kl": 0.6099014929495752, "token_protection": 0.0}
+{"update": 65, "stage": "recurrent", "stream": "train-0", "gold_ce": 1.4978544240817429, "weighted_gold_ce": 3.3293295290786773, "teacher_kl": 1.2899348139762878, "token_protection": 0.0}
+Traceback (most recent call last):
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 441, in <module>
+    main()
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 437, in main
+    run(args)
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 295, in run
+    event = train_event(manager, merge, optimizer, qas, references[i],
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_objective.py", line 225, in train_event
+    raise ValueError("both recovery and preservation cohorts required")
+ValueError: both recovery and preservation cohorts required

@@ -43,6 +43,40 @@ V8_TRAINING_OVERRIDES = dict(
 )
 
 
+def answer_logits_batch(model, qas, device):
+    """`answer_logits` for a whole group in ONE forward.
+
+    Right padding is exact for a causal reader: no real token can attend a pad, and
+    the pads' own outputs are never read, so per-sample logits are bit-for-bit what
+    the single-sample calls produce. The memory prefix is repeated per sample inside
+    `cat_memory_and_hiddens` (it does `self.memory[idx].unsqueeze(0).repeat(len(
+    hidden_states), 1, 1)`), so one forward really does serve the whole batch, and a
+    summed-loss backward gives the same gradient as N separate backwards.
+    """
+    import torch
+    width = max(len(qa["prompt_ids"]) + len(qa["answer_ids"]) for qa in qas)
+    ids = torch.zeros(len(qas), width, dtype=torch.long, device=device)
+    for row, qa in enumerate(qas):
+        seq = qa["prompt_ids"] + qa["answer_ids"]
+        ids[row, :len(seq)] = torch.tensor(seq, dtype=torch.long, device=device)
+    logits = model(input_ids=ids, use_cache=False, return_dict=True).logits
+    out = []
+    for row, qa in enumerate(qas):
+        prompt = len(qa["prompt_ids"])
+        answer = len(qa["answer_ids"])
+        out.append((logits[row, prompt-1:prompt-1+answer].float(),
+                    torch.tensor(qa["answer_ids"], dtype=torch.long, device=device)))
+    return out
+
+
+def _group_logits(model, qas, device, start, chunk):
+    """Batched when the group has more than one QA, otherwise the sealed path."""
+    group = qas[start:start+chunk]
+    if len(group) > 1:
+        return answer_logits_batch(model, group, device)
+    return [answer_logits(model, group[0], device)]
+
+
 def token_protection_terms(logits, gold, sel_log_probs, sel_correct,
                            margin=.30):
     """Degraded-token hinge + Selection KL over Selection-correct positions.
@@ -128,7 +162,7 @@ def qa_cohorts(origins, qas, index_list, window_blocks, teacher_seen=None):
                                                   if r == "previously_discarded_out_of_residence"))
 
 
-def full_targets(manager, qas):
+def full_targets(manager, qas, chunk=1):
     """Full-teacher targets + per-token Selection reference from ONE forward.
 
     `natural_merge_v4_objective.full_targets` and `selection_token_targets` each ran
@@ -139,8 +173,12 @@ def full_targets(manager, qas):
     """
     result = {}
     with torch.no_grad():
-        for qa in qas:
-            logits, gold = answer_logits(manager.model, qa, manager._memory.device)
+        chunk = max(1, int(chunk or 1))
+        pairs = []
+        for start in range(0, len(qas), chunk):
+            pairs.extend(_group_logits(manager.model, qas, manager._memory.device,
+                                       start, chunk))
+        for qa, (logits, gold) in zip(qas, pairs):
             content_logits, content_gold = logits[:-1], gold[:-1]
             # v7 teacher: unchanged dtype path, unchanged numbers.
             teacher_log_probs = F.log_softmax(content_logits, -1)
@@ -222,7 +260,13 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     recover_ids = [i for i, (cohort, _) in enumerate(cohorts) if cohort == "recover"]
     protect_count = len(qas)-len(recover_ids)
     if not recover_ids or not protect_count:
-        raise ValueError("both recovery and preservation cohorts required")
+        # A cohort can legitimately vanish: the supervised set is small (<= QA_CAP),
+        # a merge may keep every supervised window QA (recover empty), or a deep
+        # event may have no realisable no-compression teacher. `balanced_coefficients`
+        # already normalises with max(count, 1), so the surviving cohort just carries
+        # the loss; record the degradation instead of aborting a 704-update run.
+        print(f"[cohort] degraded event: recover={len(recover_ids)}"
+              f" protect={protect_count} of {len(qas)} QAs")
     kwargs = dict(target=target, block=m.block, carrier_indices=indices)
     if getattr(merge, "bridge_blocks", None) is not None:
         kwargs.update(frozen_slots=frozen, pinned_blocks=pinned)
@@ -233,11 +277,13 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     selection_first = []
     with torch.no_grad(), _pool_in_place(m, m._memory.device, carriers, window, target) as injection:
         with active_mask_override(m.model, mask):
-            for qa in qas:
+            chunk = max(1, int(plan.get("qa_batch", 1) or 1))
+            for start in range(0, len(qas), chunk):
                 injection.reinject()
-                logits, gold = answer_logits(m.model, qa, m._memory.device)
-                selection_ce.append(float(F.cross_entropy(logits[:-1], gold[:-1])))
-                selection_first.append(F.softmax(logits[0].float(), -1).cpu())
+                for logits, gold in _group_logits(m.model, qas, m._memory.device,
+                                                  start, chunk):
+                    selection_ce.append(float(F.cross_entropy(logits[:-1], gold[:-1])))
+                    selection_first.append(F.softmax(logits[0].float(), -1).cpu())
     if not torch.isfinite(torch.tensor(full_ce+selection_ce)).all():
         raise ValueError("nonfinite reference CE")
     eligible = [cohort == "recover" and full_ce[i] <= plan["teacher_max_gold_ce"]
@@ -270,56 +316,68 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     tkw = plan["token_kl_weight"]
     rows = []; recovery_sum = kd_sum = protect_sum = eos_sum = token_sum = total = 0.
     token_stats = dict(correct_positions=0, total_positions=0)
+    chunk = max(1, int(plan.get("qa_batch", 1) or 1))
     with _pool_in_place(m, m._memory.device, leaf, window, target) as injection:
         with active_mask_override(m.model, mask):
-            for i, qa in enumerate(qas):
+            for start in range(0, len(qas), chunk):
+                group = list(range(start, min(start + chunk, len(qas))))
                 pool = injection.reinject()
                 with differentiable_memory(m.model, pool):
-                    # Only the QA read uses the reader adapter; the write path
-                    # that produced this memory never did.
-                    # Only the QA read uses the reader adapter; the write path stays native.
-                    # The activation has to survive the backward pass: gradient
-                    # checkpointing recomputes this forward inside backward, and a
-                    # toggled-off adapter saves a different tensor set there, which trips
-                    # CheckpointError.
+                    # Only the QA read uses the reader adapter; the write path stays
+                    # native. The activation has to survive the backward pass:
+                    # gradient checkpointing recomputes this forward inside backward,
+                    # and a toggled-off adapter saves a different tensor set there.
                     if adapter is not None and getattr(adapter, "stage_active", True):
                         adapter.on()
-                    logits, gold = answer_logits(m.model, qa, m._memory.device)
-                teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
-                anchor = None
-                if coefficients[i]["protect"] > 0:
-                    anchor = F.kl_div(F.log_softmax(logits[0].float(), -1),
-                                      selection_first[i].to(logits.device), reduction="sum")
-                ce, kd, recovery, distillation, protection, eos_ce, eos = objective_terms(
-                    logits, gold, selection_ce[i], teacher, coefficients[i], anchor,
-                    eos_scheme=plan.get("eos_scheme", "legacy"),
-                    eos_token_weight=plan.get("eos_token_weight", .2))
-                # ---- v8: per-token degraded-token protection ----
-                sel_lp = targets[qa["id"]]["sel_token_log_probs"]
-                sel_ok = targets[qa["id"]]["sel_token_correct"]
-                tp_hinge, tp_kl, n_ok, n_tot = token_protection_terms(
-                    logits, gold, sel_lp, sel_ok, plan["token_protection_margin"])
-                token_term = tpw*tp_hinge + tkw*tp_kl
-                # --------------------------------------------------
-                loss = recovery + distillation + protection + eos + token_term
-                if not torch.isfinite(loss): raise ValueError("nonfinite v9 objective")
-                (scaler.scale(loss) if scaler else loss).backward()
+                    if len(group) > 1:
+                        pairs = answer_logits_batch(m.model, [qas[j] for j in group],
+                                                    m._memory.device)
+                    else:
+                        pairs = [answer_logits(m.model, qas[group[0]], m._memory.device)]
+                losses = []
+                for k, i in enumerate(group):
+                    qa = qas[i]
+                    logits, gold = pairs[k]
+                    teacher = targets[qa["id"]]["log_probs"] if eligible[i] else None
+                    anchor = None
+                    if coefficients[i]["protect"] > 0:
+                        anchor = F.kl_div(F.log_softmax(logits[0].float(), -1),
+                                          selection_first[i].to(logits.device), reduction="sum")
+                    ce, kd, recovery, distillation, protection, eos_ce, eos = objective_terms(
+                        logits, gold, selection_ce[i], teacher, coefficients[i], anchor,
+                        eos_scheme=plan.get("eos_scheme", "legacy"),
+                        eos_token_weight=plan.get("eos_token_weight", .2))
+                    # ---- v8: per-token degraded-token protection ----
+                    sel_lp = targets[qa["id"]]["sel_token_log_probs"]
+                    sel_ok = targets[qa["id"]]["sel_token_correct"]
+                    tp_hinge, tp_kl, n_ok, n_tot = token_protection_terms(
+                        logits, gold, sel_lp, sel_ok, plan["token_protection_margin"])
+                    token_term = tpw*tp_hinge + tkw*tp_kl
+                    # --------------------------------------------------
+                    loss = recovery + distillation + protection + eos + token_term
+                    if not torch.isfinite(loss): raise ValueError("nonfinite v9 objective")
+                    losses.append(loss)
+                    recovery_sum += float(recovery.detach()); kd_sum += float(distillation.detach())
+                    protect_sum += float(protection.detach()); eos_sum += float(eos.detach())
+                    token_sum += float(token_term.detach()); total += float(loss.detach())
+                    token_stats["correct_positions"] += n_ok
+                    token_stats["total_positions"] += n_tot
+                    rows.append(dict(id=qa["id"], source_index=qa["source_index"],
+                        context_sha256=qa["context_sha256"], cohort=cohorts[i][0], origin_status=cohorts[i][1],
+                        full_ce=full_ce[i], selection_ce=selection_ce[i], shared_ce=float(ce.detach()),
+                        weight=coefficients[i]["weight"], eos_ce=float(eos_ce.detach()), eos_term=float(eos.detach()), teacher_eligible=eligible[i], teacher_kl=float(kd.detach()),
+                        recovery_term=float(recovery.detach()), protection_term=float(protection.detach()),
+                        protection_anchor=float(anchor.detach()) if anchor is not None else 0.,
+                        token_hinge=float(tp_hinge.detach()), token_kl=float(tp_kl.detach()),
+                        answer_token_count=len(qa["content_ids"])))
+                # One backward for the whole group: the losses are summed, so the
+                # gradient is the sum of the per-QA gradients, exactly as before.
+                group_loss = sum(losses)
+                (scaler.scale(group_loss) if scaler else group_loss).backward()
                 if adapter is not None:
                     adapter.off()      # recomputation happened inside backward
-                recovery_sum += float(recovery.detach()); kd_sum += float(distillation.detach())
-                protect_sum += float(protection.detach()); eos_sum += float(eos.detach())
-                token_sum += float(token_term.detach()); total += float(loss.detach())
-                token_stats["correct_positions"] += n_ok
-                token_stats["total_positions"] += n_tot
-                rows.append(dict(id=qa["id"], source_index=qa["source_index"],
-                    context_sha256=qa["context_sha256"], cohort=cohorts[i][0], origin_status=cohorts[i][1],
-                    full_ce=full_ce[i], selection_ce=selection_ce[i], shared_ce=float(ce.detach()),
-                    weight=coefficients[i]["weight"], eos_ce=float(eos_ce.detach()), eos_term=float(eos.detach()), teacher_eligible=eligible[i], teacher_kl=float(kd.detach()),
-                    recovery_term=float(recovery.detach()), protection_term=float(protection.detach()),
-                    protection_anchor=float(anchor.detach()) if anchor is not None else 0.,
-                    token_hinge=float(tp_hinge.detach()), token_kl=float(tp_kl.detach()),
-                    answer_token_count=len(qa["content_ids"])))
-                del pool, logits, ce, kd, recovery, distillation, protection, eos_ce, eos, loss
+                del pool, pairs, losses, group_loss, logits, gold
+                del ce, kd, recovery, distillation, protection, eos_ce, eos, loss
     if leaf.grad is None or not torch.isfinite(leaf.grad).all():
         raise ValueError("missing/nonfinite frozen-reader memory gradient")
     source = source_host.to(m._memory.device)
@@ -333,7 +391,9 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         if len(grads) != len(params):
             raise ValueError("reader adapter received no gradient")
         norms = [float(g.norm()) for g in grads]
-        if not any(n > 0. for n in norms):
+        if not any(n > 0. for n in norms) and getattr(adapter, "stage_active", True):
+            # Stage 1 deliberately keeps the adapter frozen and structurally off, so
+            # an all-zero gradient there is the contract, not a failure.
             raise ValueError("reader adapter gradient is identically zero")
         torch.nn.utils.clip_grad_norm_(params, plan["gradient_clip"])
         adapter_grads = dict(tensors=len(params), nonzero=sum(n > 0. for n in norms),
@@ -369,9 +429,20 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         install(m, current, window, selected_blocks=indices if plan.get("geometry") else None,
                 fused_offsets=bridge_offsets)
     origins.compact(index_list, window_blocks)
+    if not rows:
+        raise ValueError("train_event produced no supervised QA rows")
     means = {}
     for cohort in ("recover", "protect"):
         subset = [r for r in rows if r["cohort"] == cohort]
+        # An event may end up single-cohort: a merge can keep every supervised
+        # window QA (recover empty), or a deep event may have no realisable
+        # no-compression teacher. Report zeros for the absent cohort instead of
+        # dividing by an empty list -- this is the aggregation half of the same
+        # condition `train_event` warns about above.
+        if not subset:
+            means[cohort] = dict(count=0, shared_ce=0.0, selection_ce=0.0,
+                                 shared_minus_selection_ce=0.0)
+            continue
         means[cohort] = dict(count=len(subset), shared_ce=sum(r["shared_ce"] for r in subset)/len(subset),
             selection_ce=sum(r["selection_ce"] for r in subset)/len(subset),
             shared_minus_selection_ce=sum(r["shared_ce"]-r["selection_ce"] for r in subset)/len(subset))
