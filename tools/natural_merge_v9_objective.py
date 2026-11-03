@@ -462,3 +462,80 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         selection_reference="same pre-event student history; current window uses identical native carriers",
         qa_measurement="content-only CE/KL/teacher eligibility; per-token Selection-correct protection;"
                        " separate EOS; context-balanced loss before update; stored budget after update")
+import torch
+import torch.nn.functional as F
+
+DISTILL_LAYERS = (8, 16, 24, 31)
+
+
+def compute_local_window_readout_loss(
+    reader_model,
+    pre_window_memory: torch.Tensor,
+    post_window_memory: torch.Tensor,
+    query_hidden_states: dict,
+) -> torch.Tensor:
+    """
+    【根治 P1-2 核心】单步 19->9 局部窗口无损注意力读出蒸馏损失。
+    无论处于第 1 次还是第 20 次深度递归压缩，pre_window_memory (19 块) 都在当前显存中。
+    直接约束冻结 Reader 在第 (8, 16, 24, 31) 层从压缩后 9 块读出的 Attention Value 输出，
+    逼近从压缩前完整 19 块读出的 Attention Value 输出。
+    """
+    layers = reader_model.model.layers
+    total_loss = torch.tensor(0.0, device=pre_window_memory.device, dtype=torch.float32)
+
+    for l_idx in DISTILL_LAYERS:
+        layer = layers[l_idx]
+        attn = layer.self_attn
+        q_states = query_hidden_states[l_idx].float()  # [B_q, Q_len, D]
+
+        pre_mem_l = pre_window_memory[l_idx].unsqueeze(0).to(layer.input_layernorm.weight.dtype)
+        post_mem_l = post_window_memory[l_idx].unsqueeze(0).to(layer.input_layernorm.weight.dtype)
+
+        with torch.no_grad():
+            pre_normed = layer.input_layernorm(pre_mem_l).float()
+            k_pre = F.linear(pre_normed, attn.k_proj.weight.float())
+            v_pre = F.linear(pre_normed, attn.v_proj.weight.float())
+
+        post_normed = layer.input_layernorm(post_mem_l).float()
+        k_post = F.linear(post_normed, attn.k_proj.weight.float())
+        v_post = F.linear(post_normed, attn.v_proj.weight.float())
+
+        q_proj = F.linear(q_states, attn.q_proj.weight.float())  # [1, Q_len, D]
+        scale = (q_proj.shape[-1]) ** -0.5
+
+        with torch.no_grad():
+            attn_w_pre = F.softmax(torch.matmul(q_proj, k_pre.transpose(-1, -2)) * scale, dim=-1)
+            readout_pre = torch.matmul(attn_w_pre, v_pre)  # [1, Q_len, kv_dim]
+
+        attn_w_post = F.softmax(torch.matmul(q_proj, k_post.transpose(-1, -2)) * scale, dim=-1)
+        readout_post = torch.matmul(attn_w_post, v_post)
+
+        cos_loss = 1.0 - F.cosine_similarity(readout_post, readout_pre, dim=-1).mean()
+        l2_loss = F.smooth_l1_loss(readout_post, readout_pre)
+        total_loss = total_loss + (cos_loss + 0.5 * l2_loss)
+
+    return total_loss / len(DISTILL_LAYERS)
+
+
+def build_pinned_teacher_selection(
+    window_block_origin_ids: list,
+    gold_support_origin_ids: set,
+    default_selected_blocks: list,
+    target_blocks: int = 9,
+) -> list:
+    """
+    在 50-block 物理上限内构建【真无损证据 Teacher】：
+    当 Teacher 发生 19->9 淘汰时，强制将当前训练 QA 的 gold support origin blocks 钉死保留，
+    从而保证哪怕在 246 次写入的第 20 轮压缩后，Teacher 池中依然 100% 留有未压缩的原生证据块！
+    """
+    pinned = [
+        idx for idx, orig_id in enumerate(window_block_origin_ids)
+        if orig_id in gold_support_origin_ids
+    ]
+    merged = list(pinned)
+    for idx in default_selected_blocks:
+        if len(merged) >= target_blocks:
+            break
+        if idx not in merged:
+            merged.append(idx)
+    return sorted(merged[:target_blocks])

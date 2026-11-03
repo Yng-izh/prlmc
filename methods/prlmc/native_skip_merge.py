@@ -1,384 +1,287 @@
-"""D with corrected supervision, optionally one full-width source skip path.
-
-The native path reuses D's routing, slot gates, layer grouping and global cap.
-It is a source difference, not a claim of lossless copying or new memory slots.
-
-v5 keeps the same claim but makes the passthrough able to carry rare exact
-tokens: it averages only the two sharpest routed slots and scales by the routed
-confidence, and it carries one signed gain per layer group instead of one global
-scalar (shallow groups address, deep groups read out). Both branches are
-zero-initialised, so step 0 stays bit-identical to Selection.
-
-v7 bounds the branch instead of renormalising it: the gain passes through
-`tanh` (so it can at most replace the carrier) and the combined residual is
-`carrier_rms * tanh(combined / carrier_rms)`, matching the adapted path.
-"""
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from torch import nn
 
-from .gated_slot_merge import (
-    GraftedSlotMemoryMerge, SupervisedDSlotMergeV7, _soft_bound,
-)
-from .consolidate import _ngram_smooth, select_bridge_aware
+from tools.v9_geometry_50block import GEOMETRY_50B
 
 
-class SupervisedDSlotMerge(GraftedSlotMemoryMerge):
-    architecture = "grouped_gated_sparse_slot_v5"
+class ManifoldGraftedSlotMerge(nn.Module):
+    """
+    PRLM-C V10 核心算子：流形保范槽位嫁接与双路凝聚模块。
 
-    def _sparse_attention(self, query, keys, *extra):
-        probabilities, indices, top1 = super()._sparse_attention(query, keys, *extra)
-        if hasattr(self, "_coverage_mass"):
-            with torch.no_grad():
-                bins=(indices.detach()//self._coverage_block).flatten()
-                self._coverage_mass += torch.bincount(bins,weights=probabilities.detach().flatten(),
-                                                     minlength=self._coverage_mass.numel())
-                self._coverage_queries += query.shape[0]
-        return probabilities, indices, top1
-
-    def forward(self, source, *args, **kwargs):
-        block=int(kwargs.get("block") or self.block)
-        self._coverage_block=block
-        self._coverage_mass=torch.zeros(source.shape[1]//block,device=source.device)
-        self._coverage_queries=0
-        output=super().forward(source,*args,**kwargs)
-        source_indices=self.last_fusion.get("fusion_source_indices",[])
-        mass=(self._coverage_mass/max(self._coverage_queries,1)).detach().cpu().tolist()
-        self.last_fusion["per_discarded_block_attention_mass"]={str(b):mass[i] for i,b in enumerate(source_indices)}
-        del self._coverage_mass
-        return output
-
-
-class NativeSkipSlotMerge(SupervisedDSlotMerge):
-    architecture = "grouped_gated_sparse_native_v5"
-
-    def __init__(self, *args, top_sharp=2, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.top_sharp = int(top_sharp)
-        if self.top_sharp < 1:
-            raise ValueError("positive sharp-slot count required")
-        # Zero starts at exactly the same function as supervised D: at
-        # native_gain=0 the merge is bit-identical to Selection. One signed gain
-        # per layer group, because shallow groups address (Key path) and deep
-        # groups integrate and read out (Value path): a single shared scalar
-        # forces both regimes to move together and is why the passthrough used
-        # to help only inside the training domain.
-        self.native_gain = nn.Parameter(torch.zeros(self.num_groups))
-
-    def group_gain(self, group):
-        return self.native_gain[int(group)]
-
-    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
-                     down_weight, up_weight, group_gain=None):
-        adapted = super()._group_delta(probabilities, indices, source_layer,
-                                      carrier_layer, down_weight, up_weight)
-        source = source_layer.float().flatten(0, 1)
-        carrier = carrier_layer.float().flatten(0, 1)
-        sharp = min(self.top_sharp, indices.shape[1])
-        # Sharp path: renormalised over the two best slots only. A 4096-D
-        # average over eight slots blurs exactly the rare entity/number tokens
-        # the low-rank path cannot reconstruct; the sum over the sharp slots is
-        # also the routed confidence, which keeps the branch quiet on slots that
-        # found nothing.
-        weights = probabilities[:, :sharp]
-        weights = weights / weights.sum(-1, keepdim=True).clamp_min(1e-12)
-        confidence = probabilities[:, :sharp].sum(-1, keepdim=True)
-        chunks = []
-        # Do not materialize [2304,k,4096] at once: on a 32-GiB V100 this is the
-        # difference between running and OOMing, and a 40-GiB A100 shared with
-        # another tenant has the same headroom problem.
-        for start in range(0, indices.shape[0], self.query_chunk_size):
-            ix = indices[start:start+self.query_chunk_size, :sharp]
-            p = weights[start:start+self.query_chunk_size]
-            chunks.append((source[ix] * p.unsqueeze(-1)).sum(1))
-        # Native branch: a full-width source difference, already on the carrier's
-        # scale, so no intermediate renormalisation is applied. The single
-        # normalisation below maps the sum back to carrier scale and the global
-        # cap bounds what is actually stored.
-        native = (torch.cat(chunks) - carrier) * confidence
-        gain = self.native_gain if group_gain is None else group_gain
-        # v7 C5: the native branch is bounded the same way the adapted branch is.
-        # `tanh(gain)` keeps the branch gain inside (-1, 1) -- it can at most
-        # replace the carrier, never multiply it -- and the combined residual is
-        # soft-bounded instead of being renormalised onto carrier RMS, so a
-        # zero-initialised `native_gain` contributes exactly nothing.
-        combined = adapted + torch.tanh(gain) * native
-        return _soft_bound(combined, carrier)
-
-    def forward(self, *args, **kwargs):
-        output = super().forward(*args, **kwargs)
-        self.last_fusion.update(native_gain=[float(g.detach()) for g in self.native_gain],
-            native_path="per-layer-group tanh-bounded signed gain on a top-%d sharpened full-width source "
-                        "average minus carrier, routed-confidence scaled, soft-bounded by carrier RMS"
-                        % self.top_sharp, sharp_slots=self.top_sharp)
-        return output
-
-
-class NativeSkipSlotMergeV7(SupervisedDSlotMergeV7):
-    """v7 native branch: same routing/gates as v7, plus a bounded source skip.
-
-    `combined = adapted + tanh(native_gain) * native`, then the same
-    `carrier_rms * tanh(combined / carrier_rms)` bound the adapted path uses.
-    `native_gain=0` (the initialisation) makes `tanh(0)=0` exactly, so step 0 is
-    still bit-identical to Selection.
+    - 100% 保持 MemoryLLM 原生 32 层 K/V 流形与逐层 RMS 能量分布，无需任何 Reader LoRA / K/V Adapter。
+    - 保留块内 216 个核心槽位 (84.4%) 原生受保护；腾退 40 个冗余槽位 (15.6%)。
+    - 从 10 个淘汰块 (2560 slots) 中提取 360 个高信息量锚点槽位，在各自同源块内执行保范测地线凝聚，
+      加上零初始化正交关系微调 (上限 0.05)，并按【严格原始时间顺序】拼入最终的 2304 个槽位。
     """
 
-    architecture = "grouped_gated_sparse_native_v7"
+    def __init__(
+        self,
+        num_layers: int = GEOMETRY_50B.num_layers,
+        hidden_size: int = GEOMETRY_50B.hidden_size,
+        num_groups: int = 8,
+        rank: int = GEOMETRY_50B.ortho_adapter_rank,
+        reference_layer: int = GEOMETRY_50B.reference_layer,
+        block_size: int = GEOMETRY_50B.slots_per_block,
+        core_slots_per_block: int = GEOMETRY_50B.core_slots_per_block,
+        graft_slots_per_block: int = GEOMETRY_50B.graft_slots_per_block,
+        ortho_residual_max: float = GEOMETRY_50B.ortho_residual_max_ratio,
+    ):
+        super().__init__()
+        assert core_slots_per_block + graft_slots_per_block == block_size
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.num_groups = num_groups
+        self.layers_per_group = num_layers // num_groups
+        self.rank = rank
+        self.reference_layer = reference_layer
+        self.block_size = block_size
+        self.core_slots_per_block = core_slots_per_block
+        self.graft_slots_per_block = graft_slots_per_block
+        self.ortho_residual_max = ortho_residual_max
 
-    def __init__(self, *args, top_sharp=2, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.top_sharp = int(top_sharp)
-        if self.top_sharp < 1:
-            raise ValueError("positive sharp-slot count required")
-        self.native_gain = nn.Parameter(torch.zeros(self.num_groups))
+        # 轻量参考层路由微调投影 (零初始化残差，保证训练起点即为纯净原生流形几何)
+        self.route_q = nn.Linear(hidden_size, rank, bias=False)
+        self.route_k = nn.Linear(hidden_size, rank, bias=False)
+        nn.init.orthogonal_(self.route_q.weight, gain=0.1)
+        nn.init.zeros_(self.route_k.weight)
 
-    def group_gain(self, group):
-        return self.native_gain[int(group)]
+        # 8 个层组的正交上下文低秩适配器 (up_proj 严格零初始化)
+        self.down_proj = nn.Parameter(torch.empty(num_groups, rank, hidden_size))
+        self.up_proj = nn.Parameter(torch.zeros(num_groups, hidden_size, rank))
+        for g in range(num_groups):
+            nn.init.orthogonal_(self.down_proj[g], gain=0.1)
 
-    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
-                     down_weight, up_weight, group_gain=None):
-        adapted = super()._group_delta(probabilities, indices, source_layer,
-                                       carrier_layer, down_weight, up_weight)
-        source = source_layer.float().flatten(0, 1)
-        carrier = carrier_layer.float().flatten(0, 1)
-        sharp = min(self.top_sharp, indices.shape[1])
-        # Sharp path unchanged: renormalised over the top slots only, and the
-        # sum over them is the routed confidence.
-        weights = probabilities[:, :sharp]
-        weights = weights / weights.sum(-1, keepdim=True).clamp_min(1e-12)
-        confidence = probabilities[:, :sharp].sum(-1, keepdim=True)
-        chunks = []
-        for start in range(0, indices.shape[0], self.query_chunk_size):
-            ix = indices[start:start+self.query_chunk_size, :sharp]
-            p = weights[start:start+self.query_chunk_size]
-            chunks.append((source[ix] * p.unsqueeze(-1)).sum(1))
-        native = (torch.cat(chunks) - carrier) * confidence
-        gain = self.native_gain if group_gain is None else group_gain
-        combined = adapted + torch.tanh(gain) * native
-        return _soft_bound(combined, carrier)
+        # 可学习的同源凝聚温度与正交门控偏置 (零初始化)
+        self.cluster_logit_scale = nn.Parameter(torch.tensor(2.5))
+        self.ortho_gate_logits = nn.Parameter(torch.full((num_groups,), -2.0))
+        self.homo_gate_logits = nn.Parameter(torch.full((num_groups,), -2.0))
 
-    def forward(self, *args, **kwargs):
-        output = super().forward(*args, **kwargs)
-        self.last_fusion.update(native_gain=[float(g.detach()) for g in self.native_gain],
-            native_path="per-layer-group tanh-bounded signed gain on a top-%d sharpened full-width source "
-                        "average minus carrier, routed-confidence scaled, soft-bounded by carrier RMS"
-                        % self.top_sharp, sharp_slots=self.top_sharp)
-        return output
+    @staticmethod
+    def _span3_context(x_block: torch.Tensor) -> torch.Tensor:
+        """块内 3-gram 局部上下文池化 [B, S, D]，增强实体—关系绑定匹配。"""
+        left = torch.cat([x_block[:, :1, :], x_block[:, :-1, :]], dim=1)
+        right = torch.cat([x_block[:, 1:, :], x_block[:, -1:, :]], dim=1)
+        return F.normalize(0.70 * x_block + 0.15 * left + 0.15 * right, dim=-1)
 
-
-def _orthogonalise(delta, entity, eps=1e-6):
-    """Gram-Schmidt: drop the component of `delta` parallel to `entity`.
-
-    Both are [slots, hidden]. Afterwards the low-rank branch can only add
-    relation information in the subspace orthogonal to the entity direction the
-    native branch writes, so it cannot rotate a rare token into a sibling token
-    on its way to the deep layers.
-    """
-    denom = entity.square().sum(-1, keepdim=True).clamp_min(eps)
-    return delta - ((delta * entity).sum(-1, keepdim=True) / denom) * entity
-
-
-class NativeSkipSlotMergeV9(SupervisedDSlotMergeV7):
-    """Dnative v9: structural protection + sharpened entity skip (M1 + M2).
-
-    M1  In-block slot partitioning. Every retained 256-slot carrier block is
-        split by layer-16 significance into a protected core (`bridge_fraction`
-        of the slots become bridges, default 15.6% = 40 of 256) and dedicated
-        bridge slots. `alpha` is hard-masked to exactly 0 on the core, so the
-        frozen reader sees the writer's original numbers there bit for bit, and
-        the bridge cap (`bridge_gamma_max=.60`) replaces the uniform `.20`. With
-        the global RMS budget at .08 and 84.4% of slots contributing nothing,
-        `_cap` leaves the bridges at amplitude ~.08/sqrt(.156) ~ .20, i.e. six
-        times the old uniform ~.033: readable by the reader, invisible to the
-        core. There is no gradient conflict left to trade off, because no slot
-        is asked to be both a protected entity and a fusion receiver.
-    M2  Decoupled branches. The native entity branch routes top-1 at
-        temperature .1 over the full 4096-D slots (no rank-32 bottleneck on rare
-        exact tokens); the low-rank branch writes only its Gram-Schmidt
-        orthogonal relation component; and every layer group owns its own native
-        gain and write scale, so shallow groups address relations while deep
-        groups pass entity values unchanged.
-    """
-
-    architecture = "grouped_gated_sparse_native_v9"
-
-    def __init__(self, *args, top_sharp=1, route_temperature_sharp=.1,
-                 bridge_fraction=.156, bridge_gamma_max=.60,
-                 significance_affinity_weight=.5, native_init=0.,
-                 ngram_kernel=(.25, .5, .25), bridge_blocks=3, write_threshold=.5,
-                 **kwargs):
-        kwargs.setdefault("global_rms_budget", .08)
-        super().__init__(*args, **kwargs)
-        self.top_sharp = max(1, int(top_sharp))
-        self.route_temperature_sharp = float(route_temperature_sharp)
-        self.bridge_fraction = float(bridge_fraction)
-        self.significance_affinity_weight = float(significance_affinity_weight)
-        self.ngram_kernel = tuple(float(v) for v in ngram_kernel)
-        self.bridge_blocks = int(bridge_blocks)
-        self.write_threshold = float(write_threshold)
-        if not 0. < self.bridge_fraction < 1.:
-            raise ValueError("bridge fraction must be a strict interior ratio")
-        if not self.gamma_max <= float(bridge_gamma_max) < 1.:
-            raise ValueError("bridge cap must sit between the core cap and one")
-        if self.route_temperature_sharp <= 0:
-            raise ValueError("positive sharpening temperature required")
-        self.register_buffer("bridge_cap", torch.tensor(float(bridge_gamma_max)))
-        # One native gain and one write scale per layer group (8 scalars each):
-        # shallow groups address, deep groups protect. Two separate vectors, not
-        # one shared scalar, so the two roles cannot cancel in the sum.
-        self.native_gain = nn.Parameter(torch.full((self.num_groups,), float(native_init)))
-        self.group_scale = nn.Parameter(torch.ones(self.num_groups))
-        self._bridge_mask = None
-        self._frozen_carriers = None
-        self.pinned_blocks = None
-        self.bridge_report = {}
-
-    # ---- M1: in-block partition -------------------------------------------
-    def _gate_inputs(self, q_nat, probabilities, top1):
-        gate_in, rel, raw = super()._gate_inputs(q_nat, probabilities, top1)
-        self._bridge_mask = self._partition(raw)
-        return gate_in, rel, raw
-
-    def _partition(self, raw):
-        """Hard, parameter-free split: the least significant slots bridge.
-
-        `raw[..., 0]` is the top-1 native affinity (the attention-norm proxy)
-        and `raw[..., 2]` the cosine redundancy with the block centroid, both
-        per block. Significance is z-scored inside the block, so the split is
-        invariant to the overall scale of a block and deterministic in the
-        slot order the reader produced.
+    @staticmethod
+    def _geodesic_rms_preserve(base: torch.Tensor, neighbor_mean: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """
-        blocks, width, _ = raw.shape
-        affinity, redundancy = raw[..., 0], raw[..., 2]
+        流形保范球面插值：将 base 与同源邻域均值按权重融合后，严格恢复 base 在每一层的原生 RMS 范数。
+        彻底消除线性加权导致的注意力 Key 模长坍缩问题。
+        base, neighbor_mean: [L, N, D], weight: [1, N, 1] or [L, N, 1]
+        """
+        orig_rms = base.float().square().mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
+        mixed = (1.0 - weight) * base.float() + weight * neighbor_mean.float()
+        mixed_rms = mixed.square().mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
+        return (mixed * (orig_rms / mixed_rms)).to(base.dtype)
 
-        def z(x):
-            return (x - x.mean(-1, keepdim=True)) / (x.std(-1, keepdim=True) + 1e-6)
+    def _orthogonal_context_delta(
+        self, anchor_layers: torch.Tensor, ctx_layers: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        计算严格正交于 anchor 主方向的有界低秩关系增量 (幅度 <= ortho_residual_max * RMS)。
+        anchor_layers, ctx_layers: [L, N, D]
+        """
+        L, N, D = anchor_layers.shape
+        G = self.num_groups
+        lpg = self.layers_per_group
 
-        significance = (self.significance_affinity_weight * z(affinity)
-                        - (1. - self.significance_affinity_weight) * z(redundancy))
-        count = max(1, min(width - 1, int(round(width * self.bridge_fraction))))
-        bridge = torch.zeros(blocks, width, dtype=torch.bool, device=raw.device)
-        bridge.scatter_(-1, significance.argsort(dim=-1)[..., :count], True)
-        return bridge.reshape(-1)
+        a_grp = anchor_layers.float().view(G, lpg, N, D)
+        c_grp = ctx_layers.float().view(G, lpg, N, D)
+        diff = c_grp - a_grp  # [G, lpg, N, D]
 
-    def _write_mask(self, like):
-        if self._bridge_mask is None:
-            if self._frozen_carriers is not None:
-                # Failing open here would let a frozen slot be written again and
-                # the M4 assertion would only notice several forwards later.
-                raise RuntimeError("frozen carriers without a bridge partition")
-            return torch.ones(like.shape[0], dtype=like.dtype, device=like.device)
-        mask = self._bridge_mask
-        if mask.numel() != like.shape[0]:
-            raise RuntimeError("bridge partition does not match the gate rows")
-        if self._frozen_carriers is not None:
-            # M4: a bridge slot that already took a high-amplitude write is
-            # read-only from now on, so repeated compactions cannot stack edits.
-            mask = mask & ~self._frozen_carriers.to(mask.device)
-        return mask.to(like.dtype)
+        # 低秩瓶颈投影: [G, lpg, N, D] -> [G, lpg, N, R] -> [G, lpg, N, D]
+        low_rank = F.gelu(torch.einsum("glnd,grd->glnr", diff, self.down_proj.float()))
+        raw_delta = torch.einsum("glnr,gdr->glnd", low_rank, self.up_proj.float())
 
-    def _slot_alpha(self, gate_logits, rel, reject=None):
-        alpha = super()._slot_alpha(gate_logits, rel, reject)
-        # Re-scale the sealed [0, gamma_max] gate onto the bridge cap and apply
-        # the hard structural mask: zero on the protected core by construction.
-        scale = self.bridge_cap.to(alpha.dtype) / max(float(self.gamma_max), 1e-8)
-        alpha = torch.clamp(alpha * scale * self._write_mask(gate_logits).unsqueeze(-1),
-                            0., float(self.bridge_cap))
-        self._last_alpha = alpha.detach()
-        return alpha
+        # Gram-Schmidt 正交化：剔除平行于原实体向量的分量，绝不翻转实体身份
+        a_norm_sq = a_grp.square().sum(dim=-1, keepdim=True).clamp_min(1e-6)
+        proj = (raw_delta * a_grp).sum(dim=-1, keepdim=True) / a_norm_sq
+        ortho_delta = raw_delta - proj * a_grp
 
-    # ---- M2: decoupled branches -------------------------------------------
-    def group_gain(self, group):
-        g = int(group)
-        return dict(native=self.native_gain[g], scale=self.group_scale[g])
+        # 软有界幅度约束 (严格 <= 0.05 * anchor_rms)
+        a_rms = a_grp.square().mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
+        gate = torch.sigmoid(self.ortho_gate_logits.float()).view(G, 1, 1, 1) * self.ortho_residual_max
+        bounded_ortho = gate * a_rms * torch.tanh(ortho_delta / a_rms)
+        return bounded_ortho.reshape(L, N, D)
 
-    def _group_delta(self, probabilities, indices, source_layer, carrier_layer,
-                     down_weight, up_weight, group_gain=None):
-        carrier = carrier_layer.float().flatten(0, 1)
-        flat = source_layer.float().flatten(0, 1)
-        # Relation branch: Top-8 context through the rank-32 bottleneck.
-        values = F.linear(flat, down_weight)
-        context = (values[indices] * probabilities.unsqueeze(-1)).sum(1)
-        adapted = F.linear(F.gelu(context - F.linear(carrier, down_weight)), up_weight)
-        # Entity branch: temperature-sharpened top-1, full width, no bottleneck.
-        sharp = min(self.top_sharp, indices.shape[1])
-        logits = probabilities[:, :sharp].float().clamp_min(1e-12).log()
-        weights = torch.softmax(logits / self.route_temperature_sharp, dim=-1)
-        chunks = []
-        for start in range(0, indices.shape[0], self.query_chunk_size):
-            ix = indices[start:start + self.query_chunk_size, :sharp]
-            p = weights[start:start + self.query_chunk_size]
-            chunks.append((flat[ix] * p.unsqueeze(-1)).sum(1))
-        entity = torch.cat(chunks) - carrier
-        # A dict always arrives from `group_gain`; the None branch is defensive
-        # and must stay scalar, never broadcast the group vector.
-        gain = 0. if group_gain is None else group_gain["native"]
-        scale = 1. if group_gain is None else group_gain["scale"]
-        delta = (_orthogonalise(adapted, entity) + torch.tanh(gain) * entity) * scale
-        return _soft_bound(delta, carrier)
+    def forward(
+        self,
+        window_memory: torch.Tensor,
+        selected_blocks: list,
+        condensed_slot_mask: torch.Tensor = None,
+        disable_source_fusion: bool = False,
+        enable_grafting: bool = True,
+    ):
+        """
+        Args:
+            window_memory: [L=32, W_blocks * 256, D=4096]
+            selected_blocks: 长度为 target_blocks (9) 的保留块索引列表
+            condensed_slot_mask: [W_blocks * 256] 标记哪些槽位已是历史凝聚槽位 (享有写保护)
+            disable_source_fusion: 若为 True (源屏蔽契约测试)，精确退化为纯 Selection
+            enable_grafting: 是否开启冗余槽位腾退与丢弃块原生槽位嫁接
+        Returns:
+            compacted_memory: [L=32, target_blocks * 256, D=4096]
+            new_condensed_mask: [target_blocks * 256] 更新后的凝聚保护掩码
+            telemetry: 诊断统计字典
+        """
+        L, total_slots, D = window_memory.shape
+        B = self.block_size
+        num_blocks = total_slots // B
+        sel_set = set(int(i) for i in selected_blocks)
+        discard_blocks = [i for i in range(num_blocks) if i not in sel_set]
 
-    # ---- M3: 3-gram routing keys ------------------------------------------
-    def _route_keys(self, k_nat):
-        if len(self.ngram_kernel) < 2:
-            return k_nat
-        return _ngram_smooth(k_nat, self.block, self.ngram_kernel)
+        win_blocks_tensor = window_memory.view(L, num_blocks, B, D)
+        if condensed_slot_mask is None:
+            condensed_slot_mask = torch.zeros(total_slots, dtype=torch.bool, device=window_memory.device)
+        cond_mask_blocks = condensed_slot_mask.view(num_blocks, B)
 
-    # ---- forward: selection + write-once mask -----------------------------
-    def forward(self, source, weights=None, target=None, block=None, goal_direction=None,
-                select_weights=None, carrier_indices=None, source_allow_mask=None,
-                frozen_slots=None, pinned_blocks=None):
-        self._bridge_mask = None
-        self._frozen_carriers = None
-        self.bridge_report = {}
-        # The write record belongs to exactly one forward. Drop the previous
-        # call's entries, otherwise a forward that writes nothing republishes
-        # the offsets of an earlier call and the M4 assertion then compares
-        # them against a different selection.
-        fusion = getattr(self, "last_fusion", None)
-        if isinstance(fusion, dict):
-            for stale in ("bridge_slot_offsets", "bridge_slot_fraction",
-                          "written_slot_count", "bridge_slots", "bridge_cap",
-                          "route_kernel", "group_scale", "native_gain"):
-                fusion.pop(stale, None)
-        block = int(block or self.block)
-        target = int(target or 0)
-        index = carrier_indices
-        if index is None and target and target < source.shape[1]:
-            picked = select_bridge_aware(
-                source, target, block, weights, goal_direction, select_weights,
-                pinned=pinned_blocks, bridge_blocks=self.bridge_blocks)
-            index = picked["index"]
-            self.bridge_report = {k: v for k, v in picked.items() if k != "index"}
-        if frozen_slots is not None and index is not None:
-            frozen = torch.as_tensor(frozen_slots, device=source.device).reshape(-1, block)
-            ix = torch.as_tensor(index, device=source.device, dtype=torch.long)
-            self._frozen_carriers = frozen.index_select(0, ix).reshape(-1)
-        output = super().forward(source, weights=weights, target=target, block=block,
-                                 goal_direction=goal_direction, select_weights=select_weights,
-                                 carrier_indices=index, source_allow_mask=source_allow_mask)
-        alpha = getattr(self, "_last_alpha", None)
-        if alpha is not None and self.last_fusion.get("fusion_source_indices"):
-            # The slot axis is dim 0 (one gate row per carrier slot, the same
-            # flattening `install` marks); every remaining axis is a per-slot
-            # sample. Reduce over the samples so an offset is a slot index, and
-            # validate the tiling first: a bare nonzero() on the 2-D record
-            # interleaves (slot, sample) pairs into bogus offsets, which froze
-            # arbitrary slots and tripped the M4 assertion at the single ->
-            # recurrent phase change.
-            slot_count = int(self._bridge_mask.numel()) if self._bridge_mask is not None else 0
-            written = alpha.detach() >= self.write_threshold
-            if slot_count <= 0 or written.shape[0] != slot_count or written.numel() % slot_count:
-                raise ValueError("bridge write record does not tile the slot axis")
-            written_slots = written.reshape(slot_count, -1).any(dim=1)
-            self.last_fusion.update(
-                bridge_slots=int(self._bridge_mask.sum()) if self._bridge_mask is not None else 0,
-                bridge_cap=float(self.bridge_cap),
-                bridge_slot_offsets=torch.nonzero(written_slots).flatten().cpu().tolist(),
-                bridge_slot_fraction=float(written_slots.float().mean()),
-                written_slot_count=int(written_slots.sum()),
-                route_kernel=list(self.ngram_kernel),
-                group_scale=[float(s.detach()) for s in self.group_scale],
-                native_gain=[float(g.detach()) for g in self.native_gain],
-                structural_core="alpha hard-masked to 0 on the protected core",
-                **self.bridge_report)
-        return output
+        # 若无丢弃块或显式关闭源融合，直接返回 Selection 原生块
+        if len(discard_blocks) == 0 or disable_source_fusion:
+            sel_idx = torch.as_tensor(selected_blocks, dtype=torch.long, device=window_memory.device)
+            out_mem = win_blocks_tensor.index_select(1, sel_idx).reshape(L, len(selected_blocks) * B, D)
+            out_mask = cond_mask_blocks.index_select(0, sel_idx).reshape(-1)
+            return out_mem, out_mask, {"mode": "selection_passthrough", "grafted_slots": 0}
+
+        # 提取第 16 层参考表示
+        ref_all = win_blocks_tensor[self.reference_layer].float()  # [num_blocks, B, D]
+        ref_unit = F.normalize(ref_all, dim=-1)
+        ref_span = self._span3_context(ref_unit)  # [num_blocks, B, D]
+
+        # 加入轻量可学习路由修正 (初始化为 0)
+        q_learned = self.route_q(ref_span)
+        k_learned = self.route_k(ref_span)
+        route_repr = F.normalize(ref_span + 0.1 * F.linear(q_learned, self.route_k.weight.t()), dim=-1)
+
+        # ==================== 1. 保留块内分区：识别 216 个 Core Slots 与 40 个待腾退冗余槽位 ====================
+        sel_t = torch.as_tensor(selected_blocks, dtype=torch.long, device=window_memory.device)
+        disc_t = torch.as_tensor(discard_blocks, dtype=torch.long, device=window_memory.device)
+
+        carrier_ref = ref_all.index_select(0, sel_t)  # [9, B, D]
+        carrier_unit = ref_unit.index_select(0, sel_t)  # [9, B, D]
+        carrier_cond_mask = cond_mask_blocks.index_select(0, sel_t)  # [9, B]
+
+        carrier_cent = F.normalize(carrier_unit.mean(dim=1, keepdim=True), dim=-1)
+        carrier_disp = 1.0 - (carrier_unit * carrier_cent).sum(dim=-1)  # 越大越独特
+        carrier_salience = carrier_ref.norm(dim=-1) * (0.5 + carrier_disp)
+        # 历史已凝聚槽位与每块末尾锚点槽位强制保护，不被腾退
+        carrier_salience = carrier_salience + 1e4 * carrier_cond_mask.float()
+
+        num_target = len(selected_blocks)
+        num_graft_total = num_target * self.graft_slots_per_block if enable_grafting else 0
+
+        if num_graft_total > 0:
+            # 每块保留显著性最高的 216 个 Core 槽位 (保持块内原始先后顺序)
+            core_local_idx = carrier_salience.topk(k=self.core_slots_per_block, dim=-1).indices  # [9, 216]
+            core_local_idx, _ = torch.sort(core_local_idx, dim=-1)
+        else:
+            core_local_idx = torch.arange(B, device=window_memory.device).unsqueeze(0).expand(num_target, B)
+
+        # 计算保留 Core 槽位在原始 19-block 窗口中的全局时间坐标 (用于最终严格时序重排)
+        carrier_global_pos = sel_t.unsqueeze(1) * B + core_local_idx  # [9, 216]
+        flat_core_pos = carrier_global_pos.reshape(-1)  # [1944]
+        flat_core_layers = window_memory.index_select(1, flat_core_pos)  # [L, 1944, D]
+        flat_core_route = route_repr.view(total_slots, D).index_select(0, flat_core_pos)  # [1944, D]
+
+        # ==================== 2. 通道 B：Core 槽位的跨块同体保范强化 (仅当余弦 > 0.85) ====================
+        disc_global_base = disc_t.unsqueeze(1) * B + torch.arange(B, device=window_memory.device).unsqueeze(0)
+        flat_disc_pos = disc_global_base.reshape(-1)  # [2560]
+        flat_disc_layers = window_memory.index_select(1, flat_disc_pos)  # [L, 2560, D]
+        flat_disc_route = route_repr.view(total_slots, D).index_select(0, flat_disc_pos)  # [2560, D]
+
+        # 计算 Core 与丢弃槽位的相似度 [1944, 2560]
+        core_disc_sim = torch.matmul(flat_core_route, flat_disc_route.t())
+        max_sim_val, max_sim_idx = core_disc_sim.max(dim=-1)  # [1944]
+        homo_mask = (max_sim_val > GEOMETRY_50B.cross_block_homo_cos_thr).float()  # [1944]
+
+        matched_disc_layers = flat_disc_layers.index_select(1, max_sim_idx)  # [L, 1944, D]
+        G = self.num_groups
+        lpg = self.layers_per_group
+        homo_alpha_grp = (
+            torch.sigmoid(self.homo_gate_logits.float()).view(G, 1, 1, 1)
+            * GEOMETRY_50B.homo_reinforce_max_alpha
+        )
+        homo_alpha = homo_alpha_grp.expand(G, lpg, 1, 1).reshape(L, 1, 1) * homo_mask.view(1, -1, 1)
+        reinforced_core_layers = self._geodesic_rms_preserve(
+            flat_core_layers, matched_disc_layers, homo_alpha
+        )
+
+        if num_graft_total == 0:
+            return (
+                reinforced_core_layers,
+                condensed_slot_mask.index_select(0, flat_core_pos),
+                {"mode": "homo_only", "grafted_slots": 0, "homo_matched": int(homo_mask.sum().item())},
+            )
+
+        # ==================== 3. 通道 A：从 10 个淘汰块中凝聚 360 个高信息量原生槽位 ====================
+        disc_ref = ref_all.index_select(0, disc_t)  # [10, B, D]
+        disc_unit = ref_unit.index_select(0, disc_t)  # [10, B, D]
+        disc_cent = F.normalize(disc_unit.mean(dim=1, keepdim=True), dim=-1)
+        disc_disp = 1.0 - (disc_unit * disc_cent).sum(dim=-1)  # [10, B]
+
+        # 槽位信息杠杆率 = 自身独特显著性 × 与保留 Core 的桥接相关度 × (1 - 与 Core 的完全重复度)
+        disc_to_core_max = core_disc_sim.max(dim=0).values.view(len(discard_blocks), B)  # [10, B]
+        novelty_factor = (1.0 - (disc_to_core_max - 0.85).clamp_min(0.0) * 5.0).clamp_min(0.1)
+        bridge_relevance = disc_to_core_max.clamp(0.2, 0.82)
+        disc_leverage = disc_ref.norm(dim=-1) * (0.6 + disc_disp) * (0.5 + bridge_relevance) * novelty_factor
+
+        flat_leverage = disc_leverage.reshape(-1)  # [2560]
+        graft_pick_idx = flat_leverage.topk(k=num_graft_total, dim=0).indices  # [360]
+        graft_pick_idx, _ = torch.sort(graft_pick_idx)  # 保持原始时间顺序
+
+        graft_global_pos = flat_disc_pos.index_select(0, graft_pick_idx)  # [360]
+        graft_anchor_layers = flat_disc_layers.index_select(1, graft_pick_idx)  # [L, 360, D]
+
+        # 同源块内局部簇凝聚：每个被选中的淘汰 Anchor 仅聚合【同一个淘汰块内】余弦 > 0.78 的同义槽位
+        graft_block_ids = graft_pick_idx // B  # [360] 属于第几个淘汰块
+        all_disc_block_ids = torch.arange(len(discard_blocks), device=window_memory.device).unsqueeze(1).expand(-1, B).reshape(-1)
+        same_block_mask = (graft_block_ids.unsqueeze(1) == all_disc_block_ids.unsqueeze(0))  # [360, 2560]
+
+        graft_route = flat_disc_route.index_select(0, graft_pick_idx)  # [360, D]
+        intra_sim = torch.matmul(graft_route, flat_disc_route.t())  # [360, 2560]
+        valid_neighbor_mask = same_block_mask & (intra_sim > GEOMETRY_50B.intra_discard_cluster_cos_thr)
+
+        temp = self.cluster_logit_scale.float().clamp(0.5, 10.0)
+        masked_logits = torch.where(
+            valid_neighbor_mask, intra_sim * temp, torch.full_like(intra_sim, -1e9)
+        )
+        # 自身必定在邻域内 (intra_sim = 1.0 > 0.78)，因此 softmax 恒良定义且数值稳定
+        cluster_weights = F.softmax(masked_logits, dim=-1).to(flat_disc_layers.dtype)  # [360, 2560]
+        cluster_ctx_layers = torch.einsum("gn,lnd->lgd", cluster_weights.float(), flat_disc_layers.float())  # [L, 360, D]
+
+        # 流形保范凝聚 + 有界正交关系微调
+        condensed_graft_layers = self._geodesic_rms_preserve(
+            graft_anchor_layers,
+            cluster_ctx_layers.to(graft_anchor_layers.dtype),
+            weight=torch.tensor(0.25, device=window_memory.device).view(1, 1, 1),
+        )
+        ortho_delta = self._orthogonal_context_delta(condensed_graft_layers, cluster_ctx_layers)
+        condensed_graft_layers = self._geodesic_rms_preserve(
+            condensed_graft_layers,
+            (condensed_graft_layers.float() + ortho_delta).to(condensed_graft_layers.dtype),
+            weight=torch.tensor(1.0, device=window_memory.device).view(1, 1, 1),
+        )
+
+        # ==================== 4. 严格按原始时间顺序合并 1944 个 Core 与 360 个 Graft 槽位 ====================
+        all_global_pos = torch.cat([flat_core_pos, graft_global_pos], dim=0)  # [2304]
+        all_layers = torch.cat([reinforced_core_layers, condensed_graft_layers], dim=1)  # [L, 2304, D]
+
+        core_cond_flags = condensed_slot_mask.index_select(0, flat_core_pos)
+        graft_cond_flags = torch.ones(num_graft_total, dtype=torch.bool, device=window_memory.device)
+        all_cond_flags = torch.cat([core_cond_flags, graft_cond_flags], dim=0)
+
+        # 按全局时间位置升序排列，保证 RoPE 与跨槽位时序 100% 单调连续
+        chronological_order = torch.argsort(all_global_pos, stable=True)
+        final_memory = all_layers.index_select(1, chronological_order)
+        final_cond_mask = all_cond_flags.index_select(0, chronological_order)
+
+        telemetry = {
+            "mode": "manifold_graft_v10",
+            "selected_blocks": [int(x) for x in selected_blocks],
+            "core_slots_kept": int(flat_core_pos.numel()),
+            "grafted_slots": int(num_graft_total),
+            "homo_reinforced_slots": int(homo_mask.sum().item()),
+            "total_condensed_protected": int(final_cond_mask.sum().item()),
+        }
+        return final_memory, final_cond_mask, telemetry

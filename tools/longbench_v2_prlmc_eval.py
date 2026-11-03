@@ -548,3 +548,80 @@ def main():
 
 if __name__ == "__main__":
     main()
+import re
+import torch
+import torch.nn.functional as F
+
+OPTION_LETTERS = ("A", "B", "C", "D")
+
+_PATTERNS = [
+    re.compile(r"(?:the\s+correct\s+answer\s+is|answer\s*is|answer\s*:)\s*\(?([ABCD])\)?(?:\b|$)", re.I),
+    re.compile(r"^\s*\(?([ABCD])\s*[\)\.\:]", re.I),
+    re.compile(r"^\s*([ABCD])\s*$", re.I),
+    re.compile(r"\boption\s+\(?([ABCD])\)?\b", re.I),
+]
+
+
+def extract_option_letter(text: str):
+    if not text or not text.strip():
+        return None
+    cleaned = text.strip()
+    first_line = cleaned.splitlines()[0].strip()
+    for pat in _PATTERNS:
+        m = pat.search(first_line)
+        if m:
+            return m.group(1).upper()
+    for pat in _PATTERNS:
+        m = pat.search(cleaned)
+        if m:
+            return m.group(1).upper()
+    return None
+
+
+@torch.no_grad()
+def evaluate_single_lbv2_sample(model, tokenizer, query_input_ids: torch.Tensor, gold_letter: str) -> dict:
+    """
+    同时输出：
+    1. 首位置四选一 Log-Prob 准确率 (100% 无 null，直接反映潜记忆知识保留度)；
+    2. 自由生成准确率及格式诊断指标 (empty_output, first_token_eos, valid_letter_extracted)。
+    """
+    # 1. 计算首 token 在 {A, B, C, D} 四个选项上的精确 Log-Prob
+    out = model(input_ids=query_input_ids, use_cache=False)
+    next_token_logits = out.logits[0, -1, :].float()
+    log_probs = F.log_softmax(next_token_logits, dim=-1)
+
+    option_scores = {}
+    for letter in OPTION_LETTERS:
+        cand_ids = [
+            tokenizer.encode(letter, add_special_tokens=False)[-1],
+            tokenizer.encode(f" {letter}", add_special_tokens=False)[-1],
+        ]
+        option_scores[letter] = float(max(log_probs[cid].item() for cid in set(cand_ids)))
+
+    logprob_pred = max(option_scores.items(), key=lambda kv: kv[1])[0]
+
+    # 2. Greedy 生成并记录首 token 是否为 EOS
+    gen_ids = model.generate(
+        input_ids=query_input_ids,
+        max_new_tokens=16,
+        do_sample=False,
+        num_beams=1,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+    new_tokens = gen_ids[0, query_input_ids.shape[1] :]
+    first_token_eos = bool(len(new_tokens) == 0 or int(new_tokens[0].item()) == tokenizer.eos_token_id)
+    gen_text = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+    gen_letter = extract_option_letter(gen_text)
+
+    return {
+        "gold": gold_letter,
+        "gen_text": gen_text,
+        "gen_letter": gen_letter,
+        "gen_correct": bool(gen_letter == gold_letter),
+        "valid_letter_extracted": bool(gen_letter is not None),
+        "empty_output": bool(len(gen_text) == 0),
+        "first_token_eos": first_token_eos,
+        "logprob_scores": option_scores,
+        "logprob_pred": logprob_pred,
+        "logprob_correct": bool(logprob_pred == gold_letter),
+    }
