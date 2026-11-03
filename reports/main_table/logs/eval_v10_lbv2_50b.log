@@ -1,0 +1,73 @@
+warning: --total-tokens 128000 is outside the validated (8192, 16384) range; smoke only
+budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly
+/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py:277: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  checkpoint_training = (torch.load(args.checkpoint, map_location="cpu").get("training")
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  6.20it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  5.85it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:00,  5.49it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:00<00:00,  5.30it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:00<00:00,  5.16it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  5.05it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  5.02it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.34it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.31it/s]
+We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `0` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+  warnings.warn(
+{"sample": 1, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 49.495989913120866}
+{"sample": 2, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 5, "seconds": 23.40158623084426}
+{"sample": 3, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 49.906762439757586}
+{"sample": 4, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 48.546051998622715}
+{"sample": 5, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 3, "seconds": 19.926444513723254}
+{"sample": 6, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 48.35491042025387}
+{"sample": 7, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 6, "seconds": 24.790095700882375}
+{"sample": 8, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 49.388392372988164}
+{"sample": 9, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 11, "seconds": 30.654852864332497}
+{"sample": 10, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 15, "seconds": 36.16498736850917}
+{"sample": 11, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 51.341533498838544}
+{"sample": 12, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 17, "seconds": 38.86064967978746}
+{"sample": 13, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 39.63996365945786}
+{"sample": 14, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 16, "seconds": 38.847262332215905}
+{"sample": 15, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 48.86142166797072}
+{"sample": 16, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 10, "seconds": 30.91541695315391}
+{"sample": 17, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 49.388886348344386}
+{"sample": 18, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 48.94494680222124}
+{"sample": 19, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 39.90173427015543}
+{"sample": 20, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 43.396271569654346}
+{"sample": 21, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 7, "seconds": 26.418431328609586}
+{"sample": 22, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 1, "seconds": 18.151692671701312}
+{"sample": 23, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 49.454441368579865}
+{"sample": 24, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 48.90437661949545}
+{"sample": 25, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 3, "seconds": 20.494742350652814}
+{"sample": 26, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 7, "seconds": 26.984185997396708}
+{"sample": 27, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 2, "seconds": 18.844412536360323}
+{"sample": 28, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 3, "seconds": 20.205104434862733}
+{"sample": 29, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 50.20006573200226}
+{"sample": 30, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 48.44243642501533}
+{"sample": 31, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 15, "seconds": 37.60189080052078}
+{"sample": 32, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 50.10851330496371}
+{"sample": 33, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 49.00465533696115}
+{"sample": 34, "total": 503, "letter": "A", "answer": "C", "correct": 0, "compressions": 23, "seconds": 53.55578472930938}
+{"sample": 35, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 49.6609967071563}
+{"sample": 36, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 52.510150470770895}
+{"sample": 37, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 13, "seconds": 34.91260381322354}
+{"sample": 38, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 49.51840569078922}
+{"sample": 39, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 11, "seconds": 32.58165725786239}
+{"sample": 40, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 4, "seconds": 22.17676864936948}
+{"sample": 41, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 1, "seconds": 18.0138980448246}
+{"sample": 42, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 11, "seconds": 31.98565500974655}
+{"sample": 43, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 49.32794402167201}
+{"sample": 44, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 3, "seconds": 20.220211376436055}
+{"sample": 45, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 49.0645294059068}
+{"sample": 46, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 23, "seconds": 50.01402067858726}
+{"sample": 47, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 23, "seconds": 51.122652338817716}
+{"sample": 48, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 3, "seconds": 20.410529035143554}
+{"sample": 49, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 7, "seconds": 25.9664923902601}
+{"sample": 50, "total": 503, "letter": null, "answer": "B", "correct": 0, "compressions": 1, "seconds": 18.044012689962983}
+{"sample": 51, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 12, "seconds": 33.80824774503708}
+{"sample": 52, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 2, "seconds": 19.109404341317713}
+{"sample": 53, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 3, "seconds": 21.33799653686583}
+{"sample": 54, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 49.64311397168785}
+{"sample": 55, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 1, "seconds": 18.707638886757195}
+{"sample": 56, "total": 503, "letter": null, "answer": "D", "correct": 0, "compressions": 13, "seconds": 34.38669763505459}
+{"sample": 57, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 7, "seconds": 26.731442014686763}
+{"sample": 58, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 23, "seconds": 50.02713193092495}
+{"sample": 59, "total": 503, "letter": null, "answer": "A", "correct": 0, "compressions": 23, "seconds": 49.83597383182496}
+{"sample": 60, "total": 503, "letter": null, "answer": "C", "correct": 0, "compressions": 0, "seconds": 16.79811258520931}
