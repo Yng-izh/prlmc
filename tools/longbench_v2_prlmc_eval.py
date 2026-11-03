@@ -247,6 +247,18 @@ def evaluate(args):
     if output.exists():
         raise ValueError("output exists; refuse overwrite")
 
+    schedule_map = {}
+    if getattr(args, "carrier_schedule", None):
+        payload = json.loads(Path(args.carrier_schedule).read_text())
+        for sample in payload.get("samples") or []:
+            plan = sample.get("compression_schedule")
+            if plan is not None and sample.get("id") is not None:
+                schedule_map[sample["id"]] = plan
+        if not schedule_map:
+            raise ValueError("carrier schedule source has no compression_schedule")
+    if args.arm == "Selection" and not schedule_map:
+        raise ValueError("--arm Selection needs --carrier-schedule so the carriers match the run being compared")
+
     rows = lbv2.load_rows(args.data_json, args.length)
     if args.sample_ids:
         # A/B pinning: the id list decides the questions, never the ordering flags.
@@ -382,6 +394,7 @@ def evaluate(args):
     lora_sha = sha(args.reader_lora) if args.reader_lora else None
     write_cache_hits = write_cache_misses = 0
     for index, row in enumerate(rows):
+        sample_schedule = schedule_map.get(row.get("_id"))
         sample_started = time.monotonic()
         seed_everything(args.seed)
         pe.reset(manager, initial)
@@ -415,7 +428,10 @@ def evaluate(args):
             # cannot be updated in place afterwards.
             with torch.no_grad():
                 merge_module = pe.build_consolidate_merge(merge, args.arm, manager)
-                stream = pe.MergeStream(manager, merge_module, args.arm, **stream_arguments)
+                stream_kwargs = dict(stream_arguments)
+                if sample_schedule is not None:
+                    stream_kwargs["carrier_schedule"] = sample_schedule
+                stream = pe.MergeStream(manager, merge_module, args.arm, **stream_kwargs)
                 events = pe.run_sample(stream, writes)
             peak, write_count = stream.peak, len(writes)
             write_cache_misses += 1
@@ -448,6 +464,7 @@ def evaluate(args):
             original_prompt_tokens=original, input_tokens=len(ids),
             prefix_tokens=len(write_ids), query_tokens=len(query_ids),
             write_count=write_count, compression_count=len(events),
+            compression_schedule=[e.get("selected_blocks") for e in events],
             peak_active_slots=peak, final_active_slots=active,
             write_cache_hit=int(cache_source is not None), write_cache_source=cache_source,
             write_cache_key=key,
@@ -508,6 +525,8 @@ def build_parser():
     p.add_argument("--window-blocks", dest="window_blocks", type=int, default=None)
     p.add_argument("--target-blocks", dest="target_blocks", type=int, default=None)
     p.add_argument("--trigger-blocks", dest="trigger_blocks", type=int, default=None)
+    p.add_argument("--carrier-schedule", dest="carrier_schedule", default=None,
+                   help="report JSON whose compression_schedule is replayed; required for --arm Selection")
     p.add_argument("--fusion-mode", dest="fusion_mode", default="sealed",
                    choices=("sealed", "block_ortho"))
     p.add_argument("--strict-code-hash", dest="strict_code_hash", default="true",
