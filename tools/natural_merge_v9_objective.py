@@ -385,8 +385,6 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                 # One backward for the whole group: the losses are summed, so the
                 # gradient is the sum of the per-QA gradients, exactly as before.
                 group_loss = sum(losses)
-                if start + chunk >= len(qas) and readout_weight > 0:
-                    group_loss = group_loss + readout_weight * readout_term
                 (scaler.scale(group_loss) if scaler else group_loss).backward()
                 if adapter is not None:
                     adapter.off()      # recomputation happened inside backward
@@ -395,7 +393,15 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     if leaf.grad is None or not torch.isfinite(leaf.grad).all():
         raise ValueError("missing/nonfinite frozen-reader memory gradient")
     source = source_host.to(m._memory.device)
-    torch.autograd.backward(rebuilt, leaf.grad)     # no second forward, no rebuild
+    # One backward through the shared merge graph: the pool gradient and the
+    # readout distillation term are two outputs of the same forward, so they
+    # must be backpropped together or the graph is freed by the first call.
+    if readout_weight > 0 and readout_term.requires_grad:
+        torch.autograd.backward([rebuilt, readout_weight * readout_term],
+                                [leaf.grad, torch.ones((), device=leaf.grad.device,
+                                                       dtype=leaf.grad.dtype)])
+    else:
+        torch.autograd.backward(rebuilt, leaf.grad)
     del rebuilt, leaf
     if scaler: scaler.unscale_(optimizer)
     adapter_grads = None
