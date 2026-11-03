@@ -22,6 +22,7 @@ Everything else (recovery gate, cohorts, EOS handling, optimizer, frozen
 reader) is inherited from the v7 objective unchanged.
 """
 
+import json
 import contextlib
 import torch
 import torch.nn.functional as F
@@ -297,7 +298,7 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     rebuilt = merge(source, **kwargs)
     from tools.v9_geometry_50block import DISTILL_LAYERS as _TAPS
     _pre_windows = {layer: source[layer].detach() for layer in _TAPS}
-    _post_windows = {layer: rebuilt.detach()[layer] for layer in _TAPS}
+    _post_windows = {layer: rebuilt[layer] for layer in _TAPS}
     source_host = source.detach().cpu() if source.is_cuda else source.detach()
     del source, carriers
     leaf = rebuilt.detach().requires_grad_(True)
@@ -320,6 +321,14 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
     rows = []; recovery_sum = kd_sum = protect_sum = eos_sum = token_sum = total = 0.
     token_stats = dict(correct_positions=0, total_positions=0)
     chunk = max(1, int(plan.get("qa_batch", 1) or 1))
+    readout_weight = float(plan.get("readout_weight", 0.05))
+    readout_term = torch.zeros((), device=m._memory.device)
+    if _pre_windows and len(qas) > 0:
+        query_hidden = _query_hidden_states(m.model, qas[0], m._memory.device)
+        readout_term = compute_local_window_readout_loss(
+            m.model, _pre_windows, _post_windows, query_hidden)
+        print(json.dumps({"readout_loss": float(readout_term.detach()),
+                          "readout_weight": readout_weight}), flush=True)
     with _pool_in_place(m, m._memory.device, leaf, window, target) as injection:
         with active_mask_override(m.model, mask):
             for start in range(0, len(qas), chunk):
@@ -375,12 +384,9 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                         answer_token_count=len(qa["content_ids"])))
                 # One backward for the whole group: the losses are summed, so the
                 # gradient is the sum of the per-QA gradients, exactly as before.
-                readout_term = torch.zeros((), device=losses[0].device)
-                if _pre_windows and len(qas) > 0:
-                    query_hidden = _query_hidden_states(m.model, qas[0], m._memory.device)
-                    readout_term = compute_local_window_readout_loss(
-                        m.model, _pre_windows, _post_windows, query_hidden)
-                group_loss = sum(losses) + readout_term
+                group_loss = sum(losses)
+                if start + chunk >= len(qas) and readout_weight > 0:
+                    group_loss = group_loss + readout_weight * readout_term
                 (scaler.scale(group_loss) if scaler else group_loss).backward()
                 if adapter is not None:
                     adapter.off()      # recomputation happened inside backward
@@ -486,13 +492,14 @@ def _query_hidden_states(model, qa, device):
 
 
 def compute_local_window_readout_loss(model, pre_windows, post_windows, query_hidden,
-                                      query_tokens=8):
+                                      query_tokens=8, slot_stride=8):
     """Match the reader's attention readout from the compacted window to the
-    uncompacted one, at the distillation taps.
+    uncompacted one at the distillation taps.
 
-    MemoryLLM is GQA (32 query heads, 8 KV heads), so K/V are expanded to the
-    query head count before the readout; only the last `query_tokens` query
-    positions are scored so the attention map stays small.
+    MemoryLLM is GQA (32 query heads, 8 KV heads): K/V are expanded to the query
+    head count before the readout. The post window keeps its graph so the term
+    trains the merge operator, so slots are strided and math stays in the model
+    dtype to bound memory.
     """
     import torch
     import torch.nn.functional as F
@@ -510,30 +517,30 @@ def compute_local_window_readout_loss(model, pre_windows, post_windows, query_hi
     for layer in DISTILL_LAYERS:
         block = layers[layer]
         attn = block.self_attn
-        dtype = block.input_layernorm.weight.dtype
+        model_dtype = block.input_layernorm.weight.dtype
 
         def project(memory):
-            normed = block.input_layernorm(memory.unsqueeze(0).to(dtype)).float()
-            k = F.linear(normed, attn.k_proj.weight.float())
-            v = F.linear(normed, attn.v_proj.weight.float())
+            normed = block.input_layernorm(memory.unsqueeze(0))
+            k = F.linear(normed, attn.k_proj.weight)
+            v = F.linear(normed, attn.v_proj.weight)
             k = k.view(1, -1, n_kv, head_dim).transpose(1, 2)
             v = v.view(1, -1, n_kv, head_dim).transpose(1, 2)
             if repeat > 1:
                 k = k.repeat_interleave(repeat, dim=1)
                 v = v.repeat_interleave(repeat, dim=1)
-            return k, v
+            return k.float(), v.float()
 
-        q = F.linear(query_hidden[layer], attn.q_proj.weight.float())
-        q = q.view(1, -1, n_heads, head_dim).transpose(1, 2)[:, :, -query_tokens:, :]
+        query = F.linear(query_hidden[layer].to(model_dtype), attn.q_proj.weight)
+        query = query.view(1, -1, n_heads, head_dim).transpose(1, 2)[:, :, -query_tokens:, :].float()
         scale = head_dim ** -0.5
 
         with torch.no_grad():
-            k_pre, v_pre = project(pre_windows[layer])
-            weights = F.softmax(torch.matmul(q, k_pre.transpose(-1, -2)) * scale, dim=-1)
+            k_pre, v_pre = project(pre_windows[layer][::slot_stride])
+            weights = F.softmax(torch.matmul(query, k_pre.transpose(-1, -2)) * scale, dim=-1)
             readout_pre = torch.matmul(weights, v_pre)
 
-        k_post, v_post = project(post_windows[layer])
-        weights_post = F.softmax(torch.matmul(q, k_post.transpose(-1, -2)) * scale, dim=-1)
+        k_post, v_post = project(post_windows[layer][::slot_stride])
+        weights_post = F.softmax(torch.matmul(query, k_post.transpose(-1, -2)) * scale, dim=-1)
         readout_post = torch.matmul(weights_post, v_post)
 
         cosine = 1.0 - F.cosine_similarity(readout_post.reshape(1, -1),
