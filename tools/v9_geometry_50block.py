@@ -29,6 +29,7 @@ HOMO_REINFORCE_MAX_ALPHA = 0.15
 ORTHO_ADAPTER_RANK = 32
 ORTHO_RESIDUAL_MAX_RATIO = 0.05
 GLOBAL_RMS_BUDGET = 0.08
+DISTILL_LAYERS = (8, 16, 24, 31)   # V10 readout distillation taps
 
 FUSION = dict(architecture="DnativeV9", topk=8, rank=ORTHO_ADAPTER_RANK,
               bridge_fraction=GRAFT_SLOTS_PER_BLOCK / 256,

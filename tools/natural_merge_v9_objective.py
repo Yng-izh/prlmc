@@ -200,7 +200,7 @@ def full_targets(manager, qas, chunk=1):
 
 
 def train_event(manager, merge, optimizer, qas, targets, variant, origins,
-                scaler=None, plan=None, adapter=None):
+                scaler=None, plan=None, adapter=None, windows=None):
     """v9 train_event: v8 loop with the v9 structure wired in.
 
     The sealed v4/v7 objective file is not modified; this duplicates the v7
@@ -372,7 +372,12 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
                         answer_token_count=len(qa["content_ids"])))
                 # One backward for the whole group: the losses are summed, so the
                 # gradient is the sum of the per-QA gradients, exactly as before.
-                group_loss = sum(losses)
+                readout_term = torch.zeros((), device=losses[0].device) if not losses else None
+                if windows is not None and len(qas) > 0:
+                    query_hidden = _query_hidden_states(manager.model, qas[0], manager._memory.device)
+                    readout_term = compute_local_window_readout_loss(
+                        manager.model, windows["pre"], windows["post"], query_hidden)
+                group_loss = sum(losses) + (readout_term if readout_term is not None else 0.0)
                 (scaler.scale(group_loss) if scaler else group_loss).backward()
                 if adapter is not None:
                     adapter.off()      # recomputation happened inside backward
@@ -465,56 +470,55 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
 import torch
 import torch.nn.functional as F
 
-DISTILL_LAYERS = (8, 16, 24, 31)
+from tools.v9_geometry_50block import DISTILL_LAYERS
 
 
-def compute_local_window_readout_loss(
-    reader_model,
-    pre_window_memory: torch.Tensor,
-    post_window_memory: torch.Tensor,
-    query_hidden_states: dict,
-) -> torch.Tensor:
+def _query_hidden_states(model, qa, device):
+    """Layer taps for one QA query, in the same forward shape the reader uses."""
+    import torch
+    ids = torch.tensor([qa["prompt_ids"] + qa["answer_ids"]], dtype=torch.long, device=device)
+    out = model(input_ids=ids, use_cache=False, return_dict=True, output_hidden_states=True)
+    hidden = out.hidden_states  # [embeddings, layer1, ...]
+    return {layer: hidden[layer + 1].float() for layer in DISTILL_LAYERS}
+
+
+def compute_local_window_readout_loss(model, pre_windows, post_windows, query_hidden):
+    """Match the reader's attention readout from the compacted window to the
+    uncompacted one, at the distillation taps. `pre_windows`/`post_windows` are
+    {layer: [slots, dim]} tensors captured at the compression boundary, so this
+    stays exact no matter how deep the recursion is.
     """
-    【根治 P1-2 核心】单步 19->9 局部窗口无损注意力读出蒸馏损失。
-    无论处于第 1 次还是第 20 次深度递归压缩，pre_window_memory (19 块) 都在当前显存中。
-    直接约束冻结 Reader 在第 (8, 16, 24, 31) 层从压缩后 9 块读出的 Attention Value 输出，
-    逼近从压缩前完整 19 块读出的 Attention Value 输出。
-    """
-    layers = reader_model.model.layers
-    total_loss = torch.tensor(0.0, device=pre_window_memory.device, dtype=torch.float32)
+    import torch
+    import torch.nn.functional as F
 
-    for l_idx in DISTILL_LAYERS:
-        layer = layers[l_idx]
-        attn = layer.self_attn
-        q_states = query_hidden_states[l_idx].float()  # [B_q, Q_len, D]
+    layers = model.model.layers
+    total = torch.tensor(0.0, device=query_hidden[DISTILL_LAYERS[0]].device, dtype=torch.float32)
+    for layer in DISTILL_LAYERS:
+        block = layers[layer]
+        attn = block.self_attn
+        q_states = query_hidden[layer]
+        dtype = block.input_layernorm.weight.dtype
 
-        pre_mem_l = pre_window_memory[l_idx].unsqueeze(0).to(layer.input_layernorm.weight.dtype)
-        post_mem_l = post_window_memory[l_idx].unsqueeze(0).to(layer.input_layernorm.weight.dtype)
+        pre = pre_windows[layer].unsqueeze(0).to(dtype)
+        post = post_windows[layer].unsqueeze(0).to(dtype)
 
         with torch.no_grad():
-            pre_normed = layer.input_layernorm(pre_mem_l).float()
-            k_pre = F.linear(pre_normed, attn.k_proj.weight.float())
-            v_pre = F.linear(pre_normed, attn.v_proj.weight.float())
+            k_pre = F.linear(block.input_layernorm(pre).float(), attn.k_proj.weight.float())
+            v_pre = F.linear(block.input_layernorm(pre).float(), attn.v_proj.weight.float())
+            q_proj = F.linear(q_states, attn.q_proj.weight.float())
+            scale = q_proj.shape[-1] ** -0.5
+            weights = F.softmax(torch.matmul(q_proj, k_pre.transpose(-1, -2)) * scale, dim=-1)
+            readout_pre = torch.matmul(weights, v_pre)
 
-        post_normed = layer.input_layernorm(post_mem_l).float()
-        k_post = F.linear(post_normed, attn.k_proj.weight.float())
-        v_post = F.linear(post_normed, attn.v_proj.weight.float())
+        k_post = F.linear(block.input_layernorm(post).float(), attn.k_proj.weight.float())
+        v_post = F.linear(block.input_layernorm(post).float(), attn.v_proj.weight.float())
+        weights_post = F.softmax(torch.matmul(q_proj, k_post.transpose(-1, -2)) * scale, dim=-1)
+        readout_post = torch.matmul(weights_post, v_post)
 
-        q_proj = F.linear(q_states, attn.q_proj.weight.float())  # [1, Q_len, D]
-        scale = (q_proj.shape[-1]) ** -0.5
-
-        with torch.no_grad():
-            attn_w_pre = F.softmax(torch.matmul(q_proj, k_pre.transpose(-1, -2)) * scale, dim=-1)
-            readout_pre = torch.matmul(attn_w_pre, v_pre)  # [1, Q_len, kv_dim]
-
-        attn_w_post = F.softmax(torch.matmul(q_proj, k_post.transpose(-1, -2)) * scale, dim=-1)
-        readout_post = torch.matmul(attn_w_post, v_post)
-
-        cos_loss = 1.0 - F.cosine_similarity(readout_post, readout_pre, dim=-1).mean()
-        l2_loss = F.smooth_l1_loss(readout_post, readout_pre)
-        total_loss = total_loss + (cos_loss + 0.5 * l2_loss)
-
-    return total_loss / len(DISTILL_LAYERS)
+        cosine = 1.0 - F.cosine_similarity(readout_post, readout_pre, dim=-1).mean()
+        l2 = F.smooth_l1_loss(readout_post, readout_pre)
+        total = total + (cosine + 0.5 * l2)
+    return total / len(DISTILL_LAYERS)
 
 
 def build_pinned_teacher_selection(
