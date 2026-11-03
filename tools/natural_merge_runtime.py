@@ -236,7 +236,7 @@ class MergeStream(StreamingMemory):
             output = self.compactor(source, target=self.target, block=m.block,
                 carrier_indices=selected, source_allow_mask=allow, **v9_kwargs).to(m.dtype)
             install(m, output, self.window, selected_blocks=selected,
-                    fused_offsets=getattr(self.compactor, "last_fusion", {}).get("bridge_slot_offsets"))
+                    fused_offsets=None)  # V10 re-derives graft slots each merge; no write-once lock
             self.events.append(dict(before_write=write_index, source_slots=self.window,
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
                 selected_block_ages=ages[selected].cpu().tolist(),

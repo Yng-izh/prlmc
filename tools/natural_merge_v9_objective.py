@@ -237,15 +237,17 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         m.pinned_blocks = pinned
     else:
         frozen, pinned = None, None
-    _bridge = int(getattr(merge, "bridge_blocks", 0))
-    if _bridge or pinned:
-        indices = torch.as_tensor(select_bridge_aware(
-            source, target, m.block, m._window_importance(start, window), None,
-            m.select_weights, block_ages=ages, pinned=pinned,
-            bridge_blocks=_bridge)["index"], device=source.device, dtype=torch.long)
-    else:
-        indices = _select_block_indices(source, target, m.block,
-            m._window_importance(start, window), None, m.select_weights, block_ages=ages)
+    from methods.prlmc.consolidate import select_window_carrier_blocks
+    picked = select_window_carrier_blocks(
+        window_memory=source,
+        target_blocks=target // m.block,
+        block_size=m.block,
+        block_ages=ages,
+        condensed_slot_mask=None,
+    )
+    if pinned:
+        picked = build_pinned_teacher_selection(pinned, picked, target // m.block)
+    indices = torch.as_tensor(picked, device=source.device, dtype=torch.long)
     # -----------------------------------------------------------------------
     index_list = indices.cpu().tolist()
     window_blocks = window // m.block
@@ -557,25 +559,19 @@ def compute_local_window_readout_loss(model, pre_windows, post_windows, query_hi
     return total / len(DISTILL_LAYERS)
 
 
-def build_pinned_teacher_selection(
-    window_block_origin_ids: list,
-    gold_support_origin_ids: set,
-    default_selected_blocks: list,
-    target_blocks: int = 9,
-) -> list:
+def build_pinned_teacher_selection(pinned_blocks, default_selected_blocks, target_blocks=9):
+    """Force the evidence blocks to survive a 19->9 merge.
+
+     are the resident block indices holding gold evidence for the
+    current event (the manager's fused/pinned window). They are kept first and
+    the V10 selection fills the remaining budget, so the teacher pool never
+    loses the block a supervised question depends on.
     """
-    在 50-block 物理上限内构建【真无损证据 Teacher】：
-    当 Teacher 发生 19->9 淘汰时，强制将当前训练 QA 的 gold support origin blocks 钉死保留，
-    从而保证哪怕在 246 次写入的第 20 轮压缩后，Teacher 池中依然 100% 留有未压缩的原生证据块！
-    """
-    pinned = [
-        idx for idx, orig_id in enumerate(window_block_origin_ids)
-        if orig_id in gold_support_origin_ids
-    ]
-    merged = list(pinned)
+    pinned = sorted({int(b) for b in (pinned_blocks or [])})
+    merged = pinned[:target_blocks]
     for idx in default_selected_blocks:
         if len(merged) >= target_blocks:
             break
-        if idx not in merged:
-            merged.append(idx)
-    return sorted(merged[:target_blocks])
+        if int(idx) not in merged:
+            merged.append(int(idx))
+    return sorted(merged)
