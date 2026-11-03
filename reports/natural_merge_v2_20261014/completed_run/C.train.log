@@ -1,71 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.73it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.84it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.78it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.72it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.72it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.70it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.71it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.93it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.81it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-{"update": 1, "stage": "single_merge", "stream": "train-0", "gold_ce": 5.3597312224538705, "weighted_gold_ce": 5.758058927953243, "teacher_kl": 0.0}
-{"update": 2, "stage": "single_merge", "stream": "train-0", "gold_ce": 4.76212403648778, "weighted_gold_ce": 4.9370357021689415, "teacher_kl": 0.0}
-{"update": 3, "stage": "single_merge", "stream": "train-1", "gold_ce": 4.843242231168245, "weighted_gold_ce": 5.069501549005508, "teacher_kl": 0.0}
-{"update": 4, "stage": "single_merge", "stream": "train-1", "gold_ce": 5.73085419755233, "weighted_gold_ce": 5.943146824836731, "teacher_kl": 0.0}
-{"update": 5, "stage": "single_merge", "stream": "train-2", "gold_ce": 4.710643316570081, "weighted_gold_ce": 5.085987724363804, "teacher_kl": 0.010677922517061234}
-{"update": 6, "stage": "single_merge", "stream": "train-2", "gold_ce": 4.6706820789136385, "weighted_gold_ce": 4.8301772847771645, "teacher_kl": 0.0}
-{"update": 7, "stage": "single_merge", "stream": "train-3", "gold_ce": 5.068332998376143, "weighted_gold_ce": 5.234368488192558, "teacher_kl": 0.0}
-{"update": 8, "stage": "single_merge", "stream": "train-3", "gold_ce": 5.003466054012901, "weighted_gold_ce": 5.019022636115551, "teacher_kl": 0.0}
-{"update": 9, "stage": "single_merge", "stream": "train-4", "gold_ce": 4.279459526664333, "weighted_gold_ce": 4.667927294969559, "teacher_kl": 0.007033418398350477}
-{"update": 10, "stage": "single_merge", "stream": "train-4", "gold_ce": 5.150402382800453, "weighted_gold_ce": 5.237287983298302, "teacher_kl": 2.537844181060791}
-{"update": 11, "stage": "single_merge", "stream": "train-5", "gold_ce": 4.62396932903089, "weighted_gold_ce": 4.743503533303738, "teacher_kl": 0.5666302442550659}
-{"update": 12, "stage": "single_merge", "stream": "train-5", "gold_ce": 5.5094474742287085, "weighted_gold_ce": 5.567395105957985, "teacher_kl": 0.0}
-{"update": 13, "stage": "single_merge", "stream": "train-6", "gold_ce": 4.386494849857531, "weighted_gold_ce": 4.481304083019495, "teacher_kl": 1.1611124882474542}
-{"update": 14, "stage": "single_merge", "stream": "train-6", "gold_ce": 5.072898224780434, "weighted_gold_ce": 5.141165681183338, "teacher_kl": 0.0}
-{"update": 15, "stage": "single_merge", "stream": "train-7", "gold_ce": 4.794441486659803, "weighted_gold_ce": 5.154098454862833, "teacher_kl": 0.007470828015357256}
-{"update": 16, "stage": "single_merge", "stream": "train-7", "gold_ce": 5.3909720245160555, "weighted_gold_ce": 5.513873897492886, "teacher_kl": 0.0}
-{"update": 17, "stage": "single_merge", "stream": "train-0", "gold_ce": 5.676030585640355, "weighted_gold_ce": 5.978330910205841, "teacher_kl": 0.0}
-{"update": 18, "stage": "single_merge", "stream": "train-0", "gold_ce": 4.459609282644172, "weighted_gold_ce": 4.656782329082489, "teacher_kl": 1.0664609400555491}
-{"update": 19, "stage": "single_merge", "stream": "train-1", "gold_ce": 5.040114823140596, "weighted_gold_ce": 5.208730570971966, "teacher_kl": 0.004129799082875252}
-{"update": 20, "stage": "single_merge", "stream": "train-1", "gold_ce": 5.392730386633622, "weighted_gold_ce": 5.686005927622318, "teacher_kl": 0.0}
-{"update": 21, "stage": "single_merge", "stream": "train-2", "gold_ce": 4.574867474405389, "weighted_gold_ce": 4.799811542034149, "teacher_kl": 1.3493170738220215}
-{"update": 22, "stage": "single_merge", "stream": "train-2", "gold_ce": 4.500577035703157, "weighted_gold_ce": 4.730847328901291, "teacher_kl": 0.0}
-{"update": 23, "stage": "single_merge", "stream": "train-3", "gold_ce": 4.650467132267199, "weighted_gold_ce": 4.787614971399307, "teacher_kl": 0.0}
-{"update": 24, "stage": "single_merge", "stream": "train-3", "gold_ce": 5.023514182944047, "weighted_gold_ce": 5.238194823265076, "teacher_kl": 0.0}
-{"update": 25, "stage": "single_merge", "stream": "train-4", "gold_ce": 4.658598981405559, "weighted_gold_ce": 5.1191978976130486, "teacher_kl": 0.013661329634487629}
-{"update": 26, "stage": "single_merge", "stream": "train-4", "gold_ce": 5.0055662707278605, "weighted_gold_ce": 5.422244392335415, "teacher_kl": 0.0}
-{"update": 27, "stage": "single_merge", "stream": "train-5", "gold_ce": 4.255363113001773, "weighted_gold_ce": 4.504156280308962, "teacher_kl": 0.4538926195042829}
-{"update": 28, "stage": "single_merge", "stream": "train-5", "gold_ce": 4.855369956869828, "weighted_gold_ce": 5.105147458612919, "teacher_kl": 0.8402718901634216}
-{"update": 29, "stage": "single_merge", "stream": "train-6", "gold_ce": 4.565295828016181, "weighted_gold_ce": 4.929547347128391, "teacher_kl": 0.635410726070404}
-{"update": 30, "stage": "single_merge", "stream": "train-6", "gold_ce": 4.598740878858064, "weighted_gold_ce": 4.853576697409153, "teacher_kl": 0.0}
-{"update": 31, "stage": "single_merge", "stream": "train-7", "gold_ce": 5.009446470361007, "weighted_gold_ce": 5.2063266932964325, "teacher_kl": 0.0}
-{"update": 32, "stage": "single_merge", "stream": "train-7", "gold_ce": 5.2434060699061344, "weighted_gold_ce": 5.372612196952105, "teacher_kl": 0.012778542004525661}
-{"update": 33, "stage": "recurrent", "stream": "train-0", "gold_ce": 4.660086739063263, "weighted_gold_ce": 5.181889167055488, "teacher_kl": 0.4265753864310682}
-{"update": 34, "stage": "recurrent", "stream": "train-0", "gold_ce": 4.88516233364741, "weighted_gold_ce": 5.296369157731533, "teacher_kl": 0.8613397777080536}
-{"update": 35, "stage": "recurrent", "stream": "train-1", "gold_ce": 4.380412250757217, "weighted_gold_ce": 4.761821653693914, "teacher_kl": 0.006001250818371773}
-{"update": 36, "stage": "recurrent", "stream": "train-1", "gold_ce": 4.90718887646993, "weighted_gold_ce": 5.005328103899956, "teacher_kl": 1.6020447611808777}
-{"update": 37, "stage": "recurrent", "stream": "train-2", "gold_ce": 4.5594265222549435, "weighted_gold_ce": 4.7069417759776115, "teacher_kl": 0.9675976363942027}
-{"update": 38, "stage": "recurrent", "stream": "train-2", "gold_ce": 4.953663635253906, "weighted_gold_ce": 5.1081474013626575, "teacher_kl": 1.751308560371399}
-{"update": 39, "stage": "recurrent", "stream": "train-3", "gold_ce": 4.470055496692657, "weighted_gold_ce": 4.718191608786583, "teacher_kl": 0.0}
-{"update": 40, "stage": "recurrent", "stream": "train-3", "gold_ce": 4.769309735298156, "weighted_gold_ce": 4.947305079549551, "teacher_kl": 0.0}
-{"update": 41, "stage": "recurrent", "stream": "train-4", "gold_ce": 4.773973214626312, "weighted_gold_ce": 4.9607468992471695, "teacher_kl": 0.0}
-{"update": 42, "stage": "recurrent", "stream": "train-4", "gold_ce": 4.959478958447774, "weighted_gold_ce": 5.251260090619326, "teacher_kl": 0.0}
-{"update": 43, "stage": "recurrent", "stream": "train-5", "gold_ce": 4.70101717710495, "weighted_gold_ce": 5.043086476624012, "teacher_kl": 0.22456671421726546}
-{"update": 44, "stage": "recurrent", "stream": "train-5", "gold_ce": 4.704752878348033, "weighted_gold_ce": 4.916474850848317, "teacher_kl": 1.0287280352786183}
-{"update": 45, "stage": "recurrent", "stream": "train-6", "gold_ce": 4.3318045914173124, "weighted_gold_ce": 4.818496007472277, "teacher_kl": 0.46241154335439205}
-{"update": 46, "stage": "recurrent", "stream": "train-6", "gold_ce": 4.235060612360637, "weighted_gold_ce": 4.701468527317047, "teacher_kl": 0.8439465165138245}
-{"update": 47, "stage": "recurrent", "stream": "train-7", "gold_ce": 4.385859036445618, "weighted_gold_ce": 4.515749141573906, "teacher_kl": 1.8709193468093872}
-{"update": 48, "stage": "recurrent", "stream": "train-7", "gold_ce": 4.891842555999756, "weighted_gold_ce": 5.151025902479887, "teacher_kl": 1.775498390197754}
-{"update": 49, "stage": "recurrent", "stream": "train-0", "gold_ce": 4.898658609390258, "weighted_gold_ce": 5.151035636663437, "teacher_kl": 0.0}
-{"update": 50, "stage": "recurrent", "stream": "train-0", "gold_ce": 4.796726795037587, "weighted_gold_ce": 5.087513759732246, "teacher_kl": 0.0}
-{"update": 51, "stage": "recurrent", "stream": "train-1", "gold_ce": 4.969707620143891, "weighted_gold_ce": 5.127151388674974, "teacher_kl": 0.0038883592933416367}
-{"update": 52, "stage": "recurrent", "stream": "train-1", "gold_ce": 5.314534982045491, "weighted_gold_ce": 5.419819466769695, "teacher_kl": 1.7948633432388306}
-{"update": 53, "stage": "recurrent", "stream": "train-2", "gold_ce": 4.726941823959351, "weighted_gold_ce": 5.123378284275532, "teacher_kl": 0.0}
-{"update": 54, "stage": "recurrent", "stream": "train-2", "gold_ce": 5.145098869005839, "weighted_gold_ce": 5.547231614589691, "teacher_kl": 0.0}
-{"update": 55, "stage": "recurrent", "stream": "train-3", "gold_ce": 5.1069658398628235, "weighted_gold_ce": 5.056579619646072, "teacher_kl": 1.9752274751663208}
-{"update": 56, "stage": "recurrent", "stream": "train-3", "gold_ce": 5.143605780601502, "weighted_gold_ce": 5.307899557054043, "teacher_kl": 0.0}
-{"update": 57, "stage": "recurrent", "stream": "train-4", "gold_ce": 5.128429543972016, "weighted_gold_ce": 5.27128991484642, "teacher_kl": 0.0}
-{"update": 58, "stage": "recurrent", "stream": "train-4", "gold_ce": 5.2224131027857466, "weighted_gold_ce": 5.317417077720165, "teacher_kl": 0.0}
-{"update": 59, "stage": "recurrent", "stream": "train-5", "gold_ce": 4.615175050497055, "weighted_gold_ce": 4.785147860646248, "teacher_kl": 0.3671887665987015}
-{"update": 60, "stage": "recurrent", "stream": "train-5", "gold_ce": 4.541512131690979, "weighted_gold_ce": 4.6726084761321545, "teacher_kl": 1.825494647026062}
-{"update": 61, "stage": "recurrent", "stream": "train-6", "gold_ce": 4.183203160762787, "weighted_gold_ce": 4.414488911628723, "teacher_kl": 0.0}
-{"update": 62, "stage": "recurrent", "stream": "train-6", "gold_ce": 4.418415347735087, "weighted_gold_ce": 4.571914002299309, "teacher_kl": 0.0}
-{"update": 63, "stage": "recurrent", "stream": "train-7", "gold_ce": 4.753053995966911, "weighted_gold_ce": 5.314605614170432, "teacher_kl": 0.006681285798549652}
-{"update": 64, "stage": "recurrent", "stream": "train-7", "gold_ce": 5.313202198346456, "weighted_gold_ce": 5.51175782084465, "teacher_kl": 3.5306475162506104}

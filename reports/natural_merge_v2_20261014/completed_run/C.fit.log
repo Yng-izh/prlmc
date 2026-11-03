@@ -1,15 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:02,  3.15it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.56it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.52it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.50it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.53it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.52it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.56it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.73it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.59it/s]
-We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-{"arm": "Full", "training_fit_only": true}
-{"arm": "Selection", "training_fit_only": true}
-{"arm": "SharedMerge", "training_fit_only": true}
-{"arm": "CarrierOnlyFusion", "training_fit_only": true}
