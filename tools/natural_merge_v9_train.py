@@ -382,8 +382,7 @@ def run(args):
                         sync_adapter_stage(len(report["updates"]))
                         event = train_event(manager, merge, optimizer, qas, targets,
                                             args.variant, origins, scaler, plan=training,
-                                            adapter=adapter,
-                                            windows=getattr(stream, "last_windows", None))
+                                            adapter=adapter)
                         event.update(stage="single_merge", window_start=start, before_write=len(writes))
                         record_event(report, event, round_index, episode, args.out, begun)
                         dump_progress()
@@ -440,8 +439,7 @@ def run(args):
                             sync_adapter_stage(len(report["updates"]))
                             event = train_event(manager, merge, optimizer, qas, reference,
                                                 args.variant, origins, scaler, plan=training,
-                                                adapter=adapter,
-                                            windows=getattr(stream, "last_windows", None))
+                                                adapter=adapter)
                             event.update(stage=stage_here, before_write=i)
                             record_event(report, event, round_index, episode, args.out, begun)
                             dump_progress()
