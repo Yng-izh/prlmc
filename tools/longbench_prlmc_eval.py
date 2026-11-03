@@ -241,6 +241,9 @@ def effective_trigger(args, window_blocks):
     """
     explicit = getattr(args, "trigger_blocks", None)
     if explicit is None:
+        from v9_geometry_50block import MEMORY_BLOCKS, TRIGGER_BLOCKS
+        if int(args.budget_blocks) == int(MEMORY_BLOCKS):
+            return int(TRIGGER_BLOCKS)
         return compaction_trigger(args.budget_blocks, window_blocks)
     if explicit < window_blocks:
         raise ValueError(

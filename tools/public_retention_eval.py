@@ -134,6 +134,11 @@ def compaction_trigger(budget_blocks, window_blocks):
     only 13 of the 20 resident blocks, which is why the rule lives on the write
     path and not in the CLI.
     """
+    # A budget with room beyond the window must fill to the budget: merging as
+    # soon as the window fits silently caps the resident memory at window+1 and
+    # the reader never carries what the budget declares.
+    if int(budget_blocks) > int(window_blocks) + 1:
+        return int(budget_blocks)
     return min(int(budget_blocks), int(window_blocks) + 1)
 
 
