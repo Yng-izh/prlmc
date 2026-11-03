@@ -36,6 +36,27 @@ from reader_lora_train import (AdapterHandle, attach_lora, load_lora_state,  # n
                                lora_named_state, set_lora_enabled)
 
 
+def atomic_torch_save(payload, path):
+    """Save to a sibling temp file then rename, so a crash never leaves a
+    half-written checkpoint that a later resume would happily load."""
+    import torch
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    torch.save(payload, tmp)
+    os.replace(tmp, path)
+    return path
+
+
+def prune_step_checkpoints(ckpt_path, keep=3):
+    """Keep only the newest `keep` step checkpoints of this run."""
+    ckpt_path = Path(ckpt_path)
+    prefix = ckpt_path.stem.rsplit("_step", 1)[0]
+    saved = sorted(ckpt_path.parent.glob(f"{prefix}_step*.pt"))
+    for stale in saved[:-keep]:
+        stale.unlink(missing_ok=True)
+
+
 def run(args):
     plan = json.loads(Path(args.plan).read_text()); validate_v9_plan(plan)
     training = plan["training"]
@@ -150,6 +171,21 @@ def run(args):
     from prepare_natural_merge_v4 import check_answer_encoding
     check_answer_encoding(plan, tokenizer)
     optimizer = make_optimizer(merge, plan=training)
+    if getattr(args, "resume", None):
+        saved = torch.load(args.resume, map_location="cpu", weights_only=False)
+        merge.load_state_dict(saved["state_dict"])
+        resumed = saved.get("resume") or {}
+        if resumed.get("optimizer"):
+            optimizer.load_state_dict(resumed["optimizer"])
+        if resumed.get("rng"):
+            torch.set_rng_state(resumed["rng"]["torch"])
+            torch.cuda.set_rng_state_all(resumed["rng"]["cuda"])
+        if resumed.get("manager_memory") is not None:
+            manager._memory.copy_(resumed["manager_memory"].to(manager._memory.device, manager._memory.dtype))
+            manager.used = int(resumed.get("manager_used", manager.used))
+            manager._tile_free_region()
+        print(json.dumps({"resumed_from": args.resume, "updates": saved.get("updates"),
+                          "pool_restored": resumed.get("manager_memory") is not None}))
     if adapter is not None:
         optimizer.add_param_group(dict(
             params=adapter.parameters(),
@@ -282,15 +318,20 @@ def run(args):
             return
         base_out = args.checkpoint_out[:-3] if args.checkpoint_out.endswith(".pt") else args.checkpoint_out
         ckpt_path = f"{base_out}_step{step}.pt"
+        resume_state = dict(optimizer=optimizer.state_dict(),
+                            rng=dict(torch=torch.get_rng_state(),
+                                     cuda=torch.cuda.get_rng_state_all()),
+                            manager_used=int(manager.used),
+                            elapsed_seconds=time.time() - begun)
         Path(ckpt_path).parent.mkdir(parents=True, exist_ok=True)
-        torch.save(dict(schema="natural_merge_checkpoint/1", architecture=variant["architecture"],
+        atomic_torch_save(dict(schema="natural_merge_checkpoint/1", architecture=variant["architecture"],
                         variant=args.variant, partial=True, updates=step, evaluation_eligible=False,
                         state_dict={k: v.detach().cpu() for k, v in merge.state_dict().items()},
                         module_configuration=variant, global_rms_budget=training["global_rms_budget"],
                         training=training, objective=training["objective"], protocol=base["protocol"],
                         geometry=dict(geometry), recovery_gate=dict(training["recovery_gate"]),
                         train_plan_sha256=sha(args.plan), train_content_sha256=plan["content_sha256"],
-                        tokenizer=plan["tokenizer"], model=report["model"]), ckpt_path)
+                        tokenizer=plan["tokenizer"], model=report["model"], resume=resume_state), ckpt_path)
         adapter_path = None
         if adapter is not None:
             adapter_path = (args.lora_out[:-3] if args.lora_out.endswith(".pt") else args.lora_out) + f"_step{step}.pt"
@@ -300,6 +341,19 @@ def run(args):
                             targets=list(adapter.names), geometry=dict(geometry),
                             source="natural_merge_v9_train.joint"), adapter_path)
         print(json.dumps(dict(progress_dump=step, checkpoint=ckpt_path, adapter=adapter_path)), flush=True)
+        prune_step_checkpoints(ckpt_path)
+        latest_path = f"{base_out}_latest.pt"
+        atomic_torch_save(dict(schema="natural_merge_resume/1", updates=step,
+                               architecture=variant["architecture"], variant=args.variant,
+                               state_dict={k: v.detach().cpu() for k, v in merge.state_dict().items()},
+                               resume=dict(optimizer=optimizer.state_dict(),
+                                           rng=dict(torch=torch.get_rng_state(),
+                                                    cuda=torch.cuda.get_rng_state_all()),
+                                           manager_memory=manager._memory.detach().cpu().clone(),
+                                           manager_used=int(manager.used),
+                                           elapsed_seconds=time.time() - begun),
+                               training=training, geometry=dict(geometry),
+                               train_plan_sha256=sha(args.plan)), latest_path)
 
     try:
         for round_index in range(4):
@@ -463,7 +517,7 @@ def run(args):
                           train_context_hashes=expected,
                           train_articles=sorted({c["article"] for e in plan["episodes"] for c in e["contexts"]}))
         Path(args.checkpoint_out).parent.mkdir(parents=True, exist_ok=True)
-        torch.save(checkpoint, args.checkpoint_out)
+        atomic_torch_save(checkpoint, args.checkpoint_out)
         compressions = sum(1 for u in report["updates"]
                            if u.get("window_blocks", 0) > u.get("target_blocks", 0))
         if eligible and compressions == 0 and not args.preflight:
@@ -559,6 +613,8 @@ def main():
                    help="6-event gate: exercises the recurrent branch, the two-stage "
                         "flip and the post-loop integrity checks / artifact save in "
                         "minutes instead of a full 704-update run")
+    p.add_argument("--resume", default=None,
+                   help="resume merge weights + optimizer from this checkpoint")
     p.add_argument("--save-every", type=int, default=50,
                    help="dump weights every N updates so a late failure never loses the run; 0 disables")
     p.add_argument("--qa-batch", type=int, default=1,

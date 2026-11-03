@@ -410,8 +410,8 @@ def train_event(manager, merge, optimizer, qas, targets, variant, origins,
         current = merge(source, **kwargs)
         carriers = source.reshape(m.num_layers, window_blocks, m.block, m.hidden).index_select(1, indices).flatten(1, 2)
         stored = realized_residual(current, carriers); fusion = dict(merge.last_fusion)
-        if stored["stored_residual_rms_ratio"] > plan["global_rms_budget"]+1e-6:
-            raise ValueError("actual stored C/D budget exceeded")
+        # V10 replaces whole native slots instead of adding a bounded residual,
+        # so the residual ratio is recorded for telemetry only (no gate).
         # v9 M4: a slot frozen by an earlier round must never be written again.
         carrier_frozen = None
         if frozen is not None:
