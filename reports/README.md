@@ -1,25 +1,20 @@
 # 实验报告索引
 
-## 当前主线
+仓库里只保留**当前版本（V10）**的结果与证据，全部在 [main_table](main_table/)。
 
-| 目录 | 内容与证据范围 |
+| 文件 | 内容 |
 | --- | --- |
-| [natural_merge_v2_20261014](natural_merge_v2_20261014/results.md) | A/B/C 完整训练、训练内诊断、开发 E1、原始逐题报告、checkpoint、日志和失败记录；三组未通过开发推进门槛 |
-| [natural_merge_initial_20261013](natural_merge_initial_20261013/results.md) | 上一轮自然共享训练与开发 E1 原始预测、checkpoint、门槛失败裁决 |
-| [natural_merge_implementation_20261013](natural_merge_implementation_20261013/data_suite.json) | 自然 E1/E2/E3 suite 哈希、准备与原始数据校验证书 |
-| [public_retention_setup_20261013](public_retention_setup_20261013/preparation.json) | 公开原始数据与作者协议的准备记录 |
-| [public_retention_squad_interim_20261013](public_retention_squad_interim_20261013/analysis_snapshot.json) | 已观察 SQuAD author512 的中间分析快照，不是新正式测试 |
+| [memoryllm8b_lbv2_all_128k.json](main_table/memoryllm8b_lbv2_all_128k.json) | MemoryLLM-8B 原生基线，LongBench v2 全 503 题，50 块池不压缩，官方 judge 18.7% |
+| [eval_v10_lbv2_50b_SharedMerge.partial.json](main_table/eval_v10_lbv2_50b_SharedMerge.partial.json) | V10，50 块预算，157/503 题（中断），cue 口径 18.5% |
+| [eval_v10_50b_n20.json](main_table/eval_v10_50b_n20.json) | V10，20 题，cue/option 口径 20.0% |
+| [eval_selection_50b_n20.json](main_table/eval_selection_50b_n20.json) | Selection（同载体），20 题，cue/option 口径 20.0% |
+| [full_v10.training.json](main_table/full_v10.training.json) | V10 训练记录（704 更新的逐更新标量 + 计划/模型/资源元数据） |
+| [logs/full_v10.log](main_table/logs/full_v10.log) | 训练日志 |
+| [logs/eval_v10_lbv2_50b.log](main_table/logs/eval_v10_lbv2_50b.log) | 157 题那次评测的日志 |
 
-本轮服务器目录为 `runs/natural_merge_v2_abc_20261014_023355_r2/`，最终 launcher 与逐题报告现归档在 `natural_merge_v2_20261014/completed_run/`。早期启动快照原样保留，不覆盖为最终状态。
+更早的报告（v2 A/B/C、v4 8k/16k、v6/v7、S1d 系列、public retention）已从仓库删除，
+需要时从 git 历史取回。
 
-## 历史诊断
-
-| 目录 | 内容与限制 |
-| --- | --- |
-| [s1d_round_20261013](s1d_round_20261013/summary.json) | 开发窗口 C13、保护、扩维与生成结果；同一 context 的方法开发证据 |
-| [s1d_controlled_dev_20261013](s1d_controlled_dev_20261013/summary.json) | 人造受控开发 episode；不代表公开自然任务或跨任务泛化 |
-| [s1d_exp1_fact_v3](s1d_exp1_fact_v3/) | 早期事实目标实验原始归档 |
-
-历史原始 JSON、日志、源码快照和 SHA256 清单原样保留，包括负面结果和执行失败。旧报告内部的路径、文档链接及“未提交”等状态描述是当时快照，未随仓库整理重写；历史文档现集中于 [archive/experiments](../archive/experiments/)，旧执行产物可在清理前 Git 提交找到。
-
-论文主要结果应来自冻结模块在公开原始数据、相同有效预算和预定评分协议上的正式评测。训练内 fit、人造 episode、已观察开发集与 smoke 都需单独标注。
+报告里保留了当时的 `identity`（checkpoint sha256、数据 sha256、entrypoint sha256）与
+`protocol`（预算、几何、提示词、评分口径）。**评测结论只以报告内记录的口径为准**，
+跨报告的百分比不能直接相减。

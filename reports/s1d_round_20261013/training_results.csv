@@ -1,9 +1,0 @@
-variant,window,status,step,R,H,net,report
-M1,"[3, 17510]",complete,60,6,5,1,s1d_c_risk_v1.weak.json
-M2,"[3, 16370]",complete,60,10,1,9,s1d_two_lines_v2.M2.json
-C20,"[3, 17510]",complete,60,5,3,2,s1d_C_dimensions_v1_C20retry.C20.json
-C24,"[3, 17510]",complete,60,5,3,2,s1d_C_dimensions_v1.C24.json
-C28,"[3, 17510]",complete,60,5,3,2,s1d_C_dimensions_v1.C28.json
-C32,"[3, 17510]",complete,60,5,3,2,s1d_projectedC_weak_v1.C32.json
-P13,"[3, 17510]",complete,60,6,3,3,s1d_projectedC_weak_v1.P13.json
-P32,"[3, 17510]",complete,60,5,4,1,s1d_projectedC_weak_v1.P32.json

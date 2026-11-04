@@ -1,22 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.90it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.77it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.62it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.52it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.49it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.45it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.44it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.59it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.56it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-{"update": 1, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.5716455253331285, "weighted_gold_ce": 3.172627946245484, "teacher_kl": 1.0193520179018378, "token_protection": 0.0}
-{"update": 2, "stage": "single_merge", "stream": "train-0", "gold_ce": 2.0829856113383642, "weighted_gold_ce": 3.092329221079126, "teacher_kl": 1.0434724818915129, "token_protection": 0.0}
-[stage] reader adapter trainable at update 2
-{"update": 3, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.742946170270443, "weighted_gold_ce": 4.112896211910993, "teacher_kl": 0.20712489663856104, "token_protection": 0.0}
-{"update": 4, "stage": "recurrent", "stream": "train-0", "gold_ce": 3.3651226863265036, "weighted_gold_ce": 2.904508357634768, "teacher_kl": 0.29109762888401747, "token_protection": 0.0}
-{"update": 5, "stage": "recurrent", "stream": "train-0", "gold_ce": 2.7335766047239303, "weighted_gold_ce": 4.1066316976211965, "teacher_kl": 0.20686636166647077, "token_protection": 0.0}
-{"update": 6, "stage": "recurrent", "stream": "train-0", "gold_ce": 3.349274324874083, "weighted_gold_ce": 2.8938315911218524, "teacher_kl": 0.29111649841070175, "token_protection": 0.0}
-Traceback (most recent call last):
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 506, in <module>
-    main()
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 502, in main
-    run(args)
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 361, in run
-    raise ValueError("training schedule incomplete")
-ValueError: training schedule incomplete

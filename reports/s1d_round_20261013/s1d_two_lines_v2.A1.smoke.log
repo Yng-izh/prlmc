@@ -1,23 +1,0 @@
-[s1d2] rank=0/1 physical_gpu=6
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.92it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.81it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.64it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.55it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.52it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.48it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.49it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.67it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.61it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-[e6a] 19 writes, used=4864 slots, window=4864 slots
-[s1d2] (3,16370) rescue=38 rescue_d0_wrong=32 protect=47
-[s1d2] (3,16370) supervision lines=40 skipped_short=13
-[s1d2] fact targets=20 thresholded=123 protect=20 basis=fact_answer_gradients_cached
-[s1d2] generation baselines skipped by protocol
-[s1d2] C identity-at-init verified
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-[s1d-gen] Full 1/2
-[s1d-gen] Selection 1/2
-[s1d-gen] D0 1/2
-[s1d-gen] C 1/2
-[s1d-gen] complete {"n": 2, "arms": {"Full": {"correct": 1, "em": 0.5}, "Selection": {"correct": 1, "em": 0.5}, "D0": {"correct": 1, "em": 0.5}, "C": {"correct": 2, "em": 1.0}}, "compression_lost": [], "rescue_d0_wrong": [], "rescued": [], "harmed": [], "R": 0, "H": 0, "net_target": 0, "C_vs_Selection": {"gained": ["What sport is Glasgow City F.C. associated with?"], "harmed": [], "net": 1, "delta_em": 0.5}, "C_vs_D0": {"gained": ["What sport is Glasgow City F.C. associated with?"], "harmed": [], "net": 1, "delta_em": 0.5}}

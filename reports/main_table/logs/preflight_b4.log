@@ -1,45 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.65it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.32it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.24it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.15it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.14it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:02<00:00,  2.75it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  2.90it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.11it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.09it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-Traceback (most recent call last):
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 576, in <module>
-    main()
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 572, in main
-    run(args)
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 329, in run
-    event = train_event(manager, merge, optimizer, qas, targets,
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_objective.py", line 333, in train_event
-    pairs = answer_logits_batch(m.model, [qas[j] for j in group],
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_objective.py", line 62, in answer_logits_batch
-    logits = model(input_ids=ids, use_cache=False, return_dict=True).logits
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
-    return forward_call(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/PRLM-C/methods/memoryllm_modeling/modeling_memoryllm.py", line 2030, in forward
-    layer_outputs = self.model._gradient_checkpointing_func(
-  File "/data/zhangjiayang/yyz/PRLM-C/methods/prlmc/probes.py", line 350, in func
-    return checkpoint.checkpoint(
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/_compile.py", line 32, in inner
-    return disable_fn(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 632, in _fn
-    return fn(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 496, in checkpoint
-    ret = function(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
-    return forward_call(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/PRLM-C/methods/memoryllm_modeling/modeling_memoryllm.py", line 703, in forward
-    hidden_states = self.input_layernorm(hidden_states)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
-    return forward_call(*args, **kwargs)
-  File "/data/zhangjiayang/yyz/PRLM-C/methods/memoryllm_modeling/modeling_memoryllm.py", line 95, in forward
-    variance = hidden_states.pow(2).mean(-1, keepdim=True)
-torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 802.00 MiB. GPU 0 has a total capacity of 39.49 GiB of which 722.31 MiB is free. Process 3111280 has 3.21 GiB memory in use. Process 2608059 has 562.00 MiB memory in use. Including non-PyTorch memory, this process has 35.01 GiB memory in use. Of the allocated memory 33.97 GiB is allocated by PyTorch, and 547.79 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

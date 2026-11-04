@@ -1,43 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:02,  3.30it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.24it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.12it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.12it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.14it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.08it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  3.13it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.35it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.22it/s]
-[shared-eval] checkpoint loaded, writing episode 15
-We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
-[shared-eval] arm Full
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:628: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `0.6` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-/share/latent/mllm_env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:633: UserWarning: `do_sample` is set to `False`. However, `top_p` is set to `0.9` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_p`.
-  warnings.warn(
-[shared-eval] generation 1/64
-[shared-eval] generation 9/64
-[shared-eval] generation 17/64
-[shared-eval] generation 25/64
-[shared-eval] generation 33/64
-[shared-eval] generation 41/64
-[shared-eval] generation 49/64
-[shared-eval] generation 57/64
-[shared-eval] generation 64/64
-[shared-eval] arm Selection
-[shared-eval] generation 1/64
-[shared-eval] generation 9/64
-[shared-eval] generation 17/64
-[shared-eval] generation 25/64
-[shared-eval] generation 33/64
-[shared-eval] generation 41/64
-[shared-eval] generation 49/64
-[shared-eval] generation 57/64
-[shared-eval] generation 64/64
-[shared-eval] arm SharedE6d
-[shared-eval] generation 1/64
-[shared-eval] generation 9/64
-[shared-eval] generation 17/64
-[shared-eval] generation 25/64
-[shared-eval] generation 33/64
-[shared-eval] generation 41/64
-[shared-eval] generation 49/64
-[shared-eval] generation 57/64
-[shared-eval] generation 64/64
-FINAL {"n": 64, "arms": {"Full": {"correct": 26, "em": 0.40625}, "Selection": {"correct": 27, "em": 0.421875}, "SharedE6d": {"correct": 32, "em": 0.5}}, "full_selection_lost": ["What religion is Harriet Tubman affiliated with?", "What is the country of citizenship of Carlo Collodi?", "What sport is FIBA EuroBasket 2017 associated with?", "What religion is Assyrian people affiliated with?", "What sport is Buckie Thistle F.C. associated with?", "What is the country of citizenship of Leslie Mann?", "What is the country of citizenship of Chen Guangcheng?", "What sport is Rick Carlisle associated with?"], "shared_gained_vs_selection": ["What is the country of citizenship of Lute Olson?", "What sport is Pittsburgh Pirates associated with?", "What is the country of citizenship of Carlo Collodi?", "What sport is FIBA EuroBasket 2017 associated with?", "What is the country of citizenship of Lois Lane?", "What is the country of citizenship of M\u00e1rio Soares?"], "shared_harmed_vs_selection": ["What sport is Orduspor associated with?"], "shared_vs_selection": {"gained": ["What is the country of citizenship of Lute Olson?", "What sport is Pittsburgh Pirates associated with?", "What is the country of citizenship of Carlo Collodi?", "What sport is FIBA EuroBasket 2017 associated with?", "What is the country of citizenship of Lois Lane?", "What is the country of citizenship of M\u00e1rio Soares?"], "harmed": ["What sport is Orduspor associated with?"], "net": 5, "delta_em": 0.078125}, "shared_recovers_lost": ["What is the country of citizenship of Carlo Collodi?", "What sport is FIBA EuroBasket 2017 associated with?"]}

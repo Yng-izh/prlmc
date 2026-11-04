@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 576, in <module>
-    main()
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 572, in main
-    run(args)
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 69, in run
-    raise ValueError("insufficient free VRAM on %s: %d MiB free < %d MiB required "
-ValueError: insufficient free VRAM on NVIDIA A100-PCIE-40GB: 2006 MiB free < 29000 MiB required (measured peak is ~25800 MiB; free the card first)

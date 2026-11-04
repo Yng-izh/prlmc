@@ -1,43 +1,51 @@
-# 工具入口
+# 工具入口（V10 单一版本）
 
-当前主线为**自然融合 v5（Dsup v5）训练链**与 **LongBench PRLMC 评测链**。入口文件沿用 v4 名字（`natural_merge_v4_*.py`），架构串已升级为 `_v5`。
-
-## v5 训练链（文件沿用 v4 命名）
-
-| 入口 | 用途 |
+| 文件 | 用途 |
 | --- | --- |
-| `stage_natural_merge_data.py` | 下载固定版本的原始 SQuAD，核对 Git/LFS 与文件哈希 |
-| `prepare_natural_merge.py` | 构建文章隔离的 v1 训练与评测计划 |
-| `prepare_natural_merge_v4.py` | 计划与协议：重编码原始答案，封存 `TRAIN_V4`（v5 架构、路由先验、几何门控、锚定项） |
-| `natural_merge_v4_objective.py` | 非载体恢复、载体保护、双学习率与原生来源跟踪 |
-| `natural_merge_v4_train.py` | Dsup fresh 64-update 训练 |
-| `natural_merge_v4_training_fit.py` | 固定训练窗口完整生成诊断 |
-| `run_natural_merge_v4.py` | 单卡/多卡调度：smoke → 训练 → fit → 开发 E1 |
-| `summarize_natural_merge_v4.py` | 成绩、配对收益与门槛汇总 |
-| `verify_natural_merge.py` / `verify_natural_merge_data.py` | 逐题评分、预算、冻结状态与数据隔离校验 |
-| `freeze_natural_merge.py` | 门槛通过后冻结模型、代码和评测计划 |
-| `natural_merge_eval.py` / `natural_merge_runtime.py` | 冻结 checkpoint 评测与共享运行时；`build_merge` 只认 `_v5` 架构名，v4 checkpoint 加载即报错 |
-| `run_natural_merge_parallel.py` | 正式评测按完整 context 分片与合并 |
-| `test_natural_merge*.py` | 执行契约 CPU 测试（v1/v2/v3/v5 链共用依赖；`python -m unittest discover -s tools -p "test_*.py"` 共 78 项） |
+| `io_utils.py` | `sha` / `digest` / `atomic_json` / `tokenizer_manifest` |
+| `plan.py` | sealed 训练计划的构建与校验；`sealed_training()` 供 checkpoint 校验读取封存记录 |
+| `objective.py` | V10 训练目标：恢复 CE、Full 教师 KL、保护 hinge、首 token 锚定、EOS；含可微注入用到的共享辅助 |
+| `train.py` | 训练入口（704 更新，`--resume`、原子保存、滚动 `_latest.pt`） |
+| `runtime.py` | 流式运行时：`MergeStream`、`install`、`load_runtime`、几何解析、checkpoint 校验 |
+| `stream_eval.py` | 流式记忆与参考臂（`Selection` / `Recent` / `Full` / `NativeDefault`） |
+| `v9_geometry_50block.py` | 50 块几何常量（`GEOMETRY_50B`、`TRIGGER_BLOCKS`、`DISTILL_LAYERS`） |
+| `eval_lbv2.py` | LongBench v2 双口径评测（主表入口） |
+| `eval_core.py` | LongBench 8k/16k 评测（v2 复用其运行时与协议记录） |
+| `lbv2_data.py` | LBv2 数据加载、官方模板与官方答案抽取 |
+| `native_eval.py` | MemoryLLM-8B 原生基线评测（50 块池、不压缩） |
 
-v5 链复用 v2/v3 的 `prepare_natural_merge_v2/v3.py`、`natural_merge_v2_train.py`、`natural_merge_v3_objective.py` 作为依赖（保留在仓库）。
+`v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
+它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
 
-## LongBench 评测链（当前公开基准）
+## 训练
 
-| 入口 | 用途 |
-| --- | --- |
-| `longbench_memoryllm_eval.py` | MemoryLLM native50 基线逐题评测 |
-| `longbench_prlmc_eval.py` | PRLMC Dsup/Selection 双臂 8k/16k 评测；`--arm SharedMerge` 必须显式给 `--checkpoint`，`--arm Selection` 给 checkpoint 直接报错 |
-| `run_longbench_native50_parallel.py` | native50 基线分片并行 |
-| `test_longbench_memoryllm_eval.py` | 评测契约 CPU 测试 |
+```bash
+python tools/train.py --plan data/natural_merge_v9_50block/train.json \
+  --model-path /dev/shm/s1d_reader_fp16 --cuda-device 0 \
+  --variant DnativeV9 --qa-batch 1 \
+  --out reports/main_table/full_v10.json \
+  --checkpoint-out runs/natural_merge_v9/full_v10.pt
+```
 
-## 公共依赖
+常用开关：`--smoke-updates N`（冒烟）、`--preflight`（6 个事件的结构检查）、
+`--save-every N`（小 checkpoint 间隔）、`--resume <ckpt>`（权重+优化器+池状态续跑）、
+`--no-reader-checkpointing`（显存够时关掉重算）。
 
-- `prepare_public_retention.py`、`public_retention_eval.py`、`run_public_retention_parallel.py`、`verify_public_retention.py`、`test_public_retention.py`：原始 SQuAD/NaturalQA 作者协议和共享读写基础。
-- `native_qa_compare.py`：原始 QA、原文分片和结果写入等公共工具。
-- `natural_merge_train.py`：上一轮自然训练入口，供当前测试调用。
-- `agent.py`（methods/prlmc/）：`native_qa_compare.py` 的 backbone 加载依赖。
+## 评测
 
-## 已移出 git 的旧线
+```bash
+# V10 臂
+python tools/eval_lbv2.py --arm SharedMerge \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --data-json /data/.../LongBench-v2/data.json \
+  --budget-blocks 50 --cuda-device 0 --out reports/main_table/<v10>.json
 
-S0/S1/S1c/S1d、e6a、readout_probe、residual_subspace_diag、v2/v3 独立运行与汇总入口等旧线文件保留在磁盘与 archive/2026H1_legacy/，可从历史 Git 提交恢复；它们不再被当前链路引用（v5 依赖的 6 个 v2/v3 文件除外）。
+# Selection 臂：复现 V10 的载体序列，唯一差别是没有融合
+python tools/eval_lbv2.py --arm Selection \
+  --carrier-schedule reports/main_table/<v10>.json \
+  --data-json /data/.../LongBench-v2/data.json \
+  --budget-blocks 50 --cuda-device 0 --out reports/main_table/<selection>.json
+```
+
+`--max-samples N` 跑子集；`--rescore` 只重算已有报告的评分（不跑模型）；
+`--strict-code-hash` 默认开启，算子文件与 checkpoint 记录不一致会直接报错。

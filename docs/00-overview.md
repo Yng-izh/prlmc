@@ -1,28 +1,28 @@
-# 00 — 导览：PRLM-C 研究时间线
+# 00 — 目标、主张与当前版本
 
-**目标**：在冻结的 MemoryLLM reader 上，学习有界、内容相关的共享残差压缩模块，将多个记忆块中的信息融合进保留的载体；在公开原始任务上以相同有效记忆槽位预算改善知识保留与读取；评测时模块完全冻结，不进行逐场景训练。
+## 冻结的目标与主张
 
-## 研究时间线（按文档编号阅读）
+- **目标**：不大改论文主线方案，通过调节内部架构实现具有强泛化性的稳定涨点。
+- **主张**：在相同、有限的潜在记忆容量下，通过跨块信息融合，提高长文档中知识的保留和可读取能力。
+- **核心指标**：`Ours − Selection`。两臂必须共享写入流、载体块、容量、解码与评分，唯一差别是压缩窗口是否经过融合算子。
+- **评测方式**：算子训练后完全冻结，不做逐场景训练；在公开原始任务上逐题生成并评分。
 
-| 阶段 | 索引 | 内容 | 结局 |
-|---|---|---|---|
-| 问题发现（2026-09 下旬–10-03） | 01-problem-discovery.md | MemoryAgentBench E0–E7、SIC、Native-QA/Readout 诊断线 | 定位压缩与读出瓶颈；压缩算子侧变体停止 |
-| 方法探索（2026-10-03–10-13） | 02-method-exploration.md | S0/S0b、S1-local/S1-soft-local、S1c 系列、S1d 两线、G0–G2c | 全部 NO-GO / FAIL / 停线 |
-| 自然融合主线（2026-10-13 起） | 03-natural-merge.md | v1 → v2 A/B/C → v3 C/D → v4 Dsup → v5 Dsup | v1/v2/v3 未过门槛或未启动；v4 结果即记录，v5 为当前方案（代码就绪、GPU 未跑） |
-| LongBench 评测（当前公开基准） | 04-longbench-eval.md | native50 基线 + PRLMC Dsup/Selection 臂，8k/16k | v4 的 8k/16k 全量完成；v5 待重跑基线后重训重评 |
-| public retention | 05-public-retention.md | 冻结 SharedE6d 公开原始知识保持 | 协议冻结，GPU 未启动 |
+## 当前版本：V10 保流形槽位嫁接
 
-## 当前主线（活跃）
+读侧（MemoryLLM-8B）冻结，只有压缩算子可训练。压缩窗口内保留 9 个载体块，
+每个输出块 = 216 个原生核心槽 + 40 个嫁接槽；嫁接槽是同块内被丢弃原生槽的
+测地压缩（保范数），每次 merge 重新推导。设计见 [01-method-v10.md](01-method-v10.md)。
 
-- 自然融合 v5 Dsup（grouped_gated_sparse_slot_v5）：experiments/Natural-merge-v5-routing-generalization.md
-- 历史协议：v4（experiments/Natural-merge-v4-D-supervision-native.md）、v3 C/D、v2 A/B/C
-- LongBench PRLMC v4/v5：experiments/LongBench-PRLMC-v4.md（结果记录）与 experiments/LongBench-PRLMC-v5.md（当前口径）
-- LongBench native50 基线协议：experiments/LongBench-MemoryLLM-8B-native50.md
+## 仓库里只有这一版
 
-v1/v2 A/B/C、v3 C/D、S 系列、public retention 均为历史线，不再活跃。
+v1–v9 各代实现（`natural_merge_v2/v3/v4/v6/v7/v8` 训练器、目标、计划构建器、
+S0/S1/S1c/S1d 诊断线、reader LoRA / bridge K/V adapter、public retention 协议、
+旧 LongBench 8k/16k 报告）已从仓库删除，不再维护，也不再保留兼容入口。
+需要历史实现时从 git 历史取回。
 
-## 证据与归档
+## 命名说明
 
-- 证据原位不动（不入 git）：runs/、runs_results/、reports/、logs/、outputs/、data/。
-- 旧线代码与文档归档：archive/2026H1_legacy/（不入 git，磁盘保留）。
-- git 仓库只保留当前主线：v5 训练链、LongBench 评测链、公共依赖、docs 00–05 与 experiments 协议。
+V10 的算子文件是 `methods/prlmc/manifold_graft.py`，但训练计划 schema、架构名和
+checkpoint 记录里仍是 `natural_merge_v9_training_plan/1`、`grouped_gated_sparse_native_v9`、
+`DnativeV9`。这些字符串被 sealed plan 的 `content_sha256` 和 checkpoint 的 `training`
+记录钉死，改名会让 `full_v10.pt` 无法通过校验，所以保持原样。

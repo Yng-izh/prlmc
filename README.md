@@ -1,56 +1,91 @@
-# PRLM-C：共享潜在记忆融合
+# PRLM-C — 冻结 MemoryLLM reader 上的共享记忆融合
 
-在冻结的 MemoryLLM reader 上，学习有界、内容相关的共享残差压缩模块，将多个记忆块中的信息融合进保留的载体。目标是在公开原始任务上，以相同有效记忆槽位预算改善知识保留与读取；评测时模块完全冻结，不进行逐场景训练。
+**目标（冻结）**：不大改论文主线方案，通过调节内部架构实现具有强泛化性的稳定涨点。
+**主张（冻结）**：在相同、有限的潜在记忆容量下，通过跨块信息融合，提高长文档中知识的保留和可读取能力。
+**核心指标**：`Ours − Selection`。两臂的写入流、载体块、容量、解码与评分完全相同，唯一差别是压缩窗口是否经过融合算子。
 
-当前主线方案是**自然记忆融合 v5（Dsup v5，grouped_gated_sparse_slot_v5）**：v4 的结构与监督不变，只改内部路由与门控（几何门控、原生路由先验、逐层组原生增益、载体选择层对齐到第 16 层），追求跨域稳定涨点。训练入口 `tools/natural_merge_v4_train.py`，协议见[实验文档](experiments/Natural-merge-v5-routing-generalization.md)。公开长文档评测使用 **LongBench PRLMC**（native50 基线 + Dsup/Selection 对照，8k/16k），入口 `tools/longbench_prlmc_eval.py`，见 docs/04。v4 的 8k/16k 数字仍是现行结果记录。
+本仓库只保留**当前版本**：V10 保流形槽位嫁接（manifold-preserving slot grafting）。
+v1–v9 各代实现、旧 baseline 评测器、旧报告与旧运行目录已从仓库移除，需要时从 git 历史取回。
 
-## 文档导航
+## 方法（V10）
 
-- [00 导览](docs/00-overview.md) —— 研究时间线与当前主线
-- [03 自然融合主线](docs/03-natural-merge.md) —— v1 → v2 A/B/C → v3 C/D → v4 Dsup → v5 Dsup
-- [04 LongBench 评测](docs/04-longbench-eval.md) —— native50 基线 + PRLMC Dsup/Selection 双臂（当前公开评测）
-- 01/02/05 为历史线结论索引；旧线完整代码与文档在 archive/2026H1_legacy/（不随 git 发布）
+冻结的 MemoryLLM-8B 读侧不动，只有压缩算子可训练。一次 19→9 压缩时：
+
+1. 载体块（9 个）由选择器在窗口内按内容与代际年龄挑出，V10 不改变载体选择；
+2. 每个 256 槽的块被切成 **216 个核心槽 + 40 个嫁接槽**；核心槽逐位复制载体，硬掩码保证残差为 0；
+3. 40 个嫁接槽是**同块内原生槽的测地压缩**（保范数、保流形），每次 merge 重新推导，不跨块写入；
+4. 全局残差 RMS 预算 0.24，且只花在嫁接槽上（`.24/sqrt(.156) ≈ .61` 触到 bridge 上限），核心槽始终是原生槽。
+
+可训练参数 2,359,313（`down_proj/up_proj/route_q/route_k/cluster_logit_scale/ortho_gate_logits/homo_gate_logits`），
+checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c43311fd175d65f74ec4768725985ef17acfd47134`。
+设计细节见 [docs/01-method-v10.md](docs/01-method-v10.md)。
+
+## 结果（当前证据）
+
+| 实验 | 样本 | 准确率（cue 口径） | 备注 |
+| --- | --- | --- | --- |
+| MemoryLLM-8B 原生 50 块 | 503 | **18.7%** | 无压缩，`memoryllm8b_lbv2_all_128k.json` |
+| V10，50 块预算 | 157/503（中断） | **18.5%** | `eval_v10_lbv2_50b_SharedMerge.partial.json` |
+| V10 vs Selection，50 块预算 | 20 | **20.0% vs 20.0%** | 答对的是同 4 题；12/20 预测文本不同 |
+
+结论：**目前没有测到涨点**。157 题上 V10 与原生基线统计不可区分（±6pp）；20 题配对比较是平局，
+样本量只够排除 ±18pp 的差异。要判定 `Ours − Selection` 的方向，需要一次 503 题的配对评测。
+口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md) 和 [docs/03-results.md](docs/03-results.md)。
 
 ## 仓库结构
 
 ```text
-methods/prlmc/               共享融合模块、载体选择、记忆布局
-methods/memoryllm_modeling/  MemoryLLM reader 实现
-tools/                       v5 数据准备、训练、冻结评测、LongBench 评测与公共依赖
-experiments/                 主线协议（v5 Dsup、LongBench v4/v5、native50）
-docs/                        研究时间线与各阶段结论
-reports/                     主线分析报告与数据校验证书
-references/                  MemoryLLM 作者评测脚本及来源记录
-data/                        固定公开数据版本及哈希清单（不入 git）
-runs/ runs_results/ logs/    运行证据（不入 git）
+methods/prlmc/                 压缩算子、载体选择、记忆布局、可微注入
+methods/memoryllm_modeling/    MemoryLLM reader（冻结）
+tools/plan.py                  训练计划构建与校验（sealed plan）
+tools/objective.py             V10 训练目标（恢复/蒸馏/保护/锚定/EOS）
+tools/train.py                 训练入口（704 更新）
+tools/runtime.py               流式运行时（写入、触发、merge、装载）
+tools/stream_eval.py           流式记忆与参考臂（Selection/Recent/Full）
+tools/v9_geometry_50block.py   50 块几何常量（被哈希锁定的算子直接 import）
+tools/eval_lbv2.py             LongBench v2 双口径评测入口
+tools/eval_core.py             LongBench 8k/16k 评测入口（v2 复用其运行时）
+tools/lbv2_data.py             LBv2 数据与官方模板
+tools/native_eval.py           MemoryLLM-8B 原生基线评测
+tools/io_utils.py              sha/digest/atomic_json/tokenizer manifest
+configs/agent_conf/prlmc_e6.yaml  运行时 manager 配置
+reports/main_table/            当前结果与证据
+docs/                          目标、方法、评测口径、结果
 ```
 
 ## 运行
 
-使用已有 MemoryLLM 环境（PyTorch、Transformers、safetensors、PyYAML、NumPy），准备本地 reader checkpoint 与 tokenizer。
+环境：`python3.10 + torch 2.5.1 + transformers 4.46.3`，本地 MemoryLLM-8B fp16 cache（`/dev/shm/s1d_reader_fp16`）。
 
-LongBench 评测（当前公开基准入口）：
-
-```bash
-python tools/longbench_prlmc_eval.py \
-  --data-dir /path/to/LongBench/data \
-  --out runs/longbench_prlmc_v5/<tag> \
-  --total-tokens 8192 --cuda-device 0 --arm SharedMerge \
-  --checkpoint runs/<v5 train>/Dsup.train.pt --tasks hotpotqa --resume
-```
-
-v5 训练与冻结评测按 [experiments/Natural-merge-v5-routing-generalization.md](experiments/Natural-merge-v5-routing-generalization.md) 执行；`--arm Selection` 不传 `--checkpoint`。数据准备入口 `tools/stage_natural_merge_data.py` 与 `tools/prepare_natural_merge*.py`。
-
-## CPU 验证
+训练（16 条流，50 块预算，704 更新）：
 
 ```bash
-python -m unittest discover -s tools -p test_natural_merge*.py
-python -m unittest discover -s tools -p test_public_retention.py
-python -m unittest discover -s tools -p test_longbench_memoryllm_eval.py
+python tools/train.py \
+  --plan data/natural_merge_v9_50block/train.json \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --cuda-device 0 --variant DnativeV9 --qa-batch 1 \
+  --out reports/main_table/full_v10.json \
+  --checkpoint-out runs/natural_merge_v9/full_v10.pt
 ```
 
-这些测试检查数据隔离、冻结 reader、梯度桥、源屏蔽、连续合并、评分和汇总等执行契约。GPU 训练效果需要实际逐题生成评测，不能由 CPU 测试替代。
+评测（两臂必须用同一份数据与同一组载体；`--carrier-schedule` 让 Selection 复现 V10 的载体序列）：
 
-## 历史结果与证据
+```bash
+python tools/eval_lbv2.py --arm SharedMerge --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --data-json <lbv2/data.json> --budget-blocks 50 --cuda-device 0 --out <v10.json>
+python tools/eval_lbv2.py --arm Selection --carrier-schedule <v10.json> \
+  --data-json <lbv2/data.json> --budget-blocks 50 --cuda-device 0 --out <selection.json>
+```
 
-v1/v2 A/B/C、v3 C/D、v4 Dsup、S0/S1/S1c/S1d、public retention 等旧线实验均未推进、已停线或已退役，结论索引见 docs/；原始证据保留在磁盘 runs/、runs_results/、reports/ 与 archive/（不入 git）。旧执行文件可从历史 Git 提交恢复。
+## 命名与哈希锁定（重要）
+
+V10 算子由 `methods/prlmc/manifold_graft.py` 实现，但在训练计划、架构名与 checkpoint 里沿用
+`natural_merge_v9_training_plan/1` / `grouped_gated_sparse_native_v9` / `DnativeV9`。
+这些字符串被 sealed plan 的 `content_sha256` 与 checkpoint 的 `training` 记录钉死，改名会让已有
+checkpoint 无法校验，因此保持原样。
+
+`tools/runtime.py` 的 `CRITICAL_MERGE_FILES` 列出 checkpoint 要求逐字节一致的算子文件：
+`consolidate.py`、`layout.py`、`importance.py`、`slot_merge.py`、`gated_slot_merge.py`、`native_skip_merge.py`。
+其中 `slot_merge.py` / `gated_slot_merge.py` 是早期算子，**不在 V10 路径上**，但 `full_v10.pt` 的
+source manifest 记录了它们的哈希，删除或改动会让 checkpoint 校验失败（`validate_merge_checkpoint`
+会直接报错），所以它们保留在仓库里。`native_skip_merge.py` 同时承载 V10 的流式适配器。

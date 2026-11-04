@@ -1,23 +1,0 @@
-LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
-  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
-  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
-  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
-Memory Pool Parameters: 1.6777 B
-Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  3.70it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  3.68it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.54it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.44it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.46it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.45it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:02<00:00,  3.47it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.60it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.54it/s]
-`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
-Traceback (most recent call last):
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 576, in <module>
-    main()
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 572, in main
-    run(args)
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_train.py", line 329, in run
-    event = train_event(manager, merge, optimizer, qas, targets,
-  File "/data/zhangjiayang/yyz/PRLM-C/tools/natural_merge_v9_objective.py", line 376, in train_event
-    (scaler.scale(group_loss) if scaler else group_loss).backward()
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/_tensor.py", line 581, in backward
-    torch.autograd.backward(
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/autograd/__init__.py", line 347, in backward
-    _engine_run_backward(
-  File "/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/torch/autograd/graph.py", line 825, in _engine_run_backward
-    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
-torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 3.12 GiB. GPU 0 has a total capacity of 39.49 GiB of which 3.04 GiB is free. Process 3111280 has 3.21 GiB memory in use. Process 2608059 has 562.00 MiB memory in use. Including non-PyTorch memory, this process has 32.67 GiB memory in use. Of the allocated memory 31.68 GiB is allocated by PyTorch, and 500.04 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
