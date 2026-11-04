@@ -138,6 +138,32 @@ _check_geometry()
 # ---------------------------------------------------------------------------
 # arm B: the V10 vectors, put back where the carrier slots used to be
 # ---------------------------------------------------------------------------
+def _assign_graft_slots(positions, graft_offsets, carriers, block, capacity):
+    """Deal every graft slot to the nearest carrier that still has room.
+
+    Greedy in source order, ties to the lower carrier index. Total capacity equals
+    the number of graft slots, so the deal always fills every carrier exactly.
+
+    "Nearest" is the whole point of the in-place arm: a carrier should receive the
+    discarded content from its own neighbourhood, which is what a compression that
+    merged neighbouring blocks would produce. Dealing the slots out in source
+    order without looking at the carrier positions is monotone but NOT local --
+    on a real sample it handed the block-10 carrier 40 slots that all came from
+    block 0 -- and that would make arm B a scramble rather than a replacement.
+    """
+    remaining = [int(capacity)] * len(carriers)
+    owner = []
+    for offset in graft_offsets:
+        source = positions[offset] // block
+        index = min((abs(carrier - source), position)
+                    for position, carrier in enumerate(carriers) if remaining[position])[1]
+        remaining[index] -= 1
+        owner.append(index)
+    if any(remaining):
+        raise ValueError(f"the graft slots left {sum(remaining)} carrier positions empty")
+    return owner
+
+
 def plan_inplace_replace(telemetry, selected_blocks, window_blocks, block):
     """The permutation that puts the V10 slots back where the carrier slots were.
 
@@ -190,6 +216,7 @@ def plan_inplace_replace(telemetry, selected_blocks, window_blocks, block):
 
     dest = [-1] * total
     per_carrier, cursor = [], 0
+    owner = _assign_graft_slots(positions, graft_offsets, carriers, block, GRAFT_SLOTS)
     for slot, carrier in enumerate(carriers):
         core_local = []
         for index in range(cursor, cursor + CORE_SLOTS):
@@ -207,15 +234,20 @@ def plan_inplace_replace(telemetry, selected_blocks, window_blocks, block):
         if len(vacated) != GRAFT_SLOTS:
             raise ValueError(f"carrier {carrier} vacates {len(vacated)} positions, "
                              f"expected {GRAFT_SLOTS}")
+        mine = [offset for index, offset in enumerate(graft_offsets) if owner[index] == slot]
+        if len(mine) != GRAFT_SLOTS:
+            raise ValueError(f"carrier {carrier} received {len(mine)} graft slots")
+        if mine != sorted(mine):
+            raise ValueError("a carrier's graft slots are not in source order")
         for offset, local in enumerate(core_local):
             dest[slot * block + local] = core_offsets[cursor + offset]
         for offset, local in enumerate(vacated):
-            dest[slot * block + local] = graft_offsets[slot * GRAFT_SLOTS + offset]
+            dest[slot * block + local] = mine[offset]
         cursor += CORE_SLOTS
-        received = Counter(positions[graft_offsets[slot * GRAFT_SLOTS + offset]] // block
-                           for offset in range(GRAFT_SLOTS))
+        received = Counter(positions[offset] // block for offset in mine)
         per_carrier.append(dict(
-            carrier=carrier, core_slots=len(core_local), graft_slots=len(vacated),
+            carrier=carrier, core_slots=len(core_local), graft_slots=len(mine),
+            graft_offsets=mine,
             graft_source_blocks={str(source): int(count)
                                  for source, count in sorted(received.items())}))
     if cursor != CORE_SLOTS_TOTAL:
@@ -240,9 +272,9 @@ def plan_inplace_replace(telemetry, selected_blocks, window_blocks, block):
                                      for key in range(window_blocks)},
         note=("arm B is `C.index_select(1, permutation)`; `permutation` is stored in "
               "full so the layout can be rebuilt from arm C's output without re-running "
-              "the GPU pipeline. The 360 graft slots are dealt out in source-time order, "
-              "40 per carrier in carrier order, into each carrier's ascending vacated "
-              "positions"))
+              "the GPU pipeline. Each of the 360 graft slots goes to the nearest carrier "
+              "with a free position, dealt greedily in source order (ties to the lower "
+              "carrier), and lands in that carrier's ascending vacated positions"))
 
 
 def apply_inplace_replace(graft_output, layout):
@@ -317,15 +349,17 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
         raise ValueError("the compression disagrees with the shared carrier set")
     if provenance["graft_slots"] != GRAFT_SLOTS_TOTAL:
         raise ValueError("the compression did not emit 360 graft slots")
-    # Distinctness is a stride-13 mean, not a hash: it catches "the compression
-    # did not run" and "arm B was not permuted", nothing finer.
-    if len(set(fingerprints[arm] for arm in ARMS)) != len(ARMS):
-        raise ValueError("two arms read the same pool: the compression did not run")
-    if fingerprints[REPLACE] == fingerprints[GRAFT]:
-        raise ValueError("Replace and Graft read the same pool: arm B did not permute")
+    # Distinctness is checked structurally, not by comparing float fingerprints:
+    # the fingerprint is a stride-13 mean of the pool, so on a real sample the
+    # arms differ in the fourth decimal and an equality test would be both fragile
+    # (it could abort a 40-minute run on a coincidence) and meaningless.
+    if layout["permutation"] == list(range(TARGET_SLOTS)):
+        raise ValueError("arm B is the identity permutation: it is the same memory as arm C")
     for arm in (SELECTION, REPLACE, GRAFT):
         if int(fingerprints[arm + "/slots"]) != TARGET_SLOTS:
             raise ValueError(f"arm {arm} does not hold the {TARGET_SLOTS}-slot budget")
+    if int(fingerprints[FULL + "/slots"]) != args.window_blocks * manager.block:
+        raise ValueError("the Full arm did not keep the whole window")
 
     return dict(arms=arms, fingerprints=fingerprints, provenance=provenance,
                 layout=layout, carrier_ages=[int(ages[block]) for block in picked])
@@ -648,16 +682,30 @@ def _self_test():
     if sorted(flat) != list(range(TARGET_SLOTS)):
         raise ValueError("arm B is not a permutation of arm C")
     origin = {item[0]: index for index, item in enumerate(slots)}
+    placed = []
     for slot, carrier in enumerate(carriers):
         for position in core_local[carrier]:
             if flat[slot * BLOCK + position] != origin[carrier * BLOCK + position]:
                 raise ValueError(f"carrier {carrier}: core slot {position} was moved")
         vacated = [position for position in range(BLOCK) if position not in set(core_local[carrier])]
+        mine = layout["per_carrier"][slot]["graft_offsets"]
+        if len(mine) != GRAFT_SLOTS or mine != sorted(mine):
+            raise ValueError(f"carrier {carrier} did not receive 40 ordered graft slots")
+        placed.extend(mine)
         for offset, position in enumerate(vacated):
-            want = telemetry["bridge_slot_offsets"][slot * GRAFT_SLOTS + offset]
-            if flat[slot * BLOCK + position] != want:
+            if flat[slot * BLOCK + position] != mine[offset]:
                 raise ValueError(f"carrier {carrier}: vacated slot {position} got the "
                                  f"wrong graft vector")
+    # The deal must be a partition of the 360 graft slots, not a duplicate-laden list.
+    if sorted(placed) != sorted(telemetry["bridge_slot_offsets"]):
+        raise ValueError("the graft slots were not dealt out exactly once")
+    # Locality, on a layout where the answer is unambiguous: the first dropped
+    # block sits between carriers 0 and 2, so its 36 slots must go to carrier 0.
+    first_dropped = dropped[0]
+    if any(layout["per_carrier"][slot]["graft_source_blocks"].get(str(first_dropped), 0) > 0
+           and carriers[slot] != carriers[0]
+           for slot in range(TARGET_BLOCKS)):
+        raise ValueError("a graft slot from the first dropped block went to a far carrier")
     if sum(layout["graft_slots_by_source_block"].values()) != GRAFT_SLOTS_TOTAL:
         raise ValueError("arm B lost graft slots")
     if len(layout["per_carrier"]) != TARGET_BLOCKS:
@@ -740,9 +788,10 @@ def build_protocol(args, task):
         replace_construction=("arm B is `C.index_select(1, perm)` with `perm` a verified "
                               "bijection of range(2304), so B and C hold the same 2,304 "
                               "vectors and differ only in order"),
-        graft_assignment=("the 360 graft slots are dealt out in source-time order, 40 per "
-                          "carrier in carrier order, into each carrier's ascending vacated "
-                          "positions"),
+        graft_assignment=("each of the 360 graft slots goes to the nearest carrier that "
+                          "still has a free position, dealt greedily in source order with "
+                          "ties to the lower carrier, and lands in that carrier's "
+                          "ascending vacated positions"),
         attribution_note=("A -> B is the JOINT net effect of deleting 40 carrier slots and "
                           "adding 40 graft slots; that single difference cannot separate the "
                           "deletion loss from the graft gain. B -> C is the reorder alone, "
