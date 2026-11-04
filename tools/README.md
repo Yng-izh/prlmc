@@ -152,10 +152,11 @@ Reader 读到的**顺序**变了（V10 按来源时间输出，嫁接槽夹在�
 于是 `A→B` = 替换的净影响（删除 40 个载体槽 + 引入 40 个嫁接槽的**联合**效应），
 `B→C` = 纯重排的影响（向量集合相同），`A→C` = 复核实验 1。
 
-B 不是重新实现一遍压缩，而是 `graft_output.index_select(1, perm)`，`perm` 在 `run_sample`
-里断言是 `range(2304)` 的双射，摘要写进 `layout.permutation_sha256`。360 个嫁接槽按来源
-时间顺序、每载体 40 个、填进该载体升序的空位；这条规则只决定"哪个外来向量进哪个块"，
-不决定记忆里有哪些向量。
+B 不是重新实现一遍压缩，而是 `graft_output.index_select(1, permutation)`；`permutation`
+在 `plan_inplace_replace` 里断言是 `range(2304)` 的双射，并且**完整存进报告**
+（`layout.permutation`，不只是摘要），所以跑完之后可以只凭 C 臂的输出把 B 复原出来，
+不用再上 GPU。360 个嫁接槽按来源时间顺序、每载体 40 个、填进该载体升序的空位；这条规则
+只决定"哪个外来向量进哪个块"，不决定记忆里有哪些向量。
 
 ```bash
 # 先看会跑哪些题（只加载 tokenizer，不占 GPU、不写文件）
@@ -188,8 +189,9 @@ python tools/eval_replace_reorder.py --analyze reports/diagnostics/replace_reord
   逐题明细（`selection` / `replace` / `graft` 三个 0/1）。
 - 除新增的 B 组外，其余全部沿用实验 1：同一批 158 道有效题、冻结 Reader、单次 19→9、
   同样的 9 个载体、同样的 top-216 core、同样的 360 个嫁接槽、`operator_mode="native"`、
-  不训练。`--verify-against` 若在 `Full`/`Selection`/`Graft` 三个臂上不是 100% 逐题一致，
-  那是本驱动的 bug，不是结果。
+  不训练。`--verify-against` 会在跑之前就打开参照报告（路径写错不会等到跑完才炸），
+  并且**双向**核对行集合：跑的是子集也会被判 `passed=false`，不会伪装成 100% 一致。
+  若在 `Full`/`Selection`/`Graft` 三个臂上不是逐题一致，那是本驱动的 bug，不是结果。
 - `A→B` 是**联合**效应，不能凭这一个差值再区分"删除损失"和"嫁接收益"，报告里
   `protocol.attribution_note` 写死了这句话。
 - 显著性用**双侧精确 McNemar**，只对不一致对计数；`mcnemar_p` 就在每个 `pairs` 条目里。

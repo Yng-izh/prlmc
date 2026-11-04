@@ -32,7 +32,9 @@ the V10 output, so B and C hold literally the same 2,304 vectors:
 B is not a re-implementation of the compression: it is `graft_output.index_select(1, perm)`
 with `perm` a verified bijection of `range(2304)`. That is what makes "same
 vectors, different order" a fact of the code rather than a claim in a report:
-`run_sample` asserts `sorted(perm) == list(range(2304))` and stores its digest.
+`plan_inplace_replace` asserts `sorted(perm) == list(range(2304))` and the report
+stores the permutation itself, so the layout can be rebuilt from arm C's output
+after the run without touching a GPU.
 
 Which 40 graft vectors land in which carrier
 --------------------------------------------
@@ -40,8 +42,9 @@ The 360 graft slots are taken in source-time order and dealt out 40 at a time in
 carrier order (carrier k gets graft slots 40k..40k+39). The rule is arbitrary but
 fixed, monotone in document position, and it only decides which foreign vector
 lands in which block -- never which vectors are in the memory. The report stores
-the resulting per-carrier source-block counts, and the permutation digest, so the
-choice is auditable instead of invisible.
+the full permutation, the resulting per-carrier source-block counts and its
+digest, so the choice is auditable instead of invisible, and a second assignment
+rule can be compared against this one without re-running anything.
 
 Protocol notes (all recorded in the report)
 ------------------------------------------
@@ -135,13 +138,16 @@ _check_geometry()
 # ---------------------------------------------------------------------------
 # arm B: the V10 vectors, put back where the carrier slots used to be
 # ---------------------------------------------------------------------------
-def build_inplace_replace(graft_output, telemetry, selected_blocks, window_blocks, block):
-    """Permute the V10 output into the carriers' own positions.
+def plan_inplace_replace(telemetry, selected_blocks, window_blocks, block):
+    """The permutation that puts the V10 slots back where the carrier slots were.
 
-    `graft_output` is arm C. The returned memory satisfies
-    `memory[:, i] == graft_output[:, perm[i]]` for a permutation `perm` that is
-    asserted to be a bijection, which is exactly the claim "B and C hold the same
-    2,304 vectors and differ only in order". Returns `(memory, layout)`.
+    Pure layout: no tensors, so the caller can plan once and materialise the
+    memory only for the arm that needs it (holding both compressed windows
+    resident costs another 0.6 GB for nothing). Returns a `layout` dict whose
+    `permutation` is asserted to be a bijection of `range(2304)`: that list, not a
+    digest of it, is what the report stores, because it is the only thing that
+    makes "B and C hold the same vectors, in a different order" checkable after
+    the run instead of taken on faith.
 
     The layout is read from `slot_source_positions`, the native window position
     of every output slot, which the operator publishes precisely so a slot can be
@@ -151,13 +157,16 @@ def build_inplace_replace(graft_output, telemetry, selected_blocks, window_block
     if "slot_source_positions" not in telemetry:
         raise ValueError("the operator did not publish slot_source_positions; arm B "
                          "cannot be built without the in-block origin of each slot")
-    total = int(graft_output.shape[1])
+    positions = [int(position) for position in telemetry["slot_source_positions"]]
+    total = len(positions)
     if total != TARGET_SLOTS:
         raise ValueError(f"expected {TARGET_SLOTS} output slots, got {total}")
 
     graft_offsets = [int(offset) for offset in telemetry["bridge_slot_offsets"]]
     if len(graft_offsets) != GRAFT_SLOTS_TOTAL:
         raise ValueError(f"expected {GRAFT_SLOTS_TOTAL} graft slots, got {len(graft_offsets)}")
+    # `nonzero` on the output axis is ascending by construction, so this can only
+    # fire if the operator's record ever stops being the chronological one.
     if graft_offsets != sorted(graft_offsets):
         raise ValueError("the graft offsets are not in chronological order")
     graft_set = set(graft_offsets)
@@ -165,9 +174,6 @@ def build_inplace_replace(graft_output, telemetry, selected_blocks, window_block
     if len(core_offsets) != CORE_SLOTS_TOTAL:
         raise ValueError(f"expected {CORE_SLOTS_TOTAL} core slots, got {len(core_offsets)}")
 
-    positions = [int(position) for position in telemetry["slot_source_positions"]]
-    if len(positions) != total:
-        raise ValueError("slot_source_positions does not cover the output")
     # The block provenance the operator already reports must agree with the
     # positions, otherwise one of the two records is lying and B would silently
     # move the wrong vectors.
@@ -192,11 +198,12 @@ def build_inplace_replace(graft_output, telemetry, selected_blocks, window_block
                 raise ValueError(f"core slot {index} claims block {origin // block}, "
                                  f"not its carrier {carrier}")
             core_local.append(origin % block)
-        if len(set(core_local)) != CORE_SLOTS:
+        kept = set(core_local)
+        if len(kept) != CORE_SLOTS:
             raise ValueError("a carrier reuses an in-block position for two core slots")
         if core_local != sorted(core_local):
             raise ValueError("core slots are not in ascending in-block order")
-        vacated = [position for position in range(block) if position not in set(core_local)]
+        vacated = [position for position in range(block) if position not in kept]
         if len(vacated) != GRAFT_SLOTS:
             raise ValueError(f"carrier {carrier} vacates {len(vacated)} positions, "
                              f"expected {GRAFT_SLOTS}")
@@ -219,24 +226,36 @@ def build_inplace_replace(graft_output, telemetry, selected_blocks, window_block
         raise ValueError("arm B is not a permutation of the V10 output: the two arms "
                          "would not hold the same slot vectors")
 
-    perm = torch.as_tensor(dest, dtype=torch.long, device=graft_output.device)
-    memory = graft_output.index_select(1, perm)
     source_counts = Counter()
     for carrier in per_carrier:
         for source, count in carrier["graft_source_blocks"].items():
             source_counts[int(source)] += int(count)
-    layout = dict(
+    return dict(
         permutation_is_bijection=True,
-        permutation_sha256=digest([int(value) for value in dest]),
+        permutation=dest,
+        permutation_sha256=digest(dest),
         slots=total,
         per_carrier=per_carrier,
         graft_slots_by_source_block={str(key): int(source_counts.get(key, 0))
                                      for key in range(window_blocks)},
-        note=("arm B is `C.index_select(1, perm)` with `perm` a verified bijection of "
-              "range(2304); the 360 graft slots are dealt out in source-time order, 40 "
-              "per carrier in carrier order, into each carrier's ascending vacated "
+        note=("arm B is `C.index_select(1, permutation)`; `permutation` is stored in "
+              "full so the layout can be rebuilt from arm C's output without re-running "
+              "the GPU pipeline. The 360 graft slots are dealt out in source-time order, "
+              "40 per carrier in carrier order, into each carrier's ascending vacated "
               "positions"))
-    return memory, layout
+
+
+def apply_inplace_replace(graft_output, layout):
+    """Materialise arm B: the same 2,304 vectors as `graft_output`, permuted."""
+    perm = torch.as_tensor(layout["permutation"], dtype=torch.long,
+                           device=graft_output.device)
+    return graft_output.index_select(1, perm)
+
+
+def build_inplace_replace(graft_output, telemetry, selected_blocks, window_blocks, block):
+    """Plan and materialise in one call. `memory[:, i] == graft_output[:, perm[i]]`."""
+    layout = plan_inplace_replace(telemetry, selected_blocks, window_blocks, block)
+    return apply_inplace_replace(graft_output, layout), layout
 
 
 def install_output(manager, output, picked, window_blocks):
@@ -269,8 +288,10 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
         graft_output, telemetry = gr.compress_graft(
             manager, merge, source, picked, args.window_blocks, args.target_blocks,
             frozen, pinned)
-        replace_output, layout = build_inplace_replace(
-            graft_output, telemetry, picked, args.window_blocks, manager.block)
+        # Arm B is planned here but materialised per readout: keeping a second
+        # 0.60 GB compressed window resident for the whole sample costs ~1.2 GB of
+        # peak GPU memory against experiment 1 for nothing.
+        layout = plan_inplace_replace(telemetry, picked, args.window_blocks, manager.block)
     gr.restore(model, manager, state)
 
     def prepare(arm):
@@ -279,7 +300,8 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
             if arm == SELECTION:
                 gr.install_selection(manager, source, picked, args.window_blocks)
             elif arm == REPLACE:
-                install_output(manager, replace_output, picked, args.window_blocks)
+                install_output(manager, apply_inplace_replace(graft_output, layout),
+                               picked, args.window_blocks)
             elif arm == GRAFT:
                 install_output(manager, graft_output, picked, args.window_blocks)
             fingerprints[arm] = gr.active_fingerprint(manager)
@@ -295,12 +317,15 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
         raise ValueError("the compression disagrees with the shared carrier set")
     if provenance["graft_slots"] != GRAFT_SLOTS_TOTAL:
         raise ValueError("the compression did not emit 360 graft slots")
+    # Distinctness is a stride-13 mean, not a hash: it catches "the compression
+    # did not run" and "arm B was not permuted", nothing finer.
     if len(set(fingerprints[arm] for arm in ARMS)) != len(ARMS):
         raise ValueError("two arms read the same pool: the compression did not run")
     if fingerprints[REPLACE] == fingerprints[GRAFT]:
         raise ValueError("Replace and Graft read the same pool: arm B did not permute")
-    if int(fingerprints[REPLACE + "/slots"]) != TARGET_SLOTS:
-        raise ValueError("arm B does not hold the target slot budget")
+    for arm in (SELECTION, REPLACE, GRAFT):
+        if int(fingerprints[arm + "/slots"]) != TARGET_SLOTS:
+            raise ValueError(f"arm {arm} does not hold the {TARGET_SLOTS}-slot budget")
 
     return dict(arms=arms, fingerprints=fingerprints, provenance=provenance,
                 layout=layout, carrier_ages=[int(ages[block]) for block in picked])
@@ -377,17 +402,20 @@ def _outcome(baseline, replace, graft):
     A generic 8-way map instead of ad-hoc counters, so the same vocabulary
     describes the protection group (baseline correct), the rescue group
     (baseline wrong) and the ungated set, and no case is silently dropped.
+    "Unchanged" is split by which way it was unchanged: merging "right everywhere"
+    with "wrong everywhere" would make the ungated table's largest bucket mean two
+    opposite things.
     """
     key = (bool(baseline), bool(replace), bool(graft))
     return {
-        (True, True, True): "unchanged",
+        (True, True, True): "unchanged_correct",
         (True, True, False): "broken_at_reorder",
         (True, False, True): "broken_at_replace_recovered_at_reorder",
         (True, False, False): "broken_at_replace",
         (False, True, True): "fixed_at_replace",
         (False, True, False): "fixed_at_replace_broken_at_reorder",
         (False, False, True): "fixed_at_reorder",
-        (False, False, False): "unchanged",
+        (False, False, False): "unchanged_wrong",
     }[key]
 
 
@@ -419,6 +447,12 @@ def _transitions(samples, threshold):
 def analyse(samples, threshold, excluded=0):
     """The two-stage attribution, on the graded samples only."""
     graded = [sample for sample in samples if sample.get("status") == "graded"]
+    for sample in graded:
+        missing = [arm for arm in ARMS if arm not in sample.get("arms", {})]
+        if missing:
+            raise ValueError(f"sample {sample.get('id')} has no {missing} arm: this report "
+                             f"was not produced by this driver, and every table below "
+                             f"assumes all four arms exist")
     located = [sample for sample in graded if sample.get("evidence", {}).get("located")]
 
     def evidence_in_dropped(sample):
@@ -509,17 +543,43 @@ def analyse(samples, threshold, excluded=0):
 # ---------------------------------------------------------------------------
 # cross-check against experiment 1
 # ---------------------------------------------------------------------------
-def verify_against(path, samples):
+def load_reference(path):
+    """Open the experiment-1 report before the GPU work, not after it.
+
+    A typo or a moved file must fail in the first second, not at the finish line
+    of a 40-minute run -- and not before the summary has been written either.
+    """
+    reference = json.loads(Path(path).read_text())
+    table = {str(sample["id"]): sample for sample in reference.get("samples") or []}
+    if not table:
+        raise ValueError(f"--verify-against {path} holds no samples")
+    missing = [arm for arm in (FULL, SELECTION, GRAFT)
+               if not any(arm in sample.get("arms", {}) for sample in table.values())]
+    if missing:
+        raise ValueError(f"--verify-against {path} has no {missing} arms; it is not an "
+                         f"experiment-1 report")
+    return reference, table
+
+
+def verify_against(path, reference, table, samples):
     """Compare this run with a finished experiment-1 report, row by row.
 
     Arm C is supposed to BE experiment 1's Graft arm. A 100% prediction match on
     all three shared arms is the only cheap evidence that it is, and a mismatch
     here is a bug in this driver, not a result.
+
+    The row set is checked in BOTH directions: a run over a subset of the rows
+    would otherwise report `different=0, missing=[]` and look like a perfect
+    match, which is the one thing this cross-check must not be able to do.
     """
-    reference = json.loads(Path(path).read_text())
-    table = {str(sample["id"]): sample for sample in reference.get("samples") or []}
-    report = dict(reference=path, reference_schema=reference.get("schema"),
-                  reference_samples=len(table), compared=0, missing=[])
+    this_run = {str(sample["id"]) for sample in samples}
+    report = dict(
+        reference=path, reference_schema=reference.get("schema"),
+        reference_samples=len(table), compared=len(this_run),
+        row_count_matches_reference=(len(this_run) == len(table)),
+        reference_not_in_this_run=sorted(set(table) - this_run),
+        this_run_not_in_reference=sorted(this_run - set(table)))
+    passed = report["row_count_matches_reference"]
     for arm in (FULL, SELECTION, GRAFT):
         same = different = absent = 0
         differing = []
@@ -540,9 +600,8 @@ def verify_against(path, samples):
                     new_qa_f1=round(sample["arms"][arm]["qa_f1"], 4)))
         report[arm] = dict(identical=same, different=different, not_in_reference=absent,
                            differing=differing[:20])
-    report["compared"] = len(samples)
-    report["missing"] = [str(sample["id"]) for sample in samples
-                         if str(sample["id"]) not in table]
+        passed = passed and different == 0 and absent == 0 and same == len(table)
+    report["passed"] = passed
     return report
 
 
@@ -628,14 +687,16 @@ def _self_test():
         raise ValueError("a balanced table must not be significant")
 
     stages = {
-        (True, True, True): "unchanged",
+        (True, True, True): "unchanged_correct",
         (True, True, False): "broken_at_reorder",
         (True, False, False): "broken_at_replace",
         (True, False, True): "broken_at_replace_recovered_at_reorder",
         (False, True, True): "fixed_at_replace",
         (False, True, False): "fixed_at_replace_broken_at_reorder",
         (False, False, True): "fixed_at_reorder",
-        (False, False, False): "unchanged"}
+        (False, False, False): "unchanged_wrong"}
+    if len(set(stages.values())) != 8:
+        raise ValueError("the stage vocabulary must name all eight outcomes distinctly")
     for key, want in stages.items():
         if _outcome(*key) != want:
             raise ValueError(f"_outcome{key} = {_outcome(*key)}, expected {want}")
@@ -707,7 +768,14 @@ def dry_run(args, facts, tokenizer):
                     supporting_facts_joined=len(
                         [sample for sample in prepared
                          if sample["evidence"]["supporting_sentences"]]),
-                    evidence_in_window=len(located)),
+                    sentence_located_in_context=len(
+                        [sample for sample in prepared
+                         if sample["evidence"]["supporting_sentences_located"]]),
+                    evidence_in_window=len(located),
+                    sentence_found_but_outside_window=len(
+                        [sample for sample in prepared
+                         if sample["evidence"]["supporting_sentences_located"]
+                         and not sample["evidence"]["located"]])),
         evidence_block_histogram={str(block): histogram[block] for block in sorted(histogram)},
         excluded_examples=excluded[:5],
         eligible_ids=[sample["id"] for sample in prepared],
@@ -737,6 +805,9 @@ def evaluate(args):
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         raise ValueError("output exists; refuse overwrite")
+    reference = table = None
+    if args.verify_against:
+        reference, table = load_reference(args.verify_against)
 
     rows, prepared, excluded = gr.prepare_rows(args, tokenizer, facts)
     if not prepared:
@@ -757,6 +828,20 @@ def evaluate(args):
         raise ValueError("expected the native 50-block / 256-slot MemoryLLM reader")
     merge.operator_mode = "native"       # experiment 2: native slots only
 
+    # `manifold_graft.py` is NOT in CRITICAL_MERGE_FILES, so `--strict-code-hash`
+    # cannot see a change to it. This run added a telemetry field there, so the
+    # comparison is recorded explicitly instead of being assumed: a False here
+    # means "the operator file changed since the checkpoint was written", and the
+    # only thing that vouches for the numerics is `--verify-against`.
+    operator_file = "methods/prlmc/manifold_graft.py"
+    operator_now = sha(ROOT / operator_file)
+    operator_then = ((saved or {}).get("source_manifest") or {}).get(operator_file)
+    if operator_then != operator_now:
+        print(f"WARNING: {operator_file} differs from the checkpoint's manifest "
+              f"(ckpt {str(operator_then)[:8]} != code {operator_now[:8]}); the change "
+              f"must be non-numeric, and --verify-against is what checks that",
+              file=sys.stderr)
+
     report = dict(
         schema="replace_reorder_results/1", status="running",
         protocol=dict(build_protocol(args, args.task),
@@ -770,7 +855,9 @@ def evaluate(args):
             supporting_facts_glob=args.supporting_facts_glob,
             entrypoint_sha256=sha(__file__),
             compression_entrypoint_sha256=sha(Path(gr.__file__)),
-            operator_sha256=sha(ROOT / "methods/prlmc/manifold_graft.py"),
+            operator_sha256=operator_now,
+            operator_sha256_in_checkpoint=operator_then,
+            operator_matches_checkpoint=(operator_then == operator_now),
             critical_manifest=critical_manifest(),
             reader_frozen=True),
         excluded=excluded, samples=[], training_performed=False,
@@ -810,12 +897,20 @@ def evaluate(args):
                                 excluded=len(report["excluded"]))
     if args.verify_against:
         report["verification_against_experiment_1"] = verify_against(
-            args.verify_against, report["samples"])
+            args.verify_against, reference, table, report["samples"])
     report["elapsed_seconds"] = time.monotonic() - started
     report["peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
     report["status"] = "complete"
     atomic_json(output, report)
     print(json.dumps(report["summary"], indent=1, ensure_ascii=False))
+    verification = report.get("verification_against_experiment_1")
+    if verification and not verification["passed"]:
+        # Written to disk first: the report is still valid evidence for B vs C,
+        # it just is not the experiment-1 reproduction it claims to be.
+        print("WARNING: this run does NOT reproduce experiment 1 row for row; "
+              f"{json.dumps({arm: verification[arm]['different'] for arm in (FULL, SELECTION, GRAFT)})} "
+              "differing predictions. Treat arm C as a different implementation.",
+              file=sys.stderr)
 
 
 def analyze_existing(path, threshold=None):
@@ -824,7 +919,16 @@ def analyze_existing(path, threshold=None):
         threshold = report.get("protocol", {}).get("f1_threshold", 0.5)
     summary = analyse(report.get("samples") or [], threshold,
                       excluded=len(report.get("excluded") or []))
+    # The stored per-arm `correct` flags are derived from the same QA F1, so a
+    # moved threshold has to move them too: otherwise the summary and the records
+    # it was computed from disagree inside one file.
+    for sample in report.get("samples") or []:
+        for record in (sample.get("arms") or {}).values():
+            if "qa_f1" in record:
+                record["correct"] = int(record["qa_f1"] >= threshold)
+                record["f1_threshold"] = threshold
     report["summary"] = summary
+    report.setdefault("protocol", {})["f1_threshold"] = threshold
     atomic_json(Path(path), report)
     print(json.dumps(summary, indent=1, ensure_ascii=False))
 
