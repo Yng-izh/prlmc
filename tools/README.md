@@ -49,3 +49,21 @@ python tools/eval_lbv2.py --arm Selection \
 
 `--max-samples N` 跑子集；`--rescore` 只重算已有报告的评分（不跑模型）；
 `--strict-code-hash` 默认开启，算子文件与 checkpoint 记录不一致会直接报错。
+
+## 问题定位（A/B/C/D）
+
+```bash
+# C：只有最后一次压缩融合（前面全部 Selection，且沿用 B 的载体序列）
+python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last \
+  --carrier-schedule reports/main_table/<B>.json --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --data-json <lbv2/data.json> --budget-blocks 50 --max-samples 20 --cuda-device 0 --out <C>.json
+
+# D：同 C，但算子只做原生槽位替换（不做凝聚/正交/Core 强化）
+python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last --operator-variant native ...
+
+# 不跑模型，直接对比已有报告的逐题选项概率
+python tools/diagnose_ab.py <A>.json <B>.json --labels Selection V10
+```
+
+每个样本会额外记录 `last_merge`（最后一次融合丢弃/保留了哪些写入块、覆盖文档的哪一段、
+正确选项的措辞是否出现在被丢弃的原文里）。设计说明见 [docs/04-diagnostics.md](../docs/04-diagnostics.md)。
