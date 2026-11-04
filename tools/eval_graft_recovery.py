@@ -669,7 +669,15 @@ def analyse(samples, threshold):
             graft_correct=len([sample for sample in graded
                                if sample["arms"][GRAFT]["correct"]]),
             evidence_in_dropped=len([sample for sample in located
-                                     if evidence_in_dropped(sample)])),
+                                     if evidence_in_dropped(sample)]),
+            # Third bucket, reported so a compression loss is not mis-attributed
+            # to a dropped evidence block it never touched: Full answered, the
+            # compression lost the answer, and the evidence block was KEPT.
+            compression_loss_evidence_kept=len(
+                [sample for sample in located
+                 if sample["arms"][FULL]["correct"]
+                 and not sample["arms"][SELECTION]["correct"]
+                 and not evidence_in_dropped(sample)])),
         arms={arm: _arm_summary(graded, arm) for arm in ARMS},
         arms_evidence_located={arm: _arm_summary(located, arm) for arm in ARMS},
         paired=dict(
@@ -682,6 +690,10 @@ def analyse(samples, threshold):
             definition=("Full correct, Selection wrong, and the dropped blocks hold "
                         "the supporting sentence"),
             n=len(rescue), rescued=len(rescued),
+            full_correct_selection_wrong=len(
+                [sample for sample in located
+                 if sample["arms"][FULL]["correct"]
+                 and not sample["arms"][SELECTION]["correct"]]),
             rescued_rate=(len(rescued) / len(rescue) if rescue else None),
             evidence_block_grafted=len([sample for sample in rescue
                                         if _evidence_graft_slots(sample) > 0]),
