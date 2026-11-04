@@ -15,6 +15,7 @@
 | `native_eval.py` | MemoryLLM-8B 原生基线评测（50 块池、不压缩） |
 | `eval_graft_recovery.py` | 实验 1：原生槽位嫁接的知识恢复/损伤（Full / Selection / Graft，19→9，单次压缩） |
 | `eval_replace_reorder.py` | 实验 2：替换 vs 重排的损伤归因（Full / Selection / Replace / Graft，B 与 C 的槽位向量完全相同） |
+| `eval_evict_only.py` | 实验 3：Evict-Only，把替换损伤拆成"删槽"和"插槽"（Full / Selection / Evict / Replace） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -198,3 +199,84 @@ python tools/eval_replace_reorder.py --analyze reports/diagnostics/replace_reord
   `protocol.attribution_note` 写死了这句话。
 - 显著性用**双侧精确 McNemar**，只对不一致对计数；`mcnemar_p` 就在每个 `pairs` 条目里。
 - 筛选用了答案和证据位置，分组准确率是**机制诊断**，不是数据集成绩。
+
+## 实验 3：Evict-Only —— 损伤到底来自"删槽"还是"插槽"
+
+实验 2 已经证明保护组 13 题里有 4 题是在 `Replace` 阶段变错的，但"替换"同时做了两件事：
+(i) 把每个载体自己的 40 个 Bottom 槽**删掉**了；(ii) 又把 360 个嫁接槽**插**进了腾出的位置。
+这一个差值分不开这两件事，所以本实验只新增一个臂：
+
+| 臂 | 做法 | 可读槽位 |
+|---|---|---|
+| `Full` | 19 块 4,864 槽，不压缩（参考） | 4,864 |
+| `Selection` | 9 个载体块原样（A） | 2,304 |
+| `Evict` | **和 A 完全相同的张量**，只把这 360 个槽从 Reader 的注意力里摘掉，不插入任何外来槽位（B） | 1,944 |
+| `Replace` | 删掉同样的 360 个槽，再把 360 个嫁接槽填进腾出的位置（C，等同实验 2 的 B） | 2,304 |
+
+于是 `A→B` = **纯删除**的影响（记忆里没有任何外来向量），`B→C` = **纯插入**的影响
+（载体相同、位置相同，只是把 360 个嫁接向量加了进来并解除屏蔽），`A→C` = 复核实验 2。
+
+B 臂不是"清空再重排"：它调用和 A 臂**同一个** `gr.install_selection`，然后清掉
+`model.memory_active_mask` 里对应的 360 位。所以两件事被逐题硬校验：
+
+- `fingerprints.Evict == fingerprints.Selection` **按位相等**（不是近似），证明 A、B 的张量
+  一模一样，"掩码"是唯一变量；
+- 每个载体保留的 216 个槽仍在**原来的块内位置**，不存在重新打包这个隐藏变量。
+
+为什么用 Mask 而不是补零或重排：Reader 通过 `memory_active_mask` 给非活跃槽位打
+`finfo.min` 的注意力偏置，槽位等于不存在；补零但继续让它被 attend 到是另一种干扰，会把
+"删槽"和"看见零向量"混在一起。掩码是**非连续**的（9 个块里各 40 个洞），而管理器在
+`used` 变动时会自己重算掩码，所以掩码在 install **之后**才施加，并且生成之后再查一次
+活跃槽位数（每题的 `eviction.mask.active_after` 必须是 1,944），否则说明掩码被覆盖了。
+
+```bash
+# 先看会跑哪些题（不占 GPU、不写文件）
+python tools/eval_evict_only.py --dry-run \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16
+
+# 不需要 GPU 的自检：淘汰集合、掩码算术、阶段映射、McNemar 统计
+python tools/eval_evict_only.py --self-test
+
+# 正式跑（--verify-against 逐题比对实验 2 的 Full/Selection/Replace）
+python tools/eval_evict_only.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/evict_only_hotpotqa.json
+
+# 不跑模型，重新分组已有报告（含 --f1-threshold）
+python tools/eval_evict_only.py --analyze reports/diagnostics/evict_only_hotpotqa.json
+```
+
+判据表（每题的 A/B/C 三个 0/1 组合，八种情形全部命名，不会漏掉任何一种）：
+
+| 组合 | `summary` 里的名字 | 说明什么 |
+|---|---|---|
+| A=1 B=0 C=0 | `broken_at_evict` | 删槽就已经把这题弄坏了，外来槽位无辜 |
+| A=1 B=1 C=0 | `broken_at_insert` | 删槽没事，插槽才弄坏 → 疑点在外来内容或它的位置分配 |
+| A=1 B=0 C=1 | `broken_at_evict_recovered_at_insert` | 删槽伤了，嫁接槽又救回了可回答性 |
+| A=0 B=0 C=1 | `fixed_at_insert` | 只有插入带来了净收益 |
+| A=0 B=1 C=1 / A=0 B=1 C=0 | `fixed_at_evict` / `fixed_at_evict_broken_at_insert` | 删槽反而修好了（后者又被插槽弄坏） |
+| A=1 B=1 C=1 / A=0 B=0 C=0 | `unchanged_correct` / `unchanged_wrong` | 什么都没发生 |
+
+`summary.protection_group` 就是实验 2 那 13 题（`Full` 对、`Selection` 对、证据块在窗口内），
+给出 `harmed_by_evict` / `harmed_by_insert` / `harmed_by_replace` 三个计数、`harmed_detail`
+（每题 A/B/C 的 0/1 和 QA F1、`p_gold`）以及 `verdict` 一句话结论。若有 `--verify-against`，
+还会核对这 13 个 id 和实验 2 报告里的保护组是否**完全一致**（`matches_reference`）。
+
+口径说明：
+
+- **容量不等**：B 读 1,944 个槽，A/C 读 2,304 个。这是故意的——它就是为了"只减不增"，
+  所以 `A→B` 是**机制诊断**，不是等容量主表比较；B 只支持一个**否定**结论：某题在 B 就已经错，
+  那外来槽位就不是肇事者。这句话写死在 `protocol.capacity_caveat` 里。
+- 除新增的 B 臂外全部沿用实验 2：同一批 158 道题、冻结 Reader、单次 19→9、同样的 9 个载体、
+  同样的 top-216 core、同样的 360 个嫁接槽、`operator_mode="native"`、不训练。
+  `--verify-against` 在开跑前就打开参照报告，并**双向**核对行集合，跑子集会被判 `passed=false`。
+- 淘汰集合是从 C 臂自己的 `permutation` 反推出来的（`evicted_window_positions`），不是另写
+  一条规则，所以 B 删的 360 个位置和 C 插的 360 个位置**必然**是同一批，跑完还能用报告的
+  `eviction.positions` 复算。
+- 显著性仍是**双侧精确 McNemar**；筛选用了答案和证据位置，分组准确率是**机制诊断**，不是数据集成绩。
