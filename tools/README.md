@@ -219,8 +219,10 @@ python tools/eval_replace_reorder.py --analyze reports/diagnostics/replace_reord
 B 臂不是"清空再重排"：它调用和 A 臂**同一个** `gr.install_selection`，然后清掉
 `model.memory_active_mask` 里对应的 360 位。所以两件事被逐题硬校验：
 
-- `fingerprints.Evict == fingerprints.Selection` **按位相等**（不是近似），证明 A、B 的张量
-  一模一样，"掩码"是唯一变量；
+- 逐题用 `torch.equal` 直接比对 A 臂和 B 臂装进池子里的那段窗口（形状、dtype、每一个 bit 都
+  必须相同，结果记在 `eviction.mask.tensor_equal_to_selection`），证明 A、B 的张量一模一样，
+  "掩码"是唯一变量。`fingerprints` 只当记录，**不当证据**：它是全池的稀疏均值，实验 2 里四个
+  臂的指纹全都在 1e-4 之内，拿它当门禁等于用巧合做证明；
 - 每个载体保留的 216 个槽仍在**原来的块内位置**，不存在重新打包这个隐藏变量。
 
 为什么用 Mask 而不是补零或重排：Reader 通过 `memory_active_mask` 给非活跃槽位打

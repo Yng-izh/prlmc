@@ -36,9 +36,12 @@ not to attend to them, through `memory_active_mask` -- the Phase-2 mechanism the
 manager already publishes, which puts `finfo.min` on the attention score of every
 inactive pool slot. Two consequences make this a single-factor experiment:
 
-  * `evict_fingerprint == selection_fingerprint` is asserted EXACTLY on every
-    sample, so the two pools are provably identical and the mask is the only
-    difference between A and B;
+  * arm B's installed window is compared against arm A's with `torch.equal` on
+    every sample -- same shape, same dtype, same bits -- so the two pools are
+    measured to be identical and the mask is the only difference between A and B
+    (the stride-13 mean fingerprint is recorded as telemetry, NOT as this proof:
+    it is an average over the pool, and experiment 2 found all four of its arms
+    within 1e-4 of each other);
   * each carrier keeps its 216 surviving slots at their ORIGINAL in-block
     positions, so "B deleted 40 slots" does not smuggle in a re-packing.
 
@@ -308,6 +311,20 @@ def install_evict(manager, model, source, picked, eviction, window_blocks):
                 mask_syncs=int(manager._active_mask_count))
 
 
+def installed_window(manager):
+    """The exact bytes of the compressed window currently resident in the pool.
+
+    Returned as a view, not a copy: the caller decides whether it needs to keep it.
+    `install` places the candidate at `[total - used, total - used + 2304)`, so this
+    is the region two compressed arms are supposed to agree (or disagree) on.
+    """
+    if int(manager.used) != TARGET_SLOTS:
+        raise ValueError(f"the pool holds {int(manager.used)} slots, expected the "
+                         f"{TARGET_SLOTS}-slot compressed window")
+    start = int(manager.total - manager.used)
+    return manager._memory[:, start:start + TARGET_SLOTS]
+
+
 # ---------------------------------------------------------------------------
 # one sample
 # ---------------------------------------------------------------------------
@@ -334,6 +351,11 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
         eviction = evicted_window_positions(layout)
     gr.restore(model, manager, state)
 
+    # Arm A's installed window is kept so arm B can be compared against it element by
+    # element. A clone is 604 MB of the 40 GB card and it is what turns "A and B hold
+    # the same memory" from an argument about the code into a measurement of the pool.
+    captured = {}
+
     def prepare(arm):
         def run():
             gr.restore(model, manager, state)
@@ -346,6 +368,23 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
             elif arm == REPLACE:
                 er.install_output(manager, er.apply_inplace_replace(graft_output, layout),
                                   picked, args.window_blocks)
+            if arm == SELECTION and "window" not in captured:
+                captured["window"] = installed_window(manager).clone()
+            elif arm == EVICT:
+                # The exact check: same shape, same dtype, same bits. The stride-13
+                # fingerprint recorded below is telemetry only -- it is a mean over
+                # the pool, so two DIFFERENT memories can share it (experiment 2
+                # measured all four of its arms within 1e-4 of each other), and using
+                # it as the gate would be a coincidence test dressed up as a proof.
+                window = installed_window(manager)
+                if not torch.equal(captured["window"], window):
+                    mismatch = int((captured["window"] != window).sum())
+                    raise ValueError(
+                        f"arm Evict no longer holds arm Selection's memory: "
+                        f"{mismatch} of {window.numel()} slot values differ, so the "
+                        f"eviction arm is not a mask-only change to arm A")
+                readouts[arm]["tensor_equal_to_selection"] = True
+                readouts[arm]["compared_slot_values"] = int(window.numel())
             fingerprints[arm] = gr.active_fingerprint(manager)
             fingerprints[arm + "/slots"] = int(manager.used)
             fingerprints[arm + "/active"] = int(model.memory_active_mask.sum())
@@ -367,12 +406,11 @@ def run_sample(model, tokenizer, manager, merge, prepared, args):
         raise ValueError("the compression disagrees with the shared carrier set")
     if provenance["graft_slots"] != GRAFT_SLOTS_TOTAL:
         raise ValueError("the compression did not emit 360 graft slots")
-    # The single-factor guarantees, checked rather than assumed.
-    if fingerprints[EVICT] != fingerprints[SELECTION]:
-        raise ValueError(
-            "arm Evict and arm Selection no longer hold the same memory "
-            f"({fingerprints[EVICT]!r} != {fingerprints[SELECTION]!r}): the eviction "
-            "arm is supposed to change the attention mask and nothing else")
+    # The single-factor guarantee, checked rather than assumed. `torch.equal` on the
+    # installed window is the authority; `fingerprints` is a mean and is kept for the
+    # record only (see the comment in `prepare`).
+    if not readouts.get(EVICT, {}).get("tensor_equal_to_selection"):
+        raise ValueError("arm Evict was never compared against arm Selection")
     if fingerprints[EVICT + "/active_after"] != CORE_SLOTS_TOTAL:
         raise ValueError(f"arm Evict read {fingerprints[EVICT + '/active_after']} active "
                          f"slots after generation, expected {CORE_SLOTS_TOTAL}: the "
@@ -880,8 +918,9 @@ def build_protocol(args, task):
         evict_construction=("arm Evict installs exactly what arm Selection installs and "
                             "then clears `memory_active_mask` at the 360 positions where "
                             "arm Replace puts a graft vector; the identity of the two "
-                            "pools is asserted float-exactly per sample "
-                            "(`fingerprints.Evict == fingerprints.Selection`)"),
+                            "pools is measured per sample with `torch.equal` on the "
+                            "installed window (`eviction.mask."
+                            "tensor_equal_to_selection`), not with the fingerprint"),
         mask_mechanism=MASK_NOTE,
         capacity_caveat=CAPACITY_CAVEAT,
         compressions_per_sample=1,
@@ -1042,8 +1081,8 @@ def evaluate(args):
                               selection=result["arms"][SELECTION]["correct"],
                               evict=result["arms"][EVICT]["correct"],
                               replace=result["arms"][REPLACE]["correct"],
-                              evict_equals_selection=(result["fingerprints"][EVICT]
-                                                      == result["fingerprints"][SELECTION]),
+                              evict_tensor_equals_selection=bool(
+                                  result["eviction"]["mask"]["tensor_equal_to_selection"]),
                               seconds=round(record["seconds"], 1))), flush=True)
 
     report["summary"] = analyse(report["samples"], args.f1_threshold,
