@@ -162,18 +162,18 @@ class ManifoldGraftedSlotMerge(nn.Module):
         max_sim_val, max_sim_idx = core_disc_sim.max(dim=-1)
         homo_mask = (max_sim_val > GEOMETRY_50B.cross_block_homo_cos_thr).float()
 
-        matched_disc_layers = flat_disc_layers.index_select(1, max_sim_idx)
         G = self.num_groups
         lpg = self.layers_per_group
-        homo_alpha_grp = (
-            torch.sigmoid(self.homo_gate_logits.float()).view(G, 1, 1, 1)
-            * GEOMETRY_50B.homo_reinforce_max_alpha
-        )
-        homo_alpha = homo_alpha_grp.expand(G, lpg, 1, 1).reshape(L, 1, 1) * homo_mask.view(1, -1, 1)
         if self.operator_mode == "native":
+            # Experiment D: the core slots are the carrier's own native slots.
             reinforced_core_layers = flat_core_layers
             homo_matched = 0
         else:
+            matched_disc_layers = flat_disc_layers.index_select(1, max_sim_idx)
+            homo_alpha = (
+                torch.sigmoid(self.homo_gate_logits.float()).view(G, 1, 1, 1)
+                * GEOMETRY_50B.homo_reinforce_max_alpha
+            ).expand(G, lpg, 1, 1).reshape(L, 1, 1) * homo_mask.view(1, -1, 1)
             reinforced_core_layers = self._geodesic_rms_preserve(flat_core_layers, matched_disc_layers, homo_alpha)
             homo_matched = int(homo_mask.sum().item())
 
@@ -181,7 +181,7 @@ class ManifoldGraftedSlotMerge(nn.Module):
             return (
                 reinforced_core_layers,
                 condensed_slot_mask.index_select(0, flat_core_pos),
-                {"mode": "homo_only", "grafted_slots": 0, "homo_matched": int(homo_mask.sum().item())},
+                {"mode": "homo_only", "grafted_slots": 0, "homo_matched": homo_matched},
             )
 
         disc_ref = ref_all.index_select(0, disc_t)
@@ -201,28 +201,29 @@ class ManifoldGraftedSlotMerge(nn.Module):
         graft_global_pos = flat_disc_pos.index_select(0, graft_pick_idx)
         graft_anchor_layers = flat_disc_layers.index_select(1, graft_pick_idx)
 
-        graft_block_ids = graft_pick_idx // B
-        all_disc_block_ids = torch.arange(len(discard_blocks), device=window_memory.device).unsqueeze(1).expand(-1, B).reshape(-1)
-        same_block_mask = (graft_block_ids.unsqueeze(1) == all_disc_block_ids.unsqueeze(0))
-
-        graft_route = flat_disc_route.index_select(0, graft_pick_idx)
-        intra_sim = torch.matmul(graft_route, flat_disc_route.t())
-        valid_neighbor_mask = same_block_mask & (intra_sim > GEOMETRY_50B.intra_discard_cluster_cos_thr)
-
-        temp = self.cluster_logit_scale.float().clamp(0.5, 10.0)
-        masked_logits = torch.where(
-            valid_neighbor_mask, intra_sim * temp, torch.full_like(intra_sim, -1e9)
-        )
-        cluster_weights = F.softmax(masked_logits, dim=-1).to(flat_disc_layers.dtype)
-        L_ = flat_disc_layers.shape[0]
-        cluster_ctx_layers = torch.bmm(
-            cluster_weights.float().unsqueeze(0).expand(L_, -1, -1), flat_disc_layers.float()
-        )
-
         if self.operator_mode == "native":
-            # Experiment D: the picked native slots are copied unchanged.
+            # Experiment D: the picked native slots are copied unchanged, so the
+            # discard-cluster context (and the routing pass that builds it) is not
+            # needed at all.
             condensed_graft_layers = graft_anchor_layers
         else:
+            graft_block_ids = graft_pick_idx // B
+            all_disc_block_ids = torch.arange(len(discard_blocks), device=window_memory.device).unsqueeze(1).expand(-1, B).reshape(-1)
+            same_block_mask = (graft_block_ids.unsqueeze(1) == all_disc_block_ids.unsqueeze(0))
+
+            graft_route = flat_disc_route.index_select(0, graft_pick_idx)
+            intra_sim = torch.matmul(graft_route, flat_disc_route.t())
+            valid_neighbor_mask = same_block_mask & (intra_sim > GEOMETRY_50B.intra_discard_cluster_cos_thr)
+
+            temp = self.cluster_logit_scale.float().clamp(0.5, 10.0)
+            masked_logits = torch.where(
+                valid_neighbor_mask, intra_sim * temp, torch.full_like(intra_sim, -1e9)
+            )
+            cluster_weights = F.softmax(masked_logits, dim=-1).to(flat_disc_layers.dtype)
+            L_ = flat_disc_layers.shape[0]
+            cluster_ctx_layers = torch.bmm(
+                cluster_weights.float().unsqueeze(0).expand(L_, -1, -1), flat_disc_layers.float()
+            )
             condensed_graft_layers = self._geodesic_rms_preserve(
                 graft_anchor_layers,
                 cluster_ctx_layers.to(graft_anchor_layers.dtype),

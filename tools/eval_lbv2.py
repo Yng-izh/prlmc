@@ -27,6 +27,7 @@ import re
 import subprocess
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -101,17 +102,33 @@ CACHE_SCHEMA = "native_write_state/1"
 
 
 def _normalize_text(text):
-    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", (text or "").lower()).split())
+    """Lowercase, fold accents, and keep word characters plus digits."""
+    folded = unicodedata.normalize("NFKD", (text or "").lower())
+    folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", folded).split())
+
+
+def _wording_matches(text, target):
+    """Whole-word occurrences of `target` in `text`; 0 means absent."""
+    if not target:
+        return 0
+    pattern = r"(?<![a-z0-9])" + re.escape(target) + r"(?![a-z0-9])"
+    return len(re.findall(pattern, text))
 
 
 def last_merge_evidence(events, writes, tokenizer, row):
     """What the final fused merge dropped, and whether the answer wording was there.
 
-    A text-level proxy, not proof: it reports whether the correct option's
-    wording survives in the kept carriers, was dropped with the window, or was
-    never in the window at all. A negative on all three means the last window
-    cannot be blamed for the loss, so a null result for experiment C would not
-    be explained by "there was nothing to rescue".
+    A text-level proxy, not proof. `kept`/`dropped` name the window blocks whose
+    slots the merge used as carriers / dropped as carriers. A dropped block can
+    still contribute graft slots (40 of every 256 output slots come from dropped
+    blocks), so `answer_wording_in_dropped` means "the wording lived in a block
+    that lost its own carrier", not "the content is gone".
+
+    The match is a whole-word phrase match on normalised text. A single-token
+    option ("China", "1945", "2") occurs throughout a long document, so the
+    counts are reported next to `answer_wording_distinctive`; a hit on a
+    non-distinctive option is not evidence.
     """
     fused = [event for event in events if event.get("fused")]
     if not fused:
@@ -119,26 +136,38 @@ def last_merge_evidence(events, writes, tokenizer, row):
     event = fused[-1]
     answer = str(row.get("answer", ""))
     target = _normalize_text(row.get("choice_" + answer))
+    distinctive = len(target.split()) >= 2
 
-    def contains(indices):
+    def count(indices):
         if not indices:
             return None
         text = " ".join(tokenizer.decode(writes[i], skip_special_tokens=True)
                         for i in indices if 0 <= i < len(writes))
-        return bool(target) and target in _normalize_text(text)
+        return _wording_matches(_normalize_text(text), target)
 
     window = event.get("window_writes") or []
     kept = event.get("kept_writes") or []
     dropped = event.get("dropped_writes") or []
+    total_tokens = max(1, sum(len(write) for write in writes))
     return dict(
         before_write=event.get("before_write"),
         window_writes=window, kept_writes=kept, dropped_writes=dropped,
-        window_token_range=([window[0] * 512, (window[-1] + 1) * 512] if window else None),
-        document_fraction=([round(window[0] / max(1, len(writes)), 3),
-                            round((window[-1] + 1) / max(1, len(writes)), 3)] if window else None),
-        answer_text_in_window=contains(window),
-        answer_text_in_kept=contains(kept),
-        answer_text_in_dropped=contains(dropped))
+        # The window is contiguous only before the first merge; afterwards it is
+        # surviving carriers plus the next-newest writes, so a [first, last] token
+        # range would be a bounding box over most of the document. The evidence
+        # question is about the dropped blocks, so the span is reported on those.
+        window_contiguous=(bool(window)
+                           and window == list(range(window[0], window[0] + len(window)))),
+        dropped_write_span=[dropped[0], dropped[-1]] if dropped else None,
+        dropped_document_fraction=([round(dropped[0] / len(writes), 3),
+                                    round((dropped[-1] + 1) / len(writes), 3)]
+                                   if dropped else None),
+        dropped_token_share=(round(sum(len(writes[i]) for i in dropped) / total_tokens, 3)
+                             if dropped else None),
+        answer_wording_in_window=count(window),
+        answer_wording_in_kept=count(kept),
+        answer_wording_in_dropped=count(dropped),
+        answer_wording_distinctive=distinctive)
 
 
 def write_state_key(args, ids, geometry):
@@ -149,7 +178,7 @@ def write_state_key(args, ids, geometry):
     happen *inside* the write stream, so the arm is part of the identity and a
     cache entry can never be shared across arms.
     """
-    payload = dict(schema=CACHE_SCHEMA, protocol="tail2048_native_write_v1",
+    payload = dict(schema=CACHE_SCHEMA, protocol="tail_native_write_v1",
                    writes_sha256=hashlib.sha256(
                        np.asarray(ids, dtype=np.int64).tobytes()).hexdigest(),
                    arm=args.arm, budget_blocks=args.budget_blocks,
@@ -157,10 +186,21 @@ def write_state_key(args, ids, geometry):
                    operator_variant=args.operator_variant,
                    geometry=list(geometry) if geometry else None,
                    trigger_blocks=args.trigger_blocks, fusion_mode=args.fusion_mode,
+                   # The write prefix is `ids[:-tail]`, so the tail split is part of
+                   # the identity: without it 512- and 2048-token tails collide.
+                   tail_tokens=args.tail_tokens, doc_truncation=args.doc_truncation,
+                   # The carrier schedule defines the write phase for Selection and
+                   # for C/D's non-final compactions.
+                   carrier_schedule=(sha(args.carrier_schedule)
+                                     if getattr(args, "carrier_schedule", None) else None),
                    checkpoint=sha(args.checkpoint) if args.checkpoint else None,
                    reader_frozen=True, model_path=args.model_path,
                    entrypoint=sha(__file__),
-                   runtime=sha(ROOT / "tools" / "runtime.py"))
+                   runtime=sha(ROOT / "tools" / "runtime.py"),
+                   # The operator decides the write phase for the fused arms and is
+                   # not hash-pinned by the checkpoint, so it is hashed here.
+                   operator=sha(ROOT / "methods" / "prlmc" / "manifold_graft.py"),
+                   operator_v10=sha(ROOT / "methods" / "prlmc" / "native_skip_merge.py"))
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(), payload
 
 
@@ -286,6 +326,13 @@ def evaluate(args):
         raise ValueError("--arm SharedMerge needs an existing --checkpoint")
     if args.arm != "SharedMerge" and args.checkpoint is not None:
         raise ValueError(f"--arm {args.arm} does not load a checkpoint")
+    # Both diagnostic switches only mean something on the SharedMerge arm; on any
+    # other arm they would be silent no-ops while the report still recorded the
+    # C/D configuration. Refuse instead.
+    if args.operator_variant != "full" and args.arm != "SharedMerge":
+        raise ValueError("--operator-variant native only applies to --arm SharedMerge")
+    if args.fusion_policy != "all" and args.arm != "SharedMerge":
+        raise ValueError("--fusion-policy last only applies to --arm SharedMerge")
 
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -298,11 +345,15 @@ def evaluate(args):
         for sample in payload.get("samples") or []:
             plan = sample.get("compression_schedule")
             if plan is not None and sample.get("id") is not None:
-                schedule_map[sample["id"]] = plan
+                schedule_map[str(sample["id"])] = plan
         if not schedule_map:
             raise ValueError("carrier schedule source has no compression_schedule")
     if args.arm == "Selection" and not schedule_map:
         raise ValueError("--arm Selection needs --carrier-schedule so the carriers match the run being compared")
+    if args.fusion_policy == "last" and not schedule_map:
+        raise ValueError("--fusion-policy last needs --carrier-schedule: its non-final "
+                         "compactions must run on the same carriers as the arm it is "
+                         "compared with, otherwise it is a different arm")
 
     rows = lbv2.load_rows(args.data_json, args.length)
     if args.sample_ids:
@@ -326,6 +377,15 @@ def evaluate(args):
         rows = rows[args.shard_index * chunk:(args.shard_index + 1) * chunk]
         if not rows:
             raise ValueError("empty shard; lower --num-shards or drop --max-samples")
+    if schedule_map:
+        # A missing entry silently changes the protocol: Selection would fall back
+        # to its own carriers, breaking the "same carriers" invariant behind
+        # Ours - Selection. Name the missing ids instead.
+        missing = [str(r.get("_id")) for r in rows if str(r.get("_id")) not in schedule_map]
+        if missing:
+            raise ValueError(
+                f"--carrier-schedule has no entry for {len(missing)} of {len(rows)} "
+                f"samples (first missing id: {missing[0]})")
 
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", str(args.cuda_device))
     seed_everything(args.seed)
@@ -340,13 +400,12 @@ def evaluate(args):
         fusion_mode=args.fusion_mode, training=checkpoint_training)
     tokenizer.pad_token = tokenizer.eos_token
     # The reader is frozen: no LoRA and no K/V adapter is attached here.
-    if args.operator_variant == "native":
-        # Experiment D: keep the V10 carrier/graft *selection*, drop every extra
-        # operation (same-block condensation, orthogonal context delta, core
-        # reinforcement). Only native slots reach the reader.
-        merge.operator_mode = "native"
-    elif getattr(merge, "operator_mode", "full") != "full":
-        raise ValueError("operator_mode must be 'full' unless --operator-variant native")
+    # Experiment D: keep the V10 carrier/graft *selection*, drop every extra
+    # operation (same-block condensation, orthogonal context delta, core
+    # reinforcement). Only native slots reach the reader. The mode is assigned
+    # explicitly on both paths so the report can never claim a variant the run
+    # did not apply.
+    merge.operator_mode = "native" if args.operator_variant == "native" else "full"
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
     if args.budget_blocks == NATIVE_BUDGET:
@@ -391,6 +450,7 @@ def evaluate(args):
             write_cache_dir=args.write_cache_dir,
             group_by_context=args.group_by_context,
             sample_ids=args.sample_ids,
+            carrier_schedule=args.carrier_schedule,
             shard=([args.shard_index, args.num_shards] if args.num_shards > 1 else None),
             caveat=BUDGET_CAVEAT),
         identity=dict(checkpoint=args.checkpoint,
@@ -411,7 +471,7 @@ def evaluate(args):
     memory_cache = collections.OrderedDict()
     write_cache_hits = write_cache_misses = 0
     for index, row in enumerate(rows):
-        sample_schedule = schedule_map.get(row.get("_id"))
+        sample_schedule = schedule_map.get(str(row.get("_id")))
         sample_started = time.monotonic()
         seed_everything(args.seed)
         pe.reset(manager, initial)
@@ -445,7 +505,7 @@ def evaluate(args):
                     stream_kwargs["carrier_schedule"] = sample_schedule
                 stream_kwargs["fusion_policy"] = args.fusion_policy
                 stream_kwargs["total_writes"] = len(writes)
-                stream = pe.MergeStream(manager, merge_module, args.arm, **stream_kwargs)
+                stream = pe.MergeStream(manager, merge, args.arm, **stream_kwargs)
                 events = pe.run_sample(stream, writes)
             peak, write_count = stream.peak, len(writes)
             write_cache_misses += 1

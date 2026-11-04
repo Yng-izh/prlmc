@@ -52,18 +52,35 @@ python tools/eval_lbv2.py --arm Selection \
 
 ## 问题定位（A/B/C/D）
 
+四个臂必须同题、同口径。`--sample-ids` 是固定的 20 题清单（从 A 的报告里取 `samples[].id`），
+`--length all --total-tokens 128000 --tail-tokens 2048` 与 A/B 的协议一致；
+少了 `--length all`（默认是 `medium`）会选到另外 20 道题。
+
 ```bash
+# A：只保留、不融合（复现 B 的载体序列）。C 要跟它比，所以必须用同一份代码重跑一次
+python tools/eval_lbv2.py --arm Selection \
+  --carrier-schedule reports/main_table/<B>.json \
+  --data-json <lbv2/data.json> --length all --total-tokens 128000 --tail-tokens 2048 \
+  --budget-blocks 50 --sample-ids <20-ids>.json --cuda-device 0 --out <A>.json
+
 # C：只有最后一次压缩融合（前面全部 Selection，且沿用 B 的载体序列）
 python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last \
   --carrier-schedule reports/main_table/<B>.json --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --data-json <lbv2/data.json> --budget-blocks 50 --max-samples 20 --cuda-device 0 --out <C>.json
+  --data-json <lbv2/data.json> --length all --total-tokens 128000 --tail-tokens 2048 \
+  --budget-blocks 50 --sample-ids <20-ids>.json --cuda-device 0 --out <C>.json
 
 # D：同 C，但算子只做原生槽位替换（不做凝聚/正交/Core 强化）
 python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last --operator-variant native ...
 
-# 不跑模型，直接对比已有报告的逐题选项概率
-python tools/diagnose_ab.py <A>.json <B>.json --labels Selection V10
+# 不跑模型，直接对比已有报告的逐题选项概率（按题目 id 配对，不按顺序）
+python tools/diagnose_ab.py <A>.json <C>.json --labels Selection C
 ```
 
-每个样本会额外记录 `last_merge`（最后一次融合丢弃/保留了哪些写入块、覆盖文档的哪一段、
-正确选项的措辞是否出现在被丢弃的原文里）。设计说明见 [docs/04-diagnostics.md](../docs/04-diagnostics.md)。
+`--fusion-policy last` 和 `--operator-variant native` 只对 `--arm SharedMerge` 有效，其它臂会直接报错；
+`--carrier-schedule` 缺任何一题的条目也会报错点名，不会静默退回自己的选块。
+
+每个样本会额外记录 `last_merge`：最后一次融合保留了哪些写入块、丢弃了哪些、
+被丢弃的那段落在文档的哪个比例区间、正确选项的措辞是否出现在里面。
+注意 `dropped` 指的是"这些块没有留下自己的载体"——被丢弃块仍有 40/256 的槽会被嫁接进输出，
+所以它不等于"内容丢了"；单token 选项（`China`、`1945`）的匹配也不具区分度，
+`answer_wording_distinctive` 会标出来。设计说明见 [docs/04-diagnostics.md](../docs/04-diagnostics.md)。

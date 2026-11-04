@@ -180,6 +180,15 @@ class MergeStream(StreamingMemory):
         if fusion_policy == "last" and total_writes is None:
             raise ValueError("fusion_policy 'last' needs the number of writes up "
                              "front; otherwise the final compaction is unknown")
+        if fusion_policy == "last" and int(manager.used) != 0:
+            # The compaction count is planned from an empty stream. A manager that
+            # already holds blocks shifts "the last compaction" by an unknown
+            # number of rounds, which would silently turn the arm into plain
+            # Selection (or fuse one round early) instead of failing.
+            raise ValueError(
+                "fusion_policy 'last' plans the compaction count from an empty "
+                f"stream, but the memory already holds {int(manager.used)} slots; "
+                "reset it before constructing the stream")
         self.fusion_policy = fusion_policy
         self.planned_compaction_count = (None if total_writes is None else
             planned_compactions(total_writes, manager.block, geometry[0], geometry[1],
@@ -234,7 +243,13 @@ class MergeStream(StreamingMemory):
         window_blocks = self.window // self.m.block
         provenance = self.write_provenance
         if len(provenance) < window_blocks:
-            return
+            # A compaction requires used >= window and the provenance list tracks
+            # the resident blocks one-for-one, so this cannot happen. Returning
+            # silently would erase the event's diagnostics instead of reporting
+            # the bookkeeping drift.
+            raise ValueError(
+                f"provenance holds {len(provenance)} writes but the window is "
+                f"{window_blocks} blocks wide; resident-block bookkeeping drifted")
         keep = set(int(i) for i in selected)
         window_writes = list(provenance[:window_blocks])
         kept = [window_writes[i] for i in range(window_blocks) if i in keep]
@@ -270,12 +285,23 @@ class MergeStream(StreamingMemory):
             if len(self.events) >= len(self.carrier_schedule):
                 raise ValueError("replayed carrier schedule ended early")
             selected = torch.as_tensor(self.carrier_schedule[len(self.events)], device=source.device, dtype=torch.long)
-            if selected.shape != (self.target//m.block,) or selected.unique().numel()!=selected.numel() or (selected<0).any() or (selected>=self.window//m.block).any():
-                raise ValueError("invalid replayed carrier schedule")
+            # Ascending matters: the content-only branch installs the carriers in
+            # `selected` order while the provenance bookkeeping walks the window in
+            # temporal order, so a permuted schedule would mis-name every later
+            # window's kept/dropped writes.
+            if (selected.shape != (self.target//m.block,)
+                    or selected.unique().numel() != selected.numel()
+                    or (selected<0).any() or (selected>=self.window//m.block).any()
+                    or not torch.equal(selected, selected.sort().values)):
+                raise ValueError("invalid replayed carrier schedule: need "
+                                 f"{self.target//m.block} ascending, unique, "
+                                 "in-window block indices")
         if self.on_compression:
             self.on_compression("before", write_index, selected)
-        fuse = self._fuses_now()
-        if self.merge_arm == "SharedMerge" and fuse:
+        # The policy alone does not decide: only the SharedMerge arm can fuse, so
+        # the flag must not label a Selection compaction as a fusion.
+        fuse = self.merge_arm == "SharedMerge" and self._fuses_now()
+        if fuse:
             allow = torch.ones(self.window//m.block, dtype=torch.bool, device=source.device)
             begun = time.monotonic()
             # Only the V10 operator declares `bridge_blocks`; a sealed reference
@@ -291,8 +317,12 @@ class MergeStream(StreamingMemory):
                 selected_block_ages=ages[selected].cpu().tolist(),
                 seconds=time.monotonic()-begun, fusion=dict(self.compactor.last_fusion)))
             settled = selected.cpu().tolist()
-        elif self.carrier_schedule is not None:
-            # Selection with the recorded carrier set: no fusion, same blocks.
+        elif ((self.merge_arm == "Selection" and self.carrier_schedule is not None)
+              or (self.merge_arm == "SharedMerge" and not fuse)):
+            # Content-only installation: Selection on the recorded carrier set
+            # (arm A), or a SharedMerge round that must not fuse (arm C's non-final
+            # rounds, with or without a schedule). `selected` is already this
+            # window's own pick, so no second selector is invented here.
             begun = time.monotonic()
             blocks = source.reshape(m.num_layers, self.window//m.block, m.block, m.hidden)
             output = blocks.index_select(1, selected).flatten(1,2)
@@ -636,6 +666,11 @@ def reset(manager, initial):
     manager.goal_direction = None
     manager._active_mask_used = None
     manager.reset_block_ages()
+    # Structural write-once state lives outside the memory tensor. Without this
+    # an episode would inherit the previous sample's fused slots and archive pins
+    # (layout.py carries both through snapshot/restore for exactly this reason).
+    manager.slot_fused = None
+    manager.pinned_blocks = None
 
 
 def costs(manager, merge):

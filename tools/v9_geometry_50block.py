@@ -93,5 +93,15 @@ def assert_stream_covers_pool(stream_tokens=TRAIN_STREAM_TOKENS):
     if stream_tokens < need:
         raise ValueError(f"stream {stream_tokens} < {need} tokens: the pool would never "
                          f"fill, so no merge event would be trained")
-    merges = max(0, (stream_tokens // CHUNK_TOKENS - MEMORY_BLOCKS)) // (WINDOW_BLOCKS - TARGET_BLOCKS)
+    # Same rule as StreamingMemory.write: compaction fires before a write when the
+    # resident width is at least the window and the trigger, and returns the stream
+    # to TARGET_BLOCKS + (used - WINDOW_BLOCKS). The closed form
+    # (writes - MEMORY_BLOCKS) // (WINDOW_BLOCKS - TARGET_BLOCKS) is off by one:
+    # the first compaction fires *at* write index MEMORY_BLOCKS, not after it.
+    used, merges = 0, 0
+    for _ in range(stream_tokens // CHUNK_TOKENS):
+        if used >= WINDOW_BLOCKS and used >= TRIGGER_BLOCKS:
+            merges += 1
+            used = TARGET_BLOCKS + (used - WINDOW_BLOCKS)
+        used += 1
     return merges
