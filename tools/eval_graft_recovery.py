@@ -591,14 +591,25 @@ def _mean(values):
     return float(np.mean(values)) if values else None
 
 
-def _arm_summary(samples, arm):
+def _correct(sample, arm, threshold):
+    """Correctness is derived from the stored QA F1, never from a frozen flag.
+
+    Keeping the threshold out of the stored record is what lets `--analyze
+    --f1-threshold` re-group a finished run instead of forcing a 30-minute
+    re-run just to move the cut.
+    """
+    return sample["arms"][arm]["qa_f1"] >= threshold
+
+
+def _arm_summary(samples, arm, threshold):
     records = [sample["arms"][arm] for sample in samples if arm in sample.get("arms", {})]
     if not records:
         return dict(n=0)
     return dict(n=len(records),
                 qa_f1=round(100.0 * _mean([r["qa_f1"] for r in records]), 2),
                 em=round(100.0 * _mean([r["em"] for r in records]), 2),
-                accuracy=round(100.0 * _mean([r["correct"] for r in records]), 2),
+                accuracy=round(100.0 * _mean([1.0 if r["qa_f1"] >= threshold else 0.0
+                                              for r in records]), 2),
                 p_gold=_mean([r.get("p_gold") for r in records]),
                 mean_logprob=_mean([r.get("mean_logprob") for r in records]))
 
@@ -631,23 +642,23 @@ def analyse(samples, threshold):
         return bool(blocks & set(sample["provenance"]["dropped_blocks"]))
 
     rescue = [sample for sample in located
-              if sample["arms"][FULL]["correct"]
-              and not sample["arms"][SELECTION]["correct"]
+              if _correct(sample, FULL, threshold)
+              and not _correct(sample, SELECTION, threshold)
               and evidence_in_dropped(sample)]
     protect = [sample for sample in located
-               if sample["arms"][FULL]["correct"]
-               and sample["arms"][SELECTION]["correct"]]
-    rescued = [sample for sample in rescue if sample["arms"][GRAFT]["correct"]]
-    harmed = [sample for sample in protect if not sample["arms"][GRAFT]["correct"]]
+               if _correct(sample, FULL, threshold)
+               and _correct(sample, SELECTION, threshold)]
+    rescued = [sample for sample in rescue if _correct(sample, GRAFT, threshold)]
+    harmed = [sample for sample in protect if not _correct(sample, GRAFT, threshold)]
 
     # The same two counters over every graded sample, with no evidence filter:
     # this is the number that cannot be accused of cherry-picking.
     rescued_all = [sample for sample in graded
-                   if not sample["arms"][SELECTION]["correct"]
-                   and sample["arms"][GRAFT]["correct"]]
+                   if not _correct(sample, SELECTION, threshold)
+                   and _correct(sample, GRAFT, threshold)]
     harmed_all = [sample for sample in graded
-                  if sample["arms"][SELECTION]["correct"]
-                  and not sample["arms"][GRAFT]["correct"]]
+                  if _correct(sample, SELECTION, threshold)
+                  and not _correct(sample, GRAFT, threshold)]
 
     evidence_block_slots = [_evidence_graft_slots(sample) for sample in located]
     all_slot_counts = [count for sample in located
@@ -661,13 +672,13 @@ def analyse(samples, threshold):
             evidence_in_window=len([sample for sample in located
                                     if sample["evidence"]["blocks"]]),
             full_correct=len([sample for sample in graded
-                              if sample["arms"][FULL]["correct"]]),
+                              if _correct(sample, FULL, threshold)]),
             full_wrong=len([sample for sample in graded
-                            if not sample["arms"][FULL]["correct"]]),
+                            if not _correct(sample, FULL, threshold)]),
             selection_correct=len([sample for sample in graded
-                                   if sample["arms"][SELECTION]["correct"]]),
+                                   if _correct(sample, SELECTION, threshold)]),
             graft_correct=len([sample for sample in graded
-                               if sample["arms"][GRAFT]["correct"]]),
+                               if _correct(sample, GRAFT, threshold)]),
             evidence_in_dropped=len([sample for sample in located
                                      if evidence_in_dropped(sample)]),
             # Third bucket, reported so a compression loss is not mis-attributed
@@ -675,11 +686,12 @@ def analyse(samples, threshold):
             # compression lost the answer, and the evidence block was KEPT.
             compression_loss_evidence_kept=len(
                 [sample for sample in located
-                 if sample["arms"][FULL]["correct"]
-                 and not sample["arms"][SELECTION]["correct"]
+                 if _correct(sample, FULL, threshold)
+                 and not _correct(sample, SELECTION, threshold)
                  and not evidence_in_dropped(sample)])),
-        arms={arm: _arm_summary(graded, arm) for arm in ARMS},
-        arms_evidence_located={arm: _arm_summary(located, arm) for arm in ARMS},
+        arms={arm: _arm_summary(graded, arm, threshold) for arm in ARMS},
+        arms_evidence_located={arm: _arm_summary(located, arm, threshold)
+                                for arm in ARMS},
         paired=dict(
             f1_graft_minus_selection=_paired(graded, GRAFT, SELECTION, "qa_f1"),
             f1_graft_minus_full=_paired(graded, GRAFT, FULL, "qa_f1"),
@@ -692,8 +704,8 @@ def analyse(samples, threshold):
             n=len(rescue), rescued=len(rescued),
             full_correct_selection_wrong=len(
                 [sample for sample in located
-                 if sample["arms"][FULL]["correct"]
-                 and not sample["arms"][SELECTION]["correct"]]),
+                 if _correct(sample, FULL, threshold)
+                 and not _correct(sample, SELECTION, threshold)]),
             rescued_rate=(len(rescued) / len(rescue) if rescue else None),
             evidence_block_grafted=len([sample for sample in rescue
                                         if _evidence_graft_slots(sample) > 0]),
@@ -709,9 +721,9 @@ def analyse(samples, threshold):
             definition="every graded sample, no evidence filter",
             rescued=len(rescued_all), harmed=len(harmed_all),
             selection_wrong=len([sample for sample in graded
-                                 if not sample["arms"][SELECTION]["correct"]]),
+                                 if not _correct(sample, SELECTION, threshold)]),
             selection_correct=len([sample for sample in graded
-                                   if sample["arms"][SELECTION]["correct"]])),
+                                   if _correct(sample, SELECTION, threshold)])),
         graft_provenance=dict(
             graft_slots_total=GRAFT_SLOTS_TOTAL,
             mean_slots_per_block=float(np.mean(all_slot_counts)) if all_slot_counts else None,
@@ -910,9 +922,10 @@ def evaluate(args):
     print(json.dumps(report["summary"], indent=1, ensure_ascii=False))
 
 
-def analyze_existing(path):
+def analyze_existing(path, threshold=None):
     report = json.loads(Path(path).read_text())
-    threshold = report.get("protocol", {}).get("f1_threshold", 0.5)
+    if threshold is None:
+        threshold = report.get("protocol", {}).get("f1_threshold", 0.5)
     summary = analyse(report.get("samples") or [], threshold)
     report["summary"] = summary
     atomic_json(Path(path), report)
@@ -936,9 +949,10 @@ def build_parser():
     p.add_argument("--cuda-device", default="0")
     p.add_argument("--window-blocks", dest="window_blocks", type=int, default=WINDOW_BLOCKS)
     p.add_argument("--target-blocks", dest="target_blocks", type=int, default=TARGET_BLOCKS)
-    p.add_argument("--f1-threshold", dest="f1_threshold", type=float, default=0.5,
-                   help="QA F1 at or above this counts as a correct answer (0.5 default); "
-                        "Rescued/Harmed are defined on this binary")
+    p.add_argument("--f1-threshold", dest="f1_threshold", type=float, default=None,
+                   help="QA F1 at or above this counts as a correct answer (0.5 for a run); "
+                        "Rescued/Harmed are defined on this binary, and --analyze "
+                        "recomputes them at the value passed here")
     p.add_argument("--sample-ids", dest="sample_ids", default=None,
                    help="JSON list of LongBench row ids; evaluates exactly these rows")
     p.add_argument("--max-samples", dest="max_samples", type=int, default=None)
@@ -956,7 +970,7 @@ def build_parser():
 def main():
     args = build_parser().parse_args()
     if args.analyze:
-        analyze_existing(args.analyze)
+        analyze_existing(args.analyze, args.f1_threshold)
         return
     args.strict_code_hash = args.strict_code_hash == "true"
     if args.model_path is None:
@@ -968,6 +982,8 @@ def main():
                          f"got {args.window_blocks}->{args.target_blocks}")
     if args.out is None and not args.dry_run:
         raise SystemExit("--out is required unless --dry-run")
+    if args.f1_threshold is None:
+        args.f1_threshold = 0.5
     evaluate(args)
 
 

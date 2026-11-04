@@ -114,8 +114,9 @@ python tools/eval_graft_recovery.py \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
   --cuda-device 0 --out reports/diagnostics/graft_recovery_hotpotqa.json
 
-# 不跑模型，重新分组已有报告
-python tools/eval_graft_recovery.py --analyze reports/diagnostics/graft_recovery_hotpotqa.json
+# 不跑模型，重新分组已有报告（--f1-threshold 可以换判对阈值，不用重跑）
+python tools/eval_graft_recovery.py --analyze reports/diagnostics/graft_recovery_hotpotqa.json \
+  --f1-threshold 0.3
 ```
 
 口径说明：
