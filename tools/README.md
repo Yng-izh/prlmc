@@ -13,6 +13,7 @@
 | `eval_core.py` | LongBench 8k/16k 评测（v2 复用其运行时与协议记录） |
 | `lbv2_data.py` | LBv2 数据加载、官方模板与官方答案抽取 |
 | `native_eval.py` | MemoryLLM-8B 原生基线评测（50 块池、不压缩） |
+| `eval_graft_recovery.py` | 实验 1：原生槽位嫁接的知识恢复/损伤（Full / Selection / Graft，19→9，单次压缩） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -85,3 +86,48 @@ python tools/diagnose_ab.py <A>.json <C>.json --labels Selection C
 注意 `dropped` 指的是"这些块没有留下自己的载体"——被丢弃块仍有 40/256 的槽会被嫁接进输出，
 所以它不等于"内容丢了"；单token 选项（`China`、`1945`）的匹配也不具区分度，
 `answer_wording_distinctive` 会标出来。设计说明见 [docs/04-diagnostics.md](../docs/04-diagnostics.md)。
+
+## 实验 1：原生槽位嫁接的知识恢复能力
+
+回答两个问题：Selection 删掉含证据的块之后，原生槽位嫁接能不能把答题能力救回来（Rescued）；
+嫁接要占掉保留块自己的 40 个槽，会不会反而弄坏原本能答的题（Harmed）。
+
+每个样本只写 **19 个块**（9,728 token 的文档前缀），**只压缩一次** 19→9，然后从同一份
+压缩前记忆上读三次：`Full`（19 块 4,864 槽，不压缩）、`Selection`（9 块 2,304 槽）、
+`Graft`（同样 9 个载体，216 原生 core 槽 + 40 个从被丢弃块直接复制的原生槽 = 2,304 槽）。
+载体集合由 `select_window_carrier_blocks` 在压缩前窗口上**只算一次**，A/B 共用，所以两者只差
+"哪些原生槽进入 Reader"。`Graft` 用 `operator_mode="native"`：不做同块凝聚、不做正交上下文增量、
+不做 core 强化。
+
+```bash
+# 先看会跑哪些题、证据落在哪些块（只加载 tokenizer，不占 GPU、不写文件）
+python tools/eval_graft_recovery.py --dry-run \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16
+
+# 正式跑（三个臂在同一次前向里，不需要 carrier-schedule）
+python tools/eval_graft_recovery.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --cuda-device 0 --out reports/diagnostics/graft_recovery_hotpotqa.json
+
+# 不跑模型，重新分组已有报告
+python tools/eval_graft_recovery.py --analyze reports/diagnostics/graft_recovery_hotpotqa.json
+```
+
+口径说明：
+
+- 写入流只有**正文前缀**，官方模板里前置的那句 instruction 被去掉，这样第 b 块正好覆盖正文
+  `[512b, 512(b+1))` token，证据的 字符→token→块 映射是精确的；后置 instruction + 问题 + `Answer:`
+  作为 query，三个臂用完全相同的 query token。
+- 上下文不足 19 块的题**排除并计数**，不填充——填出来的窗口是另一个实验。
+- "证据"用 HotpotQA dev 的 `supporting_facts` 支持句定位，不用答案串匹配（答案串只作旁证，
+  记在 `evidence.answer_string_blocks`）。支持句先归一化再回映射到原始字符偏移，
+  经 tokenizer offset mapping 落到块号。
+- `Graft` 的 360 个嫁接槽来源记在 `provenance.graft_slots_by_source_block`（按窗口块号），
+  可以回答"含证据的被丢弃块到底有没有贡献嫁接槽"。
+- 筛选用了答案和证据位置，所以分组的准确率是**机制诊断**，不是数据集成绩；
+  报告里 `protocol.screening_caveat` 写死了这句话，全量列 `arms` 才是可比的数字。
