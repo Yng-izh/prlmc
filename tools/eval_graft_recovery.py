@@ -627,13 +627,31 @@ def _paired(samples, left, right, key):
                 equal=int(sum(delta == 0 for delta in deltas)))
 
 
+def _dropped_evidence_blocks(sample):
+    """Evidence blocks that lost their carrier.
+
+    A kept evidence block structurally receives zero graft slots (graft slots
+    come from dropped blocks only), so counting it as "the selector gave the
+    evidence no slots" would blame slot selection for something the block
+    selection decided. Only the intersection is a real signal.
+    """
+    return sorted(set(sample["evidence"]["blocks"])
+                  & set(sample["provenance"]["dropped_blocks"]))
+
+
 def _evidence_graft_slots(sample):
     counts = sample["provenance"]["graft_slots_by_source_block"]
-    return sum(int(counts.get(str(block), 0)) for block in sample["evidence"]["blocks"])
+    return sum(int(counts.get(str(block), 0)) for block in _dropped_evidence_blocks(sample))
 
 
-def analyse(samples, threshold):
-    """Rescued / Harmed and the provenance question, on the graded samples only."""
+def analyse(samples, threshold, excluded=0):
+    """Rescued / Harmed and the provenance question, on the graded samples only.
+
+    `samples` holds the graded records only, so the rows dropped for a short
+    context have to be counted in from the caller's `excluded` list: reading
+    `len(samples) - len(graded)` here reports zero exclusions no matter how many
+    rows were dropped.
+    """
     graded = [sample for sample in samples if sample.get("status") == "graded"]
     located = [sample for sample in graded if sample.get("evidence", {}).get("located")]
 
@@ -660,17 +678,23 @@ def analyse(samples, threshold):
                   if _correct(sample, SELECTION, threshold)
                   and not _correct(sample, GRAFT, threshold)]
 
-    evidence_block_slots = [_evidence_graft_slots(sample) for sample in located]
+    # Only samples whose evidence block was actually dropped can say anything
+    # about whether the graft reached the evidence.
+    with_dropped_evidence = [sample for sample in located if _dropped_evidence_blocks(sample)]
+    evidence_block_slots = [_evidence_graft_slots(sample) for sample in with_dropped_evidence]
+    # Divide by the DROPPED blocks: the 9 carriers are structural zeros and would
+    # drag 360/10 = 36 down to 360/19 = 18.9.
     all_slot_counts = [count for sample in located
-                       for count in sample["provenance"]["graft_slots_by_source_block"].values()]
+                       for count in sample["provenance"]["graft_slots_per_dropped_block"]]
 
     return dict(
         counts=dict(
-            attempted=len(samples), graded=len(graded),
-            excluded=len(samples) - len(graded),
+            attempted=len(graded) + int(excluded), graded=len(graded),
+            excluded=int(excluded),
+            # `located` already means "the supporting sentence landed inside the
+            # 19-block window"; a sentence found past the write prefix yields no
+            # block, so the two counts cannot differ and only one is reported.
             evidence_located=len(located),
-            evidence_in_window=len([sample for sample in located
-                                    if sample["evidence"]["blocks"]]),
             full_correct=len([sample for sample in graded
                               if _correct(sample, FULL, threshold)]),
             full_wrong=len([sample for sample in graded
@@ -726,16 +750,20 @@ def analyse(samples, threshold):
                                    if _correct(sample, SELECTION, threshold)])),
         graft_provenance=dict(
             graft_slots_total=GRAFT_SLOTS_TOTAL,
-            mean_slots_per_block=float(np.mean(all_slot_counts)) if all_slot_counts else None,
+            mean_slots_per_dropped_block=(float(np.mean(all_slot_counts))
+                                          if all_slot_counts else None),
             samples_with_a_dropped_block_unused=len(
                 [sample for sample in graded
                  if sample["provenance"]["dropped_blocks_without_graft"]]),
+            samples_with_dropped_evidence=len(with_dropped_evidence),
             mean_evidence_block_graft_slots=_mean(evidence_block_slots),
-            evidence_blocks_with_zero_graft=len([count for count in evidence_block_slots
-                                                 if count == 0]),
+            dropped_evidence_blocks_with_zero_graft=len(
+                [count for count in evidence_block_slots if count == 0]),
             note=("`graft_slots_by_source_block` is keyed by window block index; a "
-                  "dropped block with 0 slots contributed nothing to the merge, "
-                  "which points at slot selection rather than at the reader")),
+                  "DROPPED block with 0 slots contributed nothing to the merge, "
+                  "which points at slot selection rather than at the reader. A kept "
+                  "evidence block is excluded from the zero-graft count because it "
+                  "cannot receive graft slots by construction")),
         screening_caveat=SCREENING_CAVEAT,
         f1_threshold=threshold)
 
@@ -914,7 +942,8 @@ def evaluate(args):
                               evidence=sample["evidence"]["blocks"],
                               seconds=round(record["seconds"], 1))), flush=True)
 
-    report["summary"] = analyse(report["samples"], args.f1_threshold)
+    report["summary"] = analyse(report["samples"], args.f1_threshold,
+                                excluded=len(report["excluded"]))
     report["elapsed_seconds"] = time.monotonic() - started
     report["peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
     report["status"] = "complete"
@@ -926,7 +955,8 @@ def analyze_existing(path, threshold=None):
     report = json.loads(Path(path).read_text())
     if threshold is None:
         threshold = report.get("protocol", {}).get("f1_threshold", 0.5)
-    summary = analyse(report.get("samples") or [], threshold)
+    summary = analyse(report.get("samples") or [], threshold,
+                      excluded=len(report.get("excluded") or []))
     report["summary"] = summary
     atomic_json(Path(path), report)
     print(json.dumps(summary, indent=1, ensure_ascii=False))
