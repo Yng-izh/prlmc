@@ -52,7 +52,8 @@ python tools/eval_lbv2.py --arm Selection \
 
 ## 问题定位（A/B/C/D）
 
-四个臂必须同题、同口径。`--sample-ids` 是固定的 20 题清单（从 A 的报告里取 `samples[].id`），
+四个臂必须同题、同口径。`--sample-ids` 是固定的 20 题清单（`configs/lbv2_sample_ids_n20.json`，
+取自 A/B 两份报告的 `samples[].id`，顺序一致），
 `--length all --total-tokens 128000 --tail-tokens 2048` 与 A/B 的协议一致；
 少了 `--length all`（默认是 `medium`）会选到另外 20 道题。
 
@@ -61,13 +62,13 @@ python tools/eval_lbv2.py --arm Selection \
 python tools/eval_lbv2.py --arm Selection \
   --carrier-schedule reports/main_table/<B>.json \
   --data-json <lbv2/data.json> --length all --total-tokens 128000 --tail-tokens 2048 \
-  --budget-blocks 50 --sample-ids <20-ids>.json --cuda-device 0 --out <A>.json
+  --budget-blocks 50 --sample-ids configs/lbv2_sample_ids_n20.json --cuda-device 0 --out <A>.json
 
 # C：只有最后一次压缩融合（前面全部 Selection，且沿用 B 的载体序列）
 python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last \
   --carrier-schedule reports/main_table/<B>.json --checkpoint runs/natural_merge_v9/full_v10.pt \
   --data-json <lbv2/data.json> --length all --total-tokens 128000 --tail-tokens 2048 \
-  --budget-blocks 50 --sample-ids <20-ids>.json --cuda-device 0 --out <C>.json
+  --budget-blocks 50 --sample-ids configs/lbv2_sample_ids_n20.json --cuda-device 0 --out <C>.json
 
 # D：同 C，但算子只做原生槽位替换（不做凝聚/正交/Core 强化）
 python tools/eval_lbv2.py --arm SharedMerge --fusion-policy last --operator-variant native ...
