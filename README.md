@@ -29,8 +29,14 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 | V10 vs Selection，50 块预算 | 20 | **20.0% vs 20.0%** | 答对的是同 4 题；12/20 预测文本不同 |
 
 结论：**目前没有测到涨点**。157 题上 V10 与原生基线统计不可区分（±6pp）；20 题配对比较是平局，
-样本量只够排除 ±18pp 的差异。要判定 `Ours − Selection` 的方向，需要一次 503 题的配对评测。
-口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md) 和 [docs/03-results.md](docs/03-results.md)。
+样本量只够排除 ±18pp 的差异。
+
+更值得注意的一条：两臂对**正确选项**的概率都只有 0.24 左右（四选一随机是 0.25），
+20 题里没有一题过半。融合把 19/20 题的概率挪动了一点，但没有一题因此改对 ——
+说明在这个 128k / 50 块设置下读者基本没读到证据，融合是否有用还不是主要矛盾。
+
+口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)、[docs/03-results.md](docs/03-results.md)，
+问题定位实验（A/B/C/D）见 [docs/04-diagnostics.md](docs/04-diagnostics.md)。
 
 ## 仓库结构
 
@@ -43,7 +49,8 @@ tools/train.py                 训练入口（704 更新）
 tools/runtime.py               流式运行时（写入、触发、merge、装载）
 tools/stream_eval.py           流式记忆与参考臂（Selection/Recent/Full）
 tools/v9_geometry_50block.py   50 块几何常量（被哈希锁定的算子直接 import）
-tools/eval_lbv2.py             LongBench v2 双口径评测入口
+tools/eval_lbv2.py             LongBench v2 双口径评测入口（A/B/C/D 四臂）
+tools/diagnose_ab.py           读已有报告对比逐题选项概率（不跑模型）
 tools/eval_core.py             LongBench 8k/16k 评测入口（v2 复用其运行时）
 tools/lbv2_data.py             LBv2 数据与官方模板
 tools/native_eval.py           MemoryLLM-8B 原生基线评测

@@ -37,6 +37,11 @@ class ManifoldGraftedSlotMerge(nn.Module):
         self.core_slots_per_block = core_slots_per_block
         self.graft_slots_per_block = graft_slots_per_block
         self.ortho_residual_max = ortho_residual_max
+        # "full" is the trained V10 operator. "native" is the diagnostic mode
+        # (experiment D): carriers and graft slots are copied verbatim, with no
+        # same-block condensation, no orthogonal context delta and no core
+        # reinforcement, so only native slots ever reach the reader.
+        self.operator_mode = "full"
 
         # Low-rank routing residual, zero-initialised: training starts exactly on
         # the native manifold.
@@ -165,7 +170,12 @@ class ManifoldGraftedSlotMerge(nn.Module):
             * GEOMETRY_50B.homo_reinforce_max_alpha
         )
         homo_alpha = homo_alpha_grp.expand(G, lpg, 1, 1).reshape(L, 1, 1) * homo_mask.view(1, -1, 1)
-        reinforced_core_layers = self._geodesic_rms_preserve(flat_core_layers, matched_disc_layers, homo_alpha)
+        if self.operator_mode == "native":
+            reinforced_core_layers = flat_core_layers
+            homo_matched = 0
+        else:
+            reinforced_core_layers = self._geodesic_rms_preserve(flat_core_layers, matched_disc_layers, homo_alpha)
+            homo_matched = int(homo_mask.sum().item())
 
         if num_graft_total == 0:
             return (
@@ -209,17 +219,21 @@ class ManifoldGraftedSlotMerge(nn.Module):
             cluster_weights.float().unsqueeze(0).expand(L_, -1, -1), flat_disc_layers.float()
         )
 
-        condensed_graft_layers = self._geodesic_rms_preserve(
-            graft_anchor_layers,
-            cluster_ctx_layers.to(graft_anchor_layers.dtype),
-            weight=torch.tensor(0.25, device=window_memory.device).view(1, 1, 1),
-        )
-        ortho_delta = self._orthogonal_context_delta(condensed_graft_layers, cluster_ctx_layers)
-        condensed_graft_layers = self._geodesic_rms_preserve(
-            condensed_graft_layers,
-            (condensed_graft_layers.float() + ortho_delta).to(condensed_graft_layers.dtype),
-            weight=torch.tensor(1.0, device=window_memory.device).view(1, 1, 1),
-        )
+        if self.operator_mode == "native":
+            # Experiment D: the picked native slots are copied unchanged.
+            condensed_graft_layers = graft_anchor_layers
+        else:
+            condensed_graft_layers = self._geodesic_rms_preserve(
+                graft_anchor_layers,
+                cluster_ctx_layers.to(graft_anchor_layers.dtype),
+                weight=torch.tensor(0.25, device=window_memory.device).view(1, 1, 1),
+            )
+            ortho_delta = self._orthogonal_context_delta(condensed_graft_layers, cluster_ctx_layers)
+            condensed_graft_layers = self._geodesic_rms_preserve(
+                condensed_graft_layers,
+                (condensed_graft_layers.float() + ortho_delta).to(condensed_graft_layers.dtype),
+                weight=torch.tensor(1.0, device=window_memory.device).view(1, 1, 1),
+            )
 
         all_global_pos = torch.cat([flat_core_pos, graft_global_pos], dim=0)
         all_layers = torch.cat([reinforced_core_layers, condensed_graft_layers], dim=1)
@@ -247,7 +261,8 @@ class ManifoldGraftedSlotMerge(nn.Module):
             "selected_blocks": [int(x) for x in selected_blocks],
             "core_slots_kept": int(flat_core_pos.numel()),
             "grafted_slots": int(num_graft_total),
-            "homo_reinforced_slots": int(homo_mask.sum().item()),
+            "operator_mode": self.operator_mode,
+            "homo_reinforced_slots": homo_matched,
             "total_condensed_protected": int(final_cond_mask.sum().item()),
         }
         return final_memory, final_cond_mask, telemetry

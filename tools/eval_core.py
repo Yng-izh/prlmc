@@ -504,7 +504,13 @@ def run_sample(stream, writes):
                 selected_blocks=event["selected_blocks"],
                 seconds=event["seconds"],
                 gamma=fusion.get("gamma"),
-                fusion_source_count=len(fusion.get("fusion_source_indices", [])))
+                fusion_source_count=len(fusion.get("fusion_source_indices", [])),
+                # Which writes this merge kept and dropped, and whether it fused.
+                # Needed by the last-merge diagnostics; absent on older streams.
+                fused=event.get("fused"),
+                window_writes=event.get("window_writes"),
+                kept_writes=event.get("kept_writes"),
+                dropped_writes=event.get("dropped_writes"))
             compression_events.append(event_entry)
             # Plan A Consolidate arm carries its slot-level merge report under
             # "consolidation" (merged_slots/merge_tau/kept_slots); forward it

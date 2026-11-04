@@ -194,6 +194,9 @@ class StreamingMemory:
             raise ValueError("reference arm cannot use managed compression")
         if output.shape != (m.num_layers, self.target, m.hidden) or not torch.isfinite(output).all():
             raise ValueError("invalid compactor output; no eviction fallback")
+        # Published so a subclass can name the carriers this merge kept without
+        # recomputing the selection (and possibly disagreeing with it).
+        self.last_selected_blocks = selected.cpu().tolist()
         # Keep the newest native block unmodified so the next injection has the
         # same predecessor position. No fact is placed in a protected anchor.
         m.used = self.target + (used_before - self.window)

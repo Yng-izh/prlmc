@@ -120,10 +120,41 @@ def resolve_geometry(budget_blocks, window_blocks=None, target_blocks=None,
     return window, target
 
 
+def planned_compactions(total_writes, block, window_blocks, target_blocks, trigger_blocks):
+    """Number of compactions a stream of `total_writes` blocks performs.
+
+    Mirrors `StreamingMemory.write`: compaction fires when the resident width is
+    at least the window and at least the trigger, and returns the stream to
+    `target + (used - window)` blocks. `--fusion-policy last` needs this count
+    before the first write, because "the last compaction" is only identifiable
+    once the whole write stream is known.
+    """
+    used, count = 0, 0
+    window, target = window_blocks * block, target_blocks * block
+    trigger = trigger_blocks * block
+    for _ in range(int(total_writes)):
+        if used >= window and used >= trigger:
+            count += 1
+            used = target + (used - window)
+        used += block
+    return count
+
+
 class MergeStream(StreamingMemory):
+    """Streaming compaction with an explicit fusion policy.
+
+    `fusion_policy="all"` fuses at every compaction (the full V10 arm).
+    `fusion_policy="last"` fuses only at the final compaction and runs the
+    Selection path everywhere else: it isolates the effect of one merge from the
+    cumulative effect of ~20 repeated merges.
+
+    `write_provenance` records, for every resident block, the write index it
+    descends from, so a merge can name exactly which writes it dropped.
+    """
+
     def __init__(self, manager, compactor, arm, on_compression=None, carrier_schedule=None,
                  budget_blocks=20, window_blocks=None, target_blocks=None,
-                 trigger_blocks=None):
+                 trigger_blocks=None, fusion_policy="all", total_writes=None):
         aliases = {"SharedMerge": "SharedE6d"}
         # Resolved before the base class runs: `None` keeps the pre-registered
         # table, an explicit value must be consistent, and the base class is
@@ -144,9 +175,24 @@ class MergeStream(StreamingMemory):
         self.window_blocks, self.target_blocks = geometry
         self.window = geometry[0] * manager.block
         self.target = geometry[1] * manager.block
+        if fusion_policy not in ("all", "last"):
+            raise ValueError(f"unknown fusion_policy {fusion_policy!r}")
+        if fusion_policy == "last" and total_writes is None:
+            raise ValueError("fusion_policy 'last' needs the number of writes up "
+                             "front; otherwise the final compaction is unknown")
+        self.fusion_policy = fusion_policy
+        self.planned_compaction_count = (None if total_writes is None else
+            planned_compactions(total_writes, manager.block, geometry[0], geometry[1],
+                                self.effective_trigger_blocks))
+        self.write_provenance = []
+
+    def _fuses_now(self):
+        if self.fusion_policy == "all":
+            return True
+        return len(self.events) == self.planned_compaction_count - 1
 
     def write(self, record, index):
-        """Streaming append with generational bookkeeping (v7 C2).
+        """Streaming append with generational and provenance bookkeeping.
 
         `StreamingMemory.write` appends one native block per record but is owned
         by the evaluation layer, so the age array is reconciled here instead of
@@ -162,26 +208,43 @@ class MergeStream(StreamingMemory):
         m = self.m
         events_before = getattr(m, "age_append_events", None)
         if events_before is None:
-            return super().write(record, index)
+            result = super().write(record, index)
+            self._note_written(index, result)
+            return result
         used_before = int(m.used)
         merges_before = len(self.events)
         result = super().write(record, index)
-        if m.age_append_events != events_before:
-            return result
-        if self.arm == "NativeDefault":
-            # The published baseline overwrites the whole pool and reports
-            # `used = total`; there is no per-block provenance to carry.
-            return result
-        merged = len(self.events) - merges_before
-        expected = used_before - (self.window - self.target) * merged
-        appended = (int(m.used) - expected) // m.block
-        if appended > 0:
-            m.note_append(appended=appended)
+        if m.age_append_events == events_before and self.arm != "NativeDefault":
+            merged = len(self.events) - merges_before
+            expected = used_before - (self.window - self.target) * merged
+            appended = (int(m.used) - expected) // m.block
+            if appended > 0:
+                m.note_append(appended=appended)
+        self._note_written(index, result)
         return result
+
+    def _note_written(self, index, result):
+        # The published baseline overwrites the whole pool and reports
+        # `used = total`; there is no per-block provenance to carry there.
+        if result is not None and self.arm != "NativeDefault":
+            self.write_provenance.append(int(index))
+
+    def _settle_provenance(self, selected, fused, write_index):
+        """Name the writes this merge kept and dropped, oldest window first."""
+        window_blocks = self.window // self.m.block
+        provenance = self.write_provenance
+        if len(provenance) < window_blocks:
+            return
+        keep = set(int(i) for i in selected)
+        window_writes = list(provenance[:window_blocks])
+        kept = [window_writes[i] for i in range(window_blocks) if i in keep]
+        dropped = [window_writes[i] for i in range(window_blocks) if i not in keep]
+        self.write_provenance = kept + list(provenance[window_blocks:])
+        self.events[-1].update(fused=bool(fused), window_writes=window_writes,
+                               kept_writes=kept, dropped_writes=dropped)
 
     def compact(self, write_index):
         import torch
-        from methods.prlmc.consolidate import _select_block_indices, select_bridge_aware
         m = self.m
         start = m.total - m.used
         source = m._memory[:, start:start+self.window].contiguous()
@@ -211,7 +274,8 @@ class MergeStream(StreamingMemory):
                 raise ValueError("invalid replayed carrier schedule")
         if self.on_compression:
             self.on_compression("before", write_index, selected)
-        if self.merge_arm == "SharedMerge":
+        fuse = self._fuses_now()
+        if self.merge_arm == "SharedMerge" and fuse:
             allow = torch.ones(self.window//m.block, dtype=torch.bool, device=source.device)
             begun = time.monotonic()
             # Only the V10 operator declares `bridge_blocks`; a sealed reference
@@ -226,7 +290,9 @@ class MergeStream(StreamingMemory):
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
                 selected_block_ages=ages[selected].cpu().tolist(),
                 seconds=time.monotonic()-begun, fusion=dict(self.compactor.last_fusion)))
-        elif self.merge_arm == "Selection" and self.carrier_schedule is not None:
+            settled = selected.cpu().tolist()
+        elif self.carrier_schedule is not None:
+            # Selection with the recorded carrier set: no fusion, same blocks.
             begun = time.monotonic()
             blocks = source.reshape(m.num_layers, self.window//m.block, m.block, m.hidden)
             output = blocks.index_select(1, selected).flatten(1,2)
@@ -235,14 +301,13 @@ class MergeStream(StreamingMemory):
                 target_slots=self.target, remaining_slots=m.used, selected_blocks=selected.cpu().tolist(),
                 selected_block_ages=ages[selected].cpu().tolist(),
                 seconds=time.monotonic()-begun, carrier_policy="replayed content-only OURS schedule"))
+            settled = selected.cpu().tolist()
         else:
             super().compact(write_index)
-            # `StreamingMemory.compact` keeps its own selection private. It is
-            # settled here only when it publishes it, so the fallback arm never
-            # invents a carrier set it cannot name.
-            published = getattr(self, "last_selected_blocks", None)
-            if published is not None:
-                m.note_merge(published, self.window // m.block)
+            # `StreamingMemory.compact` keeps its own selection private; it now
+            # publishes it, so the fallback arm never invents a carrier set.
+            settled = getattr(self, "last_selected_blocks", None) or []
+        self._settle_provenance(settled, fuse, write_index)
         if self.on_compression:
             self.on_compression("after", write_index, selected)
 

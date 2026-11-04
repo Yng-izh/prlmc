@@ -23,6 +23,7 @@ import collections
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -99,6 +100,47 @@ def build_input(tokenizer, row, total_tokens, tail_tokens, mode):
 CACHE_SCHEMA = "native_write_state/1"
 
 
+def _normalize_text(text):
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", (text or "").lower()).split())
+
+
+def last_merge_evidence(events, writes, tokenizer, row):
+    """What the final fused merge dropped, and whether the answer wording was there.
+
+    A text-level proxy, not proof: it reports whether the correct option's
+    wording survives in the kept carriers, was dropped with the window, or was
+    never in the window at all. A negative on all three means the last window
+    cannot be blamed for the loss, so a null result for experiment C would not
+    be explained by "there was nothing to rescue".
+    """
+    fused = [event for event in events if event.get("fused")]
+    if not fused:
+        return None
+    event = fused[-1]
+    answer = str(row.get("answer", ""))
+    target = _normalize_text(row.get("choice_" + answer))
+
+    def contains(indices):
+        if not indices:
+            return None
+        text = " ".join(tokenizer.decode(writes[i], skip_special_tokens=True)
+                        for i in indices if 0 <= i < len(writes))
+        return bool(target) and target in _normalize_text(text)
+
+    window = event.get("window_writes") or []
+    kept = event.get("kept_writes") or []
+    dropped = event.get("dropped_writes") or []
+    return dict(
+        before_write=event.get("before_write"),
+        window_writes=window, kept_writes=kept, dropped_writes=dropped,
+        window_token_range=([window[0] * 512, (window[-1] + 1) * 512] if window else None),
+        document_fraction=([round(window[0] / max(1, len(writes)), 3),
+                            round((window[-1] + 1) / max(1, len(writes)), 3)] if window else None),
+        answer_text_in_window=contains(window),
+        answer_text_in_kept=contains(kept),
+        answer_text_in_dropped=contains(dropped))
+
+
 def write_state_key(args, ids, geometry):
     """Identity of a completed write phase.
 
@@ -111,6 +153,8 @@ def write_state_key(args, ids, geometry):
                    writes_sha256=hashlib.sha256(
                        np.asarray(ids, dtype=np.int64).tobytes()).hexdigest(),
                    arm=args.arm, budget_blocks=args.budget_blocks,
+                   fusion_policy=args.fusion_policy,
+                   operator_variant=args.operator_variant,
                    geometry=list(geometry) if geometry else None,
                    trigger_blocks=args.trigger_blocks, fusion_mode=args.fusion_mode,
                    checkpoint=sha(args.checkpoint) if args.checkpoint else None,
@@ -296,6 +340,13 @@ def evaluate(args):
         fusion_mode=args.fusion_mode, training=checkpoint_training)
     tokenizer.pad_token = tokenizer.eos_token
     # The reader is frozen: no LoRA and no K/V adapter is attached here.
+    if args.operator_variant == "native":
+        # Experiment D: keep the V10 carrier/graft *selection*, drop every extra
+        # operation (same-block condensation, orthogonal context delta, core
+        # reinforcement). Only native slots reach the reader.
+        merge.operator_mode = "native"
+    elif getattr(merge, "operator_mode", "full") != "full":
+        raise ValueError("operator_mode must be 'full' unless --operator-variant native")
     if int(model.num_blocks) != 50 or int(model.num_tokens) != 256:
         raise ValueError("expected the native 50-block MemoryLLM reader")
     if args.budget_blocks == NATIVE_BUDGET:
@@ -333,6 +384,8 @@ def evaluate(args):
             budget_blocks=args.budget_blocks,
             geometry=list(geometry) if geometry else None,
             fusion_mode=args.fusion_mode,
+            fusion_policy=args.fusion_policy,
+            operator_variant=args.operator_variant,
             do_sample=False, num_beams=1, seed=args.seed, max_new_tokens=MAX_NEW,
             scoring="official four-choice extraction, accuracy",
             write_cache_dir=args.write_cache_dir,
@@ -367,6 +420,7 @@ def evaluate(args):
             manager._sync_active_mask()
         prompt, ids, write_ids, query_ids, original = build_input(
             tokenizer, row, args.total_tokens, args.tail_tokens, args.doc_truncation)
+        writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
         key, key_payload = write_state_key(args, ids, geometry)
         path = (cache_dir / f"{key}.pt") if cache_dir else None
         cached, cache_source = None, None
@@ -382,7 +436,6 @@ def evaluate(args):
             write_count = cached["write_count"]
             write_cache_hits += 1
         else:
-            writes = [write_ids[i:i + 512] for i in range(0, len(write_ids), 512)]
             # no_grad, not inference_mode: the write path leaves bookkeeping tensors
             # (block ages, active masks) alive past the block, and inference tensors
             # cannot be updated in place afterwards.
@@ -390,6 +443,8 @@ def evaluate(args):
                 stream_kwargs = dict(stream_arguments)
                 if sample_schedule is not None:
                     stream_kwargs["carrier_schedule"] = sample_schedule
+                stream_kwargs["fusion_policy"] = args.fusion_policy
+                stream_kwargs["total_writes"] = len(writes)
                 stream = pe.MergeStream(manager, merge_module, args.arm, **stream_kwargs)
                 events = pe.run_sample(stream, writes)
             peak, write_count = stream.peak, len(writes)
@@ -399,6 +454,7 @@ def evaluate(args):
             remember(memory_cache, key, entry, args.write_cache_slots)
             if path is not None:
                 torch.save(entry, path)
+        last_merge = last_merge_evidence(events, writes, tokenizer, row)
         prediction, output_ids = pe.generate(model, tokenizer, query_ids, MAX_NEW)
         scores, single_token = option_scores(model, tokenizer, query_ids)
         scored = [k for k in OPTION_LETTERS if scores[k] is not None]
@@ -420,6 +476,9 @@ def evaluate(args):
             prefix_tokens=len(write_ids), query_tokens=len(query_ids),
             write_count=write_count, compression_count=len(events),
             compression_schedule=[e.get("selected_blocks") for e in events],
+            fusion_policy=args.fusion_policy, operator_variant=args.operator_variant,
+            fused_compressions=sum(1 for e in events if e.get("fused")),
+            last_merge=last_merge,
             peak_active_slots=peak, final_active_slots=active,
             write_cache_hit=int(cache_source is not None), write_cache_source=cache_source,
             write_cache_key=key,
@@ -471,6 +530,10 @@ def build_parser():
                    help="JSON list of LongBench v2 row ids; evaluates exactly these rows "
                         "in this order (pins an A/B to a frozen sample set)")
     p.add_argument("--checkpoint", default=None)
+    p.add_argument("--fusion-policy", default="all", choices=("all", "last"),
+                   help="fuse at every compaction (arm B) or only at the final one (arm C)")
+    p.add_argument("--operator-variant", default="full", choices=("full", "native"),
+                   help="full V10 operator, or verbatim native slot grafting (arm D)")
     p.add_argument("--arm", default="SharedMerge",
                    choices=("SharedMerge", "Selection", "Full"))
     p.add_argument("--budget-blocks", dest="budget_blocks", type=int, default=20,
