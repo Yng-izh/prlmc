@@ -253,11 +253,18 @@ class ManifoldGraftedSlotMerge(nn.Module):
         graft_src_blocks = disc_t[graft_pick_idx // B]
         core_src_blocks = sel_t.repeat_interleave(self.core_slots_per_block)
         slot_source_blocks = torch.cat([core_src_blocks, graft_src_blocks])[chronological_order].tolist()
+        # The exact native window position every output slot came from, in the
+        # order the reader will see them. `slot_source_blocks` only says which
+        # block; the in-block offset is what a diagnostic that wants to put a
+        # slot back where it was (experiment 2's in-place arm) needs, and it
+        # cannot be recovered from the values without an O(slots^2) match.
+        slot_source_positions = all_global_pos.index_select(0, chronological_order).tolist()
 
         telemetry = {
             "mode": "manifold_graft_v10",
             "bridge_slot_offsets": bridge_slot_offsets,
             "slot_source_blocks": slot_source_blocks,
+            "slot_source_positions": slot_source_positions,
             "core_slot_count": core_count,
             "selected_blocks": [int(x) for x in selected_blocks],
             "core_slots_kept": int(flat_core_pos.numel()),

@@ -14,6 +14,7 @@
 | `lbv2_data.py` | LBv2 数据加载、官方模板与官方答案抽取 |
 | `native_eval.py` | MemoryLLM-8B 原生基线评测（50 块池、不压缩） |
 | `eval_graft_recovery.py` | 实验 1：原生槽位嫁接的知识恢复/损伤（Full / Selection / Graft，19→9，单次压缩） |
+| `eval_replace_reorder.py` | 实验 2：替换 vs 重排的损伤归因（Full / Selection / Replace / Graft，B 与 C 的槽位向量完全相同） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -132,3 +133,64 @@ python tools/eval_graft_recovery.py --analyze reports/diagnostics/graft_recovery
   可以回答"含证据的被丢弃块到底有没有贡献嫁接槽"。
 - 筛选用了答案和证据位置，所以分组的准确率是**机制诊断**，不是数据集成绩；
   报告里 `protocol.screening_caveat` 写死了这句话，全量列 `arms` 才是可比的数字。
+
+## 实验 2：替换和重排究竟损伤了多少知识
+
+实验 1 只测了 `Selection → Graft` 的**联合**效果，无法区分损伤来自哪一步：
+(i) 每个载体让出 40 个自己的槽、被外来内容覆盖；还是 (ii) 槽位向量完全相同，但
+Reader 读到的**顺序**变了（V10 按来源时间输出，嫁接槽夹在载体槽中间，不在载体原来的位置上）。
+
+这里加一个 B 组，它是 C 组输出的**纯置换**，所以 B、C 持有字面相同的 2,304 个槽位向量：
+
+| 臂 | 做法 |
+|---|---|
+| `Full` | 19 块 4,864 槽，不压缩（参考） |
+| `Selection` | 9 个载体块原样（基线 A） |
+| `Replace` | 每个载体保留自己的 216 个 core 槽**在原位置**，腾出的 40 个位置填 V10 的嫁接槽（B） |
+| `Graft` | V10 算子的原始输出，即按来源时间排列（C，等同实验 1 的 Graft） |
+
+于是 `A→B` = 替换的净影响（删除 40 个载体槽 + 引入 40 个嫁接槽的**联合**效应），
+`B→C` = 纯重排的影响（向量集合相同），`A→C` = 复核实验 1。
+
+B 不是重新实现一遍压缩，而是 `graft_output.index_select(1, perm)`，`perm` 在 `run_sample`
+里断言是 `range(2304)` 的双射，摘要写进 `layout.permutation_sha256`。360 个嫁接槽按来源
+时间顺序、每载体 40 个、填进该载体升序的空位；这条规则只决定"哪个外来向量进哪个块"，
+不决定记忆里有哪些向量。
+
+```bash
+# 先看会跑哪些题（只加载 tokenizer，不占 GPU、不写文件）
+python tools/eval_replace_reorder.py --dry-run \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16
+
+# 不需要 GPU 的自检：置换、阶段映射、McNemar 统计
+python tools/eval_replace_reorder.py --self-test
+
+# 正式跑（四个臂共享同一次压缩；--verify-against 逐题比对实验 1 的答案）
+python tools/eval_replace_reorder.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --verify-against reports/diagnostics/graft_recovery_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/replace_reorder_hotpotqa.json
+
+# 不跑模型，重新分组已有报告
+python tools/eval_replace_reorder.py --analyze reports/diagnostics/replace_reorder_hotpotqa.json
+```
+
+口径说明：
+
+- **最关键的指标是保护组的 Harmed 归因**：`summary.protection_group.harmed_stages` 把
+  "Full 对、Selection 对、Graft 错"的题分成 `broken_at_replace`（B 就已经错，替换阶段损伤）
+  和 `broken_at_reorder`（B 对、C 错，只有重排损伤）；`harmed_detail` 与 `transitions` 给出
+  逐题明细（`selection` / `replace` / `graft` 三个 0/1）。
+- 除新增的 B 组外，其余全部沿用实验 1：同一批 158 道有效题、冻结 Reader、单次 19→9、
+  同样的 9 个载体、同样的 top-216 core、同样的 360 个嫁接槽、`operator_mode="native"`、
+  不训练。`--verify-against` 若在 `Full`/`Selection`/`Graft` 三个臂上不是 100% 逐题一致，
+  那是本驱动的 bug，不是结果。
+- `A→B` 是**联合**效应，不能凭这一个差值再区分"删除损失"和"嫁接收益"，报告里
+  `protocol.attribution_note` 写死了这句话。
+- 显著性用**双侧精确 McNemar**，只对不一致对计数；`mcnemar_p` 就在每个 `pairs` 条目里。
+- 筛选用了答案和证据位置，分组准确率是**机制诊断**，不是数据集成绩。

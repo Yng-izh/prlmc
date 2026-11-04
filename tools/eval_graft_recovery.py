@@ -425,16 +425,29 @@ def install_selection(manager, source, picked, window_blocks):
     return selected
 
 
-def install_graft(manager, merge, source, picked, window_blocks, target_blocks, frozen, pinned):
-    """Arm B: native-mode V10 operator on the SAME carriers, then the same install."""
-    window = window_blocks * manager.block
+def compress_graft(manager, merge, source, picked, window_blocks, target_blocks, frozen, pinned):
+    """The native-mode V10 compression itself: output slots plus its telemetry.
+
+    Split out from `install_graft` so a diagnostic that needs the compressed
+    window BEFORE it is installed (experiment 2 builds a permutation of it) uses
+    the one implementation, instead of re-typing the operator call and drifting.
+    """
     target = target_blocks * manager.block
     selected = torch.as_tensor(picked, dtype=torch.long, device=source.device)
     allow = torch.ones(window_blocks, dtype=torch.bool, device=source.device)
     output = merge(source, target=target, block=manager.block, carrier_indices=selected,
                    source_allow_mask=allow, frozen_slots=frozen, pinned_blocks=pinned)
+    return output, dict(merge.last_fusion)
+
+
+def install_graft(manager, merge, source, picked, window_blocks, target_blocks, frozen, pinned):
+    """Arm Graft: native-mode V10 operator on the SAME carriers, then the same install."""
+    window = window_blocks * manager.block
+    selected = torch.as_tensor(picked, dtype=torch.long, device=source.device)
+    output, telemetry = compress_graft(manager, merge, source, picked, window_blocks,
+                                       target_blocks, frozen, pinned)
     install(manager, output, window, selected_blocks=selected, fused_offsets=None)
-    return selected, dict(merge.last_fusion)
+    return selected, telemetry
 
 
 def graft_provenance(telemetry, window_blocks):
