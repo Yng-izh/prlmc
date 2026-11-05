@@ -37,10 +37,12 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 20 题里没有一题过半。融合把 19/20 题的概率挪动了一点，但没有一题因此改对 ——
 说明在这个 128k / 50 块设置下读者基本没读到证据，融合是否有用还不是主要矛盾。
 
-实验 1B（学习式多对一融合）训了两个 checkpoint，但**还没有准确率数字**：只监督 4 层的那版
-把验证集读出距离拉近 14.5%，却只在它被监督的 4 层上有效（其余 28 层 −9%）；监督全部 32 层
-的那版直接发散（验证集 −28%，前 13 层读出距离被放大 1.1–4.8 倍）。逐层证据与训练记录见
-[docs/03-results.md](docs/03-results.md) 第 4 节和 [reports/exp1b_fusion/](reports/exp1b_fusion/)。
+实验 1B（学习式多对一融合）在 158 题上跑完了：**`Fusion` 23.42 vs `Graft` 25.95**
+（1 救 5 伤，p = 0.22），F1 25.18 vs 27.05。它把读出距离拉近了 20%（在被监督的 4 层上），
+准确率反而掉 2.5 pp —— 训练目标被优化了，但和"答对"脱钩。`Full` 答对的 47 题里它丢 17 题
+（`Graft` 丢 13 题），知识损伤没有变小；证据在被删块里的 40 题上 `Graft` 17.5 → `Fusion` 10.0。
+逐层证据与训练记录见 [docs/03-results.md](docs/03-results.md) 第 4 节和
+[reports/exp1b_fusion/](reports/exp1b_fusion/)。
 
 口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)，
 读报告时的两个约定（`--operator-variant native`、`last_merge` 记录）见
