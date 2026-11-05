@@ -17,6 +17,8 @@
 | `eval_replace_reorder.py` | 实验 2：替换 vs 重排的损伤归因（Full / Selection / Replace / Graft，B 与 C 的槽位向量完全相同） |
 | `eval_evict_only.py` | 实验 3：Evict-Only，把替换损伤拆成"删槽"和"插槽"（Full / Selection / Evict / Replace） |
 | `eval_graft_span.py` | 实验 1A：嫁接来源端的 Span-4 成组选择（Full / Selection / Graft / Span，只改来源侧） |
+| `train_core_fusion.py` | 实验 1B 训练端：只训 0.52 M 的 core 融合模块，目标是 Reader 读出蒸馏（不碰答案） |
+| `eval_learned_fusion.py` | 实验 1B：学习式多对一融合 vs 原生嫁接（Full / Selection / Graft / Fusion / Graft2 / Fusion2） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -331,3 +333,78 @@ python tools/eval_graft_span.py \
 `--verify-against` 在这里不是走过场：算子新加了 `graft_source` 分支，`Graft` 臂必须和已有报告
 **逐题一致**，否则这个实验比较的就是两个不同实现。`operator_change` 写进了 protocol，
 `operator_matches_checkpoint` 会是 `false`（`manifold_graft.py` 不在 checkpoint 的哈希锁定列表里）。
+
+## 实验 1B：学习式多对一 core 融合 vs 原生嫁接
+
+实验 1、2、3、1A 测的都是"怎么挑槽、怎么排槽"。这个实验测的是**删掉的槽能不能不丢**：
+原生嫁接会删掉每个载体块 256 个槽里的 40 个（216 core + 40 嫁接），那 40 个槽里的东西
+一旦被覆盖就没了。B 臂在删除**之前**，用一个小残差模块把这 40 个槽融合进**同一个块**
+留下的 216 个槽，然后照原样删、照原样嫁接。
+
+| 臂 | 压缩方式 | 输出槽 |
+|---|---|---|
+| `Full` | 不压缩，19 块 4,864 槽 | — |
+| `Selection` | 9 个载体块原样 | 2,304 |
+| `Graft` | V10 原生嫁接（A）：删 40、嫁 360，全部逐字复制 | 2,304 |
+| `Fusion` | 同 A，但先把 40 个待删槽融合进本块的 216 个 core，再删再嫁接 | 2,304 |
+| `Graft2` | A 的**第二轮**：把 A 自己的 9 块 + 后 10 块原生块拼成 19 块，再压一次 | 2,304 |
+| `Fusion2` | B 的第二轮：从 B 自己的第一轮结果继续，再压一次 | 2,304 |
+
+`Graft2` / `Fusion2` 只跑 `available_blocks ≥ 29` 的题（158 题里有 88 题）；两轮臂各自
+延续**自己**的第一轮记忆，所以第二轮比的是"融合过的记忆再压一次还站不站得住"。
+
+融合模块（`methods/prlmc/core_fusion.py`，rank 32 时 524,289 参数）只做一件事：每个 core 槽
+对本块那 40 个待删槽做一次同块 cross-attention，取回一个残差。残差有三重约束（都来自 V10）：
+`tanh` 把它压在本槽 RMS 的 `max_ratio` 倍以内、sigmoid 门再缩放一次、加完之后**恢复原槽 RMS**。
+`out_proj` 零初始化，所以训练起点上 `Fusion` 与 `Graft` **逐位相同**——这一点在训练脚本里
+开跑前实测一次（`identity_check`），不是写在注释里。
+
+**不训练 Reader、不训练 Writer、不训练 V10 算子。** 训练只发生在 `train_core_fusion.py`：
+在 musique（与评测的 HotpotQA 不同任务，196/200 篇够 19 块）上，把"压缩后窗口的 Reader 读出"
+往"压缩前窗口的 Reader 读出"上拉，tap 用 V10 的 4 个蒸馏层，query 只取**问题**的最后 8 个
+token（`prompt_hidden_states` 只跑 prompt，不跑答案），所以目标里没有任何答案信息。
+
+```bash
+# 1) 训练融合模块（约 3.5 s/更新）
+python tools/train_core_fusion.py --dry-run \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique
+
+python tools/train_core_fusion.py --updates 384 \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --out runs/core_fusion/fusion_rank32.pt \
+  --report runs/core_fusion/fusion_rank32.json
+
+# 2) 评测
+python tools/eval_learned_fusion.py --self-test          # 不需要 GPU
+
+python tools/eval_learned_fusion.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/hotpot_dev_distractor_v1.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --fusion runs/core_fusion/fusion_rank32.pt \
+  --verify-against reports/diagnostics/graft_span_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/learned_fusion_hotpotqa.json
+```
+
+驱动每题硬校验"只动了 core"这件事，而不是在文档里声明：
+
+- `Fusion` 的 360 个嫁接槽与 `Graft` 的**逐位相同**（`torch.equal`，360 列）；
+- core / 嫁接的**位置**和 360 配额不变，每个载体**正好删 40 个**，且这 40 个不在输出里；
+- core 确实变了（否则这个臂什么都没测）；
+- 两臂装进 Reader 后的 `active_fingerprint` 不同（证明真的换了池子）。
+
+看四个数：
+
+- `summary.damage`：`Full` 答对的题里各臂丢了几个——B 相对 A 少丢几个，就是"原有知识损伤是否减少"。
+- `summary.multi_round_group`：88 题上的 `Fusion2 − Graft2`、`Fusion2 − Fusion`、`Graft2 − Graft`。
+- `summary.pairs.Fusion_minus_Graft`：配对准确率、救回/弄坏、精确 McNemar。
+- `summary.readout`：读出距离。`fusion_removes` 是**训练过的 tap** 上融合消掉了多少距离，
+  `fusion_removes_held_out` 是**从没优化过的 4/12/20/28 层**。前者降后者不降 = 只拟合了探针；
+  两个都不降 = 没学到东西。这个数和准确率无关，是机制层面的证据。
+
+`--verify-against` 在这里同样不是走过场：`Full` / `Selection` / `Graft` 三臂必须和 1A 的报告
+逐题一致（1A 之后 `manifold_graft.py` 已与 checkpoint 清单不同，`operator_matches_checkpoint`
+会是 `false`，靠这个比对兜底）。
