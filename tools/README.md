@@ -16,6 +16,7 @@
 | `eval_graft_recovery.py` | 实验 1：原生槽位嫁接的知识恢复/损伤（Full / Selection / Graft，19→9，单次压缩） |
 | `eval_replace_reorder.py` | 实验 2：替换 vs 重排的损伤归因（Full / Selection / Replace / Graft，B 与 C 的槽位向量完全相同） |
 | `eval_evict_only.py` | 实验 3：Evict-Only，把替换损伤拆成"删槽"和"插槽"（Full / Selection / Evict / Replace） |
+| `eval_graft_span.py` | 实验 1A：嫁接来源端的 Span-4 成组选择（Full / Selection / Graft / Span，只改来源侧） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -282,3 +283,51 @@ python tools/eval_evict_only.py --analyze reports/diagnostics/evict_only_hotpotq
   一条规则，所以 B 删的 360 个位置和 C 插的 360 个位置**必然**是同一批，跑完还能用报告的
   `eviction.positions` 复算。
 - 显著性仍是**双侧精确 McNemar**；筛选用了答案和证据位置，分组准确率是**机制诊断**，不是数据集成绩。
+
+## 实验 1A：嫁接来源端的 Span-4 成组选择
+
+实验 1、2、3 都固定在 V10 原来的来源选法上：把 10 个删除块的每个槽单独打分，取全局 top-360。
+这 360 个槽落在哪就是哪，所以记忆里的嫁接侧是一把散点。这个实验**只改来源侧**：
+
+| 臂 | 来源选择 | 输出 |
+|---|---|---|
+| `Full` | 不压缩，19 块 4,864 槽 | — |
+| `Selection` | 9 个载体块原样 | 2,304 |
+| `Graft` | V10 训练出来的规则：10 个删除块的**单点** leverage 全局 top-360 | 2,304 |
+| `Span` | 同样这 10 个块，按**互不重叠的 4 槽 span 均值**排序，取 top-90 组 = 同样 360 槽，但落成 90 段连续的 4 连槽 | 2,304 |
+
+其余全部冻死：同一批 158 题、冻结 Reader、同样 9 个载体、**原来的单点 top-216 core**、
+360 个嫁接槽、2,304 输出槽、100% 原生复制、现有全局时间顺序、不训练。
+
+一次前向里**跑两次压缩**（point、span4），两次都读同一个压缩前快照，所以 `Span − Graft`
+只差"选了哪些来源槽"。驱动每题硬校验两件事：两次压缩的 **core 位置集合必须完全相同**
+（证明只动了来源侧），两个嫁接位置集合必须**不同**（否则这个臂就等于 point 臂）。
+`span_structure()` 再从 telemetry 反推：360 个嫁接位置必须正好构成 90 段完整的 4 连槽，
+有一段不完整就报错——半截 span 说明算子选的不是它打分的组。
+
+```bash
+python tools/eval_graft_span.py --self-test          # 不需要 GPU
+python tools/eval_graft_span.py --dry-run --data-dir ... --task hotpotqa \
+  --supporting-facts-glob '...' --model-path /dev/shm/s1d_reader_fp16
+
+python tools/eval_graft_span.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/graft_span_hotpotqa.json
+```
+
+看三个数：
+
+- `summary.changed_group`：压缩会改变对错的**那 16 题**（实验 1/2 里是 11 救 5 伤），
+  `rescued_by_span` / `harmed_by_span` 和 point 的 11/5 直接对照，`stages` 是八种情形的计数。
+- `summary.dropped_evidence_group`：**40 道证据落在被删块里**的题，四个臂的准确率/F1 加
+  `span_minus_point` 配对。
+- `summary.net`：`rescued − harmed` 对 Selection 的净值，point 与 span 并排放（实验 1 报的 +6 就是
+  这个量）。
+
+`--verify-against` 在这里不是走过场：算子新加了 `graft_source` 分支，`Graft` 臂必须和已有报告
+**逐题一致**，否则这个实验比较的就是两个不同实现。`operator_change` 写进了 protocol，
+`operator_matches_checkpoint` 会是 `false`（`manifold_graft.py` 不在 checkpoint 的哈希锁定列表里）。

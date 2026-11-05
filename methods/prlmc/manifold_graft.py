@@ -42,6 +42,15 @@ class ManifoldGraftedSlotMerge(nn.Module):
         # same-block condensation, no orthogonal context delta and no core
         # reinforcement, so only native slots ever reach the reader.
         self.operator_mode = "full"
+        # Source-side selection (experiment 1A). "point" is V10's trained rule:
+        # rank every dropped-block slot by leverage and take the top 360, which
+        # scatters the graft slots as single slots across the window. "span4"
+        # ranks NON-OVERLAPPING 4-slot spans by their mean leverage and takes the
+        # top 90, so the same 360 native slots arrive in 90 runs of 4 consecutive
+        # positions. Everything else -- carriers, core selection, output capacity,
+        # the chronological output order, the vectors themselves -- is untouched.
+        self.graft_source = "point"
+        self.graft_span = 4
 
         # Low-rank routing residual, zero-initialised: training starts exactly on
         # the native manifold.
@@ -73,6 +82,45 @@ class ManifoldGraftedSlotMerge(nn.Module):
         mixed = (1.0 - weight) * base.float() + weight * neighbor_mean.float()
         mixed_rms = mixed.square().mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
         return (mixed * (orig_rms / mixed_rms)).to(base.dtype)
+
+    def _select_graft_slots(self, flat_leverage: torch.Tensor, num_graft_total: int,
+                            block: int) -> torch.Tensor:
+        """Which dropped-block slots become graft slots.
+
+        `flat_leverage` is the per-slot score of every dropped block, block-major:
+        `index = block_offset * block + in_block_position`.
+
+        "point" is the trained rule and must stay bit-identical to V10: the top
+        `num_graft_total` slots, wherever they fall. "span4" scores each
+        non-overlapping span of `graft_span` consecutive positions by the MEAN of
+        its slots and takes the best `num_graft_total / graft_span` spans, so the
+        same budget of slots is spent on short runs instead of on isolated points.
+        """
+        if self.graft_source == "point":
+            return flat_leverage.topk(k=num_graft_total, dim=0).indices
+        if self.graft_source != "span4":
+            raise ValueError(f"unknown graft_source {self.graft_source!r}")
+        span = int(self.graft_span)
+        if span <= 0 or block % span:
+            raise ValueError(f"a {span}-slot span does not tile a {block}-slot block")
+        if num_graft_total % span:
+            raise ValueError(f"{num_graft_total} graft slots do not divide into "
+                             f"{span}-slot spans")
+        if flat_leverage.numel() % block:
+            raise ValueError("the leverage vector does not hold whole blocks")
+        spans_per_block = block // span
+        span_scores = flat_leverage.view(-1, spans_per_block, span).mean(dim=-1).reshape(-1)
+        wanted = num_graft_total // span
+        if wanted > span_scores.numel():
+            raise ValueError(f"asked for {wanted} spans, the dropped blocks hold "
+                             f"{span_scores.numel()}")
+        chosen = span_scores.topk(k=wanted, dim=0).indices
+        block_of = torch.div(chosen, spans_per_block, rounding_mode="floor")
+        start_of = (chosen % spans_per_block) * span
+        offsets = torch.arange(span, device=flat_leverage.device)
+        # Spans are non-overlapping by construction, so the flattened result is a
+        # set of `num_graft_total` distinct slots, `span` of them consecutive.
+        return (block_of.unsqueeze(1) * block + start_of.unsqueeze(1) + offsets).reshape(-1)
 
     def _orthogonal_context_delta(self, anchor_layers: torch.Tensor, ctx_layers: torch.Tensor) -> torch.Tensor:
         L, N, D = anchor_layers.shape
@@ -195,7 +243,7 @@ class ManifoldGraftedSlotMerge(nn.Module):
         disc_leverage = disc_ref.norm(dim=-1) * (0.6 + disc_disp) * (0.5 + bridge_relevance) * novelty_factor
 
         flat_leverage = disc_leverage.reshape(-1)
-        graft_pick_idx = flat_leverage.topk(k=num_graft_total, dim=0).indices
+        graft_pick_idx = self._select_graft_slots(flat_leverage, num_graft_total, B)
         graft_pick_idx, _ = torch.sort(graft_pick_idx)
 
         graft_global_pos = flat_disc_pos.index_select(0, graft_pick_idx)
@@ -270,6 +318,10 @@ class ManifoldGraftedSlotMerge(nn.Module):
             "core_slots_kept": int(flat_core_pos.numel()),
             "grafted_slots": int(num_graft_total),
             "operator_mode": self.operator_mode,
+            "graft_source": self.graft_source,
+            "graft_span": (int(self.graft_span) if self.graft_source == "span4" else None),
+            "graft_spans": (int(num_graft_total // int(self.graft_span))
+                            if self.graft_source == "span4" else None),
             "homo_reinforced_slots": homo_matched,
             "total_condensed_protected": int(final_cond_mask.sum().item()),
         }
