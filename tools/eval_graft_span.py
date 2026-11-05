@@ -176,6 +176,29 @@ def span_structure(positions, block=BLOCK, span=SPAN):
     return len(runs)
 
 
+def span_output_runs(telemetry, block=BLOCK, span=SPAN):
+    """Do the selected spans arrive at the READER as runs of `span` slots?
+
+    Selecting a run of consecutive source positions is only half the mechanism: the
+    output is re-ordered chronologically, so the run has to survive that sort. It
+    does -- no carrier slot can sit between two consecutive positions of a dropped
+    block -- but that is an argument about the code, and this is the measurement:
+    the OUTPUT indices of each span must be consecutive.
+    """
+    positions = [int(position) for position in telemetry["slot_source_positions"]]
+    offsets = [int(offset) for offset in telemetry["bridge_slot_offsets"]]
+    runs = {}
+    for offset in offsets:
+        position = positions[offset]
+        runs.setdefault((position // block, (position % block) // span), []).append(offset)
+    for (block_id, group), members in runs.items():
+        members = sorted(members)
+        if members != list(range(members[0], members[0] + span)):
+            raise ValueError(f"block {block_id} span {group} reaches the reader at output "
+                             f"offsets {members}, which are not consecutive")
+    return len(runs)
+
+
 def check_source_rules(point, span, dropped, picked):
     """The two compressions must differ in the source side and nowhere else."""
     if point["selected_blocks"] != picked or span["selected_blocks"] != picked:
@@ -206,6 +229,10 @@ def check_source_rules(point, span, dropped, picked):
     if runs != SPANS_TOTAL:
         raise ValueError(f"the span rule produced {runs} complete runs, expected "
                          f"{SPANS_TOTAL}")
+    output_runs = span_output_runs(span)
+    if output_runs != SPANS_TOTAL:
+        raise ValueError(f"the span rule reached the reader as {output_runs} runs, "
+                         f"expected {SPANS_TOTAL}")
     dropped_set = set(int(block) for block in dropped)
     for position in list(point_graft) + list(span_graft):
         if position // BLOCK not in dropped_set:
@@ -216,6 +243,7 @@ def check_source_rules(point, span, dropped, picked):
         span_graft_positions=sorted(span_graft),
         shared_graft_slots=len(point_graft & span_graft),
         span_runs=runs,
+        span_output_runs=output_runs,
         point_graft_digest=digest(sorted(point_graft)),
         span_graft_digest=digest(sorted(span_graft)))
 
