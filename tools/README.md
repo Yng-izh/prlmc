@@ -174,13 +174,13 @@ python tools/eval_replace_reorder.py --dry-run \
 # 不需要 GPU 的自检：置换、阶段映射、McNemar 统计
 python tools/eval_replace_reorder.py --self-test
 
-# 正式跑（四个臂共享同一次压缩；--verify-against 逐题比对实验 1 的答案）
+# 正式跑（四个臂共享同一次压缩；--verify-against 逐题比对一份已完成的报告）
 python tools/eval_replace_reorder.py \
   --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
   --model-path /dev/shm/s1d_reader_fp16 \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --verify-against reports/diagnostics/graft_recovery_hotpotqa.json \
+  --verify-against reports/diagnostics/graft_span_hotpotqa.json \
   --cuda-device 0 --out reports/diagnostics/replace_reorder_hotpotqa.json
 
 # 不跑模型，重新分组已有报告
@@ -244,13 +244,13 @@ python tools/eval_evict_only.py --dry-run \
 # 不需要 GPU 的自检：淘汰集合、掩码算术、阶段映射、McNemar 统计
 python tools/eval_evict_only.py --self-test
 
-# 正式跑（--verify-against 逐题比对实验 2 的 Full/Selection/Replace）
+# 正式跑（--verify-against 逐题比对一份已完成的报告）
 python tools/eval_evict_only.py \
   --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
   --model-path /dev/shm/s1d_reader_fp16 \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \
+  --verify-against reports/diagnostics/graft_span_hotpotqa.json \
   --cuda-device 0 --out reports/diagnostics/evict_only_hotpotqa.json
 
 # 不跑模型，重新分组已有报告（含 --f1-threshold）
@@ -317,7 +317,7 @@ python tools/eval_graft_span.py \
   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
   --model-path /dev/shm/s1d_reader_fp16 \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \
+  --verify-against <另一份已完成的 Full/Selection/Graft 报告> \
   --cuda-device 0 --out reports/diagnostics/graft_span_hotpotqa.json
 ```
 

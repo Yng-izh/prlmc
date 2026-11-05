@@ -85,7 +85,7 @@ Usage
         --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
         --model-path /dev/shm/s1d_reader_fp16 \
         --checkpoint runs/natural_merge_v9/full_v10.pt \
-        --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \
+        --verify-against reports/diagnostics/graft_span_hotpotqa.json \
         --out reports/diagnostics/evict_only_hotpotqa.json
 
     # re-group a finished report without a GPU

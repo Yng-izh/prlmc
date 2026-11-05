@@ -24,9 +24,11 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 
 | 实验 | 样本 | 准确率（cue 口径） | 备注 |
 | --- | --- | --- | --- |
-| MemoryLLM-8B 原生 50 块 | 503 | **18.7%** | 无压缩，`memoryllm8b_lbv2_all_128k.json` |
-| V10，50 块预算 | 157/503（中断） | **18.5%** | `eval_v10_lbv2_50b_SharedMerge.partial.json` |
+| MemoryLLM-8B 原生 50 块 | 503 | **18.7%** | 无压缩，官方 judge |
 | V10 vs Selection，50 块预算 | 20 | **20.0% vs 20.0%** | 答对的是同 4 题；12/20 预测文本不同 |
+
+定位实验（HotpotQA 158 题配对）的完整数字、以及每个配对的救回/弄坏与 McNemar p，
+在 [docs/03-results.md](docs/03-results.md)。
 
 结论：**目前没有测到涨点**。157 题上 V10 与原生基线统计不可区分（±6pp）；20 题配对比较是平局，
 样本量只够排除 ±18pp 的差异。
@@ -35,8 +37,9 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 20 题里没有一题过半。融合把 19/20 题的概率挪动了一点，但没有一题因此改对 ——
 说明在这个 128k / 50 块设置下读者基本没读到证据，融合是否有用还不是主要矛盾。
 
-口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)、[docs/03-results.md](docs/03-results.md)，
-问题定位实验（A/B/C/D）见 [docs/04-diagnostics.md](docs/04-diagnostics.md)。
+口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)，
+读报告时的两个约定（`--operator-variant native`、`last_merge` 记录）见
+[docs/04-diagnostics.md](docs/04-diagnostics.md)。
 
 ## 仓库结构
 

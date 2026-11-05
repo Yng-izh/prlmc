@@ -46,7 +46,7 @@ Usage
     python tools/eval_graft_span.py --data-dir ... --task hotpotqa \\
         --supporting-facts-glob '...' --model-path /dev/shm/s1d_reader_fp16 \\
         --checkpoint runs/natural_merge_v9/full_v10.pt \\
-        --verify-against reports/diagnostics/replace_reorder_hotpotqa.json \\
+        --verify-against <a finished Full/Selection/Graft report> \\
         --out reports/diagnostics/graft_span_hotpotqa.json
 
     python tools/eval_graft_span.py --analyze reports/diagnostics/graft_span_hotpotqa.json
