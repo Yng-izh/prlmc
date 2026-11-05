@@ -112,6 +112,11 @@ TAPS = tuple(int(layer) for layer in DISTILL_LAYERS)      # (8, 16, 24, 31)
 # on, it learned the probe and not the reader.
 HELD_OUT_LAYERS = (4, 12, 20, 28)
 TAP_LAYERS = TAPS + HELD_OUT_LAYERS
+# `--per-layer` reports the readout distance at every reader layer instead of at
+# the eight probe layers. It exists because a checkpoint distilled at all 32
+# layers moved some layers and destroyed others, and an eight-layer mean cannot
+# show that.
+ALL_LAYERS = tuple(range(32))
 
 SCREENING_CAVEAT = gr.SCREENING_CAVEAT
 
@@ -281,6 +286,14 @@ def readout_gap(model, source, compressed, query_hidden, layers):
         return float(readout_distance(model, pre, post, query_hidden, layers))
 
 
+def per_layer_gap(model, source, compressed, query_hidden, layers):
+    """`readout_gap` one layer at a time: {layer: distance}."""
+    gaps = {}
+    for layer in layers:
+        gaps[int(layer)] = readout_gap(model, source, compressed, query_hidden, [layer])
+    return gaps
+
+
 def selection_window(source, picked):
     """The Selection arm's window: the carrier blocks kept whole, nothing else."""
     blocks = source.reshape(source.shape[0], source.shape[1] // BLOCK, BLOCK,
@@ -329,10 +342,11 @@ def run_sample(model, tokenizer, manager, merge, fusion, prepared, args):
                        >= args.window_blocks + args.round2_blocks):
         raise ValueError("the round-2 write stream is missing for an eligible row")
 
+    probe = ALL_LAYERS if getattr(args, "per_layer", False) else TAP_LAYERS
     with torch.no_grad():
         write_blocks(manager, merge, chunks[:args.window_blocks])
         state = gr.snapshot(model, manager)
-        query_hidden = prompt_hidden_states(model, prepared["query_ids"], TAP_LAYERS)
+        query_hidden = prompt_hidden_states(model, prepared["query_ids"], probe)
         round1 = compress_window(manager, merge, fusion, args.window_blocks,
                                  args.target_blocks)
     structure1 = check_fusion(round1, "round 1")
@@ -345,6 +359,11 @@ def run_sample(model, tokenizer, manager, merge, fusion, prepared, args):
                                            query_hidden, HELD_OUT_LAYERS)
     gaps[FUSION + "/heldout"] = readout_gap(model, round1["source"], round1["fused"],
                                             query_hidden, HELD_OUT_LAYERS)
+    if getattr(args, "per_layer", False):
+        gaps[GRAFT + "/perlayer"] = per_layer_gap(model, round1["source"], round1["output"],
+                                                  query_hidden, ALL_LAYERS)
+        gaps[FUSION + "/perlayer"] = per_layer_gap(model, round1["source"], round1["fused"],
+                                                   query_hidden, ALL_LAYERS)
     del selection
     gr.restore(model, manager, state)
 
@@ -480,6 +499,65 @@ def _gap_removed(samples, treatment, baseline):
                 down=int(sum(1 for value in removed if value < 0)))
 
 
+def _per_layer_summary(samples, distill_layers=None):
+    """Per-layer `fusion - graft` on the readout distance, when `--per-layer` ran.
+
+    The eight-layer mean hides a module that trades one group of layers for
+    another; this table is what shows it. Negative change means the fusion moved
+    that layer's readout closer to the uncompressed window.
+    """
+    rows = [sample for sample in samples
+            if sample.get("gaps", {}).get(GRAFT + "/perlayer")
+            and sample.get("gaps", {}).get(FUSION + "/perlayer")]
+    if not rows:
+        return None
+    supervised = set(int(layer) for layer in (distill_layers or TAPS))
+    every_layer = len(supervised) >= 32
+    layers = sorted(rows[0]["gaps"][GRAFT + "/perlayer"])
+    table = []
+    for layer in layers:
+        graft, fusion, change = [], [], []
+        for sample in rows:
+            g = sample["gaps"][GRAFT + "/perlayer"].get(layer)
+            f = sample["gaps"][FUSION + "/perlayer"].get(layer)
+            if g is None or f is None or g <= 0:
+                continue
+            graft.append(g)
+            fusion.append(f)
+            change.append(1.0 - f / g)
+        if not change:
+            continue
+        table.append(dict(
+            layer=int(layer), supervised=bool(int(layer) in supervised),
+            graft=round(float(sum(graft) / len(graft)), 5),
+            fusion=round(float(sum(fusion) / len(fusion)), 5),
+            removed=round(float(sum(change) / len(change)), 4)))
+    if not table:
+        return None
+    supervised_rows = [row["removed"] for row in table if row["supervised"]]
+    other = [row["removed"] for row in table if not row["supervised"]]
+    mean = lambda values: (round(float(sum(values) / len(values)), 4) if values else None)
+    best = max(table, key=lambda row: row["removed"])
+    worst = min(table, key=lambda row: row["removed"])
+    return dict(
+        definition=("per-layer mean readout distance, graft vs fusion, over the same "
+                    "rows; `removed` is the fraction of the graft distance the fusion "
+                    "takes away, so positive is closer to the uncompressed window"),
+        n=len(rows),
+        mean_removed=mean([row["removed"] for row in table]),
+        supervised_mean_removed=(None if every_layer else mean(supervised_rows)),
+        other_mean_removed=(None if every_layer else mean(other)),
+        note=("this checkpoint was distilled at every layer, so the supervised / other "
+              "split is empty: read the per-layer rows instead"
+              if every_layer else
+              "supervised layers are the ones the loss covered; the rest were never "
+              "optimised and are the honest test of whether the readout moved"),
+        improved_layers=[row["layer"] for row in table if row["removed"] > 0],
+        best_layer=dict(layer=best["layer"], removed=best["removed"]),
+        worst_layer=dict(layer=worst["layer"], removed=worst["removed"]),
+        layers=table)
+
+
 def _damage(samples, arm, threshold):
     """Accuracy lost against the uncompressed window, on the rows Full gets right."""
     protect = [sample for sample in samples if gr._correct(sample, FULL, threshold)]
@@ -491,7 +569,7 @@ def _damage(samples, arm, threshold):
                 accuracy_on_protect=round(100.0 * (len(protect) - lost) / len(protect), 2))
 
 
-def analyse(samples, threshold, excluded=0, round2_blocks=10):
+def analyse(samples, threshold, excluded=0, round2_blocks=10, distill_layers=None):
     graded = [sample for sample in samples if sample.get("status") == "graded"]
     for sample in graded:
         missing = [arm for arm in ROUND1_ARMS if arm not in sample.get("arms", {})]
@@ -507,6 +585,7 @@ def analyse(samples, threshold, excluded=0, round2_blocks=10):
     multi = [sample for sample in graded if sample.get("multi_round")]
     present = [arm for arm in ARMS
                if any(arm in sample.get("arms", {}) for sample in graded)]
+    trained_everywhere = bool(distill_layers) and len(set(distill_layers)) >= 32
 
     changed = [sample for sample in graded
                if gr._correct(sample, SELECTION, threshold)
@@ -592,14 +671,22 @@ def analyse(samples, threshold, excluded=0, round2_blocks=10):
             definition=("mean reader-readout distance from the uncompressed window at "
                         "the last 8 question tokens; lower is closer"),
             trained_taps=list(TAPS), held_out_layers=list(HELD_OUT_LAYERS),
+            distill_layers=(list(distill_layers) if distill_layers else None),
             by_arm={arm: _gap_summary(graded, arm)
                     for arm in (SELECTION, GRAFT, FUSION)},
-            held_out={arm: _gap_summary(graded, arm + "/heldout")
-                      for arm in (GRAFT, FUSION)},
+            held_out=({arm: _gap_summary(graded, arm + "/heldout")
+                       for arm in (GRAFT, FUSION)} if not trained_everywhere else None),
             fusion_removes=_gap_removed(graded, FUSION, GRAFT),
-            fusion_removes_held_out=_gap_removed(graded, FUSION + "/heldout",
-                                                 GRAFT + "/heldout"),
-            note=("the trained taps are the loss the module was optimised on; the "
+            fusion_removes_held_out=(_gap_removed(graded, FUSION + "/heldout",
+                                                  GRAFT + "/heldout")
+                                     if not trained_everywhere else None),
+            per_layer=_per_layer_summary(graded, distill_layers),
+            note=("this checkpoint was distilled at EVERY reader layer, so no layer is "
+                  "held out and the four 'held-out' layers above are trained too: the "
+                  "gap is a trained-layer number, and the honest test of whether the "
+                  "knowledge moved is the accuracy, not this distance"
+                  if trained_everywhere else
+                  "the trained taps are the loss the module was optimised on; the "
                   "held-out layers were never optimised and are the honest test of "
                   "whether the readout moved or only the probe")),
         dropped_evidence_group=dict(
@@ -668,6 +755,7 @@ def build_protocol(args, task, fusion_config):
                     training="offline, answer-free reader-readout distillation on a "
                              "disjoint LongBench task; nothing trained here"),
         operator_mode="native",
+        per_layer_probe=bool(getattr(args, "per_layer", False)),
         operator_note=("carrier and graft slots are copied verbatim; no same-block "
                        "condensation, no orthogonal context delta, no core reinforcement"),
         pairing_note=("both windows come from ONE snapshot and one operator call; the "
@@ -694,6 +782,20 @@ def load_fusion(path, device):
     module = LearnedCoreFusion(**config)
     module.load_state_dict(payload["state_dict"], strict=True)
     return module.to(device).eval().requires_grad_(False), config, payload.get("training")
+
+
+def supervised_layers(training):
+    """The reader layers the checkpoint's distillation loss actually covered.
+
+    The trainer records them as `taps`. This decides whether the "held-out
+    layers" in the summary are honest: a checkpoint distilled at all 32 layers
+    holds nothing out, so those numbers are trained numbers and the only honest
+    test left is the accuracy.
+    """
+    payload = training or {}
+    layers = payload.get("distill_layers") or payload.get("taps") or []
+    layers = [int(layer) for layer in layers]
+    return layers or None
 
 
 def load_reference(path):
@@ -899,7 +1001,8 @@ def evaluate(args):
 
     report["summary"] = analyse(report["samples"], args.f1_threshold,
                                 excluded=len(report["excluded"]),
-                                round2_blocks=args.round2_blocks)
+                                round2_blocks=args.round2_blocks,
+                                distill_layers=supervised_layers(fusion_training))
     if args.verify_against:
         report["verification_against_reference"] = verify_against(
             args.verify_against, reference, table, report["samples"])
@@ -923,7 +1026,8 @@ def analyze_existing(path, threshold=None):
         threshold = protocol.get("f1_threshold", 0.5)
     summary = analyse(report.get("samples") or [], threshold,
                       excluded=len(report.get("excluded") or []),
-                      round2_blocks=int(protocol.get("round2_blocks", 10)))
+                      round2_blocks=int(protocol.get("round2_blocks", 10)),
+                      distill_layers=supervised_layers(protocol.get("fusion_training")))
     for sample in report.get("samples") or []:
         for record in (sample.get("arms") or {}).values():
             if "qa_f1" in record:
@@ -1112,6 +1216,10 @@ def build_parser():
     p.add_argument("--verify-against", dest="verify_against", default=None,
                    help="a finished experiment-1/1A report; Full, Selection and Graft "
                         "must reproduce it row for row")
+    p.add_argument("--per-layer", dest="per_layer", action="store_true",
+                   help="report the readout distance at all 32 reader layers, not only "
+                        "at the eight probe layers (used to show which layers a "
+                        "checkpoint moved and which it destroyed)")
     p.add_argument("--strict-code-hash", dest="strict_code_hash", default="true",
                    choices=("true", "false"))
     p.add_argument("--seed", type=int, default=0)

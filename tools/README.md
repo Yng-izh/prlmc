@@ -361,20 +361,32 @@ python tools/eval_graft_span.py \
 
 **不训练 Reader、不训练 Writer、不训练 V10 算子。** 训练只发生在 `train_core_fusion.py`：
 在 musique（与评测的 HotpotQA 不同任务，196/200 篇够 19 块）上，把"压缩后窗口的 Reader 读出"
-往"压缩前窗口的 Reader 读出"上拉，tap 用 V10 的 4 个蒸馏层，query 只取**问题**的最后 8 个
-token（`prompt_hidden_states` 只跑 prompt，不跑答案），所以目标里没有任何答案信息。
+往"压缩前窗口的 Reader 读出"上拉，query 只取**问题**的最后 8 个 token
+（`prompt_hidden_states` 只跑 prompt，不跑答案），所以目标里没有任何答案信息。
+
+`--distill-layers` 决定监督哪几层：
+
+| 值 | 含义 | 结果 |
+|---|---|---|
+| `all`（默认） | 32 层全监督 | **发散**：验证集 −28%，前 13 层读出距离被放大 1.1–4.8 倍 |
+| `v10` | 只监督 8/16/24/31 | 收敛到 +14.5%，但只在它被监督的 4 层上有效（taps +24%，其余 28 层 −9%） |
+
+发散不是实现 bug，是目标函数的问题：损失是各层距离的**绝对**平均，而前几层的距离本来只有
+0.001 量级，把它搞坏几乎不花钱，后几层距离大、改好一点就赚回来 —— 优化器于是拿前几层去换
+后几层。要修就得给每层一个自己的开关，或者把损失改成逐层相对量；两者都还没做。
+逐层数字见 [docs/03-results.md](../docs/03-results.md) 第 5 节。
 
 ```bash
-# 1) 训练融合模块（约 3.5 s/更新）
+# 1) 训练融合模块（约 3.5 s/更新，整轮 384 更新约 30 min）
 python tools/train_core_fusion.py --dry-run \
   --data-dir /data/.../LongBench/extracted/data --train-task musique
 
-python tools/train_core_fusion.py --updates 384 \
+python tools/train_core_fusion.py --updates 384 --distill-layers all \
   --data-dir /data/.../LongBench/extracted/data --train-task musique \
   --model-path /dev/shm/s1d_reader_fp16 \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --out runs/core_fusion/fusion_rank32.pt \
-  --report runs/core_fusion/fusion_rank32.json
+  --out runs/core_fusion/fusion_all32.pt \
+  --report runs/core_fusion/fusion_all32.json
 
 # 2) 评测
 python tools/eval_learned_fusion.py --self-test          # 不需要 GPU
@@ -384,10 +396,14 @@ python tools/eval_learned_fusion.py \
   --supporting-facts-glob '/data/.../hotpot_qa/hotpot_dev_distractor_v1.parquet' \
   --model-path /dev/shm/s1d_reader_fp16 \
   --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --fusion runs/core_fusion/fusion_rank32.pt \
+  --fusion runs/core_fusion/fusion_all32.pt \
   --verify-against reports/diagnostics/graft_span_hotpotqa.json \
   --cuda-device 0 --out reports/diagnostics/learned_fusion_hotpotqa.json
 ```
+
+`--per-layer` 把读出距离从 8 个探针层扩到 32 层，结果进 `summary.readout.per_layer`
+（每层的 graft / fusion 距离与 `removed`）。8 层平均会掩盖"拿一组层换另一组层"的模块，
+这个表就是用来暴露它的；它只用于诊断，2 题就够，不要拿它当准确率证据。
 
 驱动每题硬校验"只动了 core"这件事，而不是在文档里声明：
 
@@ -401,9 +417,11 @@ python tools/eval_learned_fusion.py \
 - `summary.damage`：`Full` 答对的题里各臂丢了几个——B 相对 A 少丢几个，就是"原有知识损伤是否减少"。
 - `summary.multi_round_group`：88 题上的 `Fusion2 − Graft2`、`Fusion2 − Fusion`、`Graft2 − Graft`。
 - `summary.pairs.Fusion_minus_Graft`：配对准确率、救回/弄坏、精确 McNemar。
-- `summary.readout`：读出距离。`fusion_removes` 是**训练过的 tap** 上融合消掉了多少距离，
+- `summary.readout`：读出距离。`fusion_removes` 是**监督过的层**上融合消掉了多少距离，
   `fusion_removes_held_out` 是**从没优化过的 4/12/20/28 层**。前者降后者不降 = 只拟合了探针；
   两个都不降 = 没学到东西。这个数和准确率无关，是机制层面的证据。
+  用 `--distill-layers all` 训出来的 checkpoint 没有 held-out 层，报告会把
+  `held_out` 与 `fusion_removes_held_out` 置空并在 `note` 里说明——这时候只有准确率算数。
 
 `--verify-against` 在这里同样不是走过场：`Full` / `Selection` / `Graft` 三臂必须和 1A 的报告
 逐题一致（1A 之后 `manifold_graft.py` 已与 checkpoint 清单不同，`operator_matches_checkpoint`

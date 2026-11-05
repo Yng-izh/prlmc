@@ -80,7 +80,14 @@ TARGET_BLOCKS = gr.TARGET_BLOCKS
 CORE_SLOTS = gr.CORE_SLOTS
 BUDGET_BLOCKS = gr.BUDGET_BLOCKS
 WRITE_TOKENS = gr.WRITE_TOKENS
-TAPS = tuple(int(layer) for layer in DISTILL_LAYERS)
+# V10 distilled at four taps; that is what experiment 1B inherited at first, and
+# it is why the module only ever moved those four layers (measured on the eval
+# side: +24% readout distance removed at the taps, -9% at the other 28). The
+# default is now EVERY layer, so "the frozen reader cannot take many-to-one
+# fusion" would be a statement about the architecture and not about the loss --
+# except that the every-layer run diverges (validation -28%), which points at
+# the absolute-mean objective rather than at the architecture.
+V10_TAPS = tuple(int(layer) for layer in DISTILL_LAYERS)
 
 
 def write_blocks(manager, merge, chunks):
@@ -118,7 +125,22 @@ def load_documents(tokenizer, data_dir, task, limit=None):
     return documents, dict(rows=len(rows), eligible=len(documents), too_short=skipped)
 
 
-def fused_readout_loss(model, manager, merge, fusion, initial, document, train):
+def fuse_taps(fusion, core, doomed, parts, chunk=8):
+    """The module's residual for the distilled layers, applied in layer chunks.
+
+    The module is shared across layers, so chunking changes nothing about the
+    result; it only bounds the fp32 working set that has to stay alive for the
+    backward pass when every one of the 32 layers is supervised.
+    """
+    pieces = []
+    for start in range(0, core.shape[0], chunk):
+        stop = min(start + chunk, core.shape[0])
+        pieces.append(fusion(core[start:stop], doomed[start:stop],
+                             parts["core_block_ids"], parts["deleted_block_ids"]))
+    return torch.cat(pieces, dim=0)
+
+
+def fused_readout_loss(model, manager, merge, fusion, initial, document, train, layers):
     """One document: write, compress, fuse, and measure the distillation loss.
 
     `train=True` keeps the graph on the fused window and returns the loss tensor.
@@ -139,32 +161,31 @@ def fused_readout_loss(model, manager, merge, fusion, initial, document, train):
                                    SLOTS_PER_BLOCK, CORE_SLOTS, device=source.device)
     graft_offsets = torch.as_tensor(telemetry["bridge_slot_offsets"], dtype=torch.long,
                                     device=source.device)
-    taps = torch.as_tensor(TAPS, dtype=torch.long, device=source.device)
-    query_hidden = prompt_hidden_states(model, document["query_ids"], TAPS)
+    taps = torch.as_tensor(layers, dtype=torch.long, device=source.device)
+    query_hidden = prompt_hidden_states(model, document["query_ids"], layers)
     deleted_index = torch.as_tensor(parts["deleted_positions"], dtype=torch.long,
                                     device=source.device)
     core = output.index_select(0, taps).index_select(1, parts["core_offsets"])
     doomed = source.index_select(0, taps).index_select(1, deleted_index)
     graft = output.index_select(0, taps).index_select(1, graft_offsets)
-    pre = {layer: source[layer] for layer in TAPS}
+    pre = {layer: source[layer] for layer in layers}
     unfused = {layer: torch.cat([core[index], graft[index]], dim=0)
-               for index, layer in enumerate(TAPS)}
+               for index, layer in enumerate(layers)}
     with torch.no_grad():
-        baseline = float(readout_distance(model, pre, unfused, query_hidden, TAPS))
+        baseline = float(readout_distance(model, pre, unfused, query_hidden, layers))
     # The module emits a RESIDUAL. Adding it and restoring the slot's RMS is the
     # one step that turns it into a window; skipping it trains the module to emit
     # a window-shaped tensor and silently replaces the memory with the residual.
-    fused = apply_delta(core, fusion(core, doomed, parts["core_block_ids"],
-                                     parts["deleted_block_ids"]))
+    fused = apply_delta(core, fuse_taps(fusion, core, doomed, parts))
     post = {layer: torch.cat([fused[index], graft[index]], dim=0)
-            for index, layer in enumerate(TAPS)}
+            for index, layer in enumerate(layers)}
     if train:
-        return dict(loss=readout_distance(model, pre, post, query_hidden, TAPS),
+        return dict(loss=readout_distance(model, pre, post, query_hidden, layers),
                     baseline=baseline,
                     delta=float((fused - core).detach().float().norm()
                                 / core.detach().float().norm().clamp_min(1e-6)))
     with torch.no_grad():
-        loss = float(readout_distance(model, pre, post, query_hidden, TAPS))
+        loss = float(readout_distance(model, pre, post, query_hidden, layers))
     return dict(loss=loss, baseline=baseline)
 
 
@@ -187,7 +208,8 @@ def dry_run(args):
         fusion=dict(rank=args.rank, max_ratio=args.max_ratio, gate_init=args.gate_init,
                     hidden=4096, parameters=4 * args.rank * 4096 + 1,
                     initial_residual="exactly zero (out_proj starts at zero)"),
-        distillation_taps=list(TAPS),
+        distillation_taps=(list(range(32)) if args.distill_layers == "all"
+                           else list(V10_TAPS)),
         objective=("reader readout cosine + 0.5 * smooth_l1 from the compressed window "
                    "to the uncompressed one, at the last 8 tokens of the question only"),
         answer_leakage="none: the objective never reads an answer token",
@@ -224,6 +246,8 @@ def train(args):
         budget_blocks=BUDGET_BLOCKS, strict_code_hash=args.strict_code_hash,
         training=checkpoint_training)
     merge.operator_mode = "native"
+    layers = (tuple(range(int(manager.num_layers))) if args.distill_layers == "all"
+              else V10_TAPS)
     fusion = LearnedCoreFusion(hidden_size=manager.hidden, rank=args.rank,
                                max_ratio=args.max_ratio,
                                gate_init=args.gate_init).to(model.memory.device).float()
@@ -248,7 +272,7 @@ def train(args):
                                    "starts bit-identical to the unfused one"),
         objective=dict(loss="tools.objective.compute_local_window_readout_loss "
                             "(cosine + 0.5 * smooth_l1)",
-                       taps=list(TAPS), query_tokens=8, slot_stride=1,
+                       taps=list(layers), query_tokens=8, slot_stride=1,
                        answers_seen=False),
         optimizer=dict(name="Adam", lr=args.lr, grad_clip=args.grad_clip),
         updates=args.updates, steps_per_doc=args.steps_per_doc,
@@ -262,7 +286,7 @@ def train(args):
     # the whole "the two arms differ only by the fusion" claim, so it is measured
     # once before the first update instead of being assumed.
     identity = fused_readout_loss(model, manager, merge, fusion, initial,
-                                  training[0], train=False)
+                                  training[0], train=False, layers=layers)
     if abs(identity["loss"] - identity["baseline"]) > 1e-6:
         raise ValueError(f"the fresh module is not the identity: fused readout loss "
                          f"{identity['loss']} != unfused {identity['baseline']}")
@@ -279,7 +303,7 @@ def train(args):
             step_started = time.monotonic()
             optimizer.zero_grad(set_to_none=True)
             measured = fused_readout_loss(model, manager, merge, fusion, initial,
-                                          document, train=True)
+                                          document, train=True, layers=layers)
             measured["loss"].backward()
             norm = float(torch.nn.utils.clip_grad_norm_(fusion.parameters(),
                                                         args.grad_clip))
@@ -299,7 +323,7 @@ def train(args):
             if args.val_every and validation and (update % args.val_every == 0
                                                   or update == args.updates):
                 scores = [fused_readout_loss(model, manager, merge, fusion, initial,
-                                             document, train=False)
+                                             document, train=False, layers=layers)
                           for document in validation]
                 summary = dict(
                     update=update,
@@ -324,7 +348,7 @@ def train(args):
         config=dict(hidden_size=manager.hidden, rank=args.rank,
                     max_ratio=args.max_ratio, gate_init=args.gate_init),
         training=dict(task=args.train_task, updates=args.updates, lr=args.lr,
-                      seed=args.seed, taps=list(TAPS),
+                      seed=args.seed, taps=list(layers), distill_layers=list(layers),
                       data_sha256=report["data"]["sha256"],
                       checkpoint=args.checkpoint,
                       checkpoint_sha256=report["reader"]["checkpoint_sha256"]))
@@ -356,6 +380,10 @@ def build_parser():
     p.add_argument("--updates", type=int, default=192)
     p.add_argument("--steps-per-doc", dest="steps_per_doc", type=int, default=1)
     p.add_argument("--lr", type=float, default=2e-3)
+    p.add_argument("--distill-layers", dest="distill_layers", default="all",
+                   choices=("all", "v10"),
+                   help="'all' distils every reader layer (default); 'v10' keeps "
+                        "V10's four taps")
     p.add_argument("--rank", type=int, default=32)
     p.add_argument("--max-ratio", dest="max_ratio", type=float, default=0.5)
     p.add_argument("--gate-init", dest="gate_init", type=float, default=0.0)
