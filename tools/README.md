@@ -22,6 +22,8 @@
 | `train_source_compaction.py` | 实验 2 训练端：只训 0.52 M 的来源端浓缩模块，目标是**真实答案交叉熵** + KL 保护 |
 | `eval_source_compaction.py` | 实验 2：来源端浓缩 vs 原生嫁接（Full / Selection / Graft / Fusion，单次压缩） |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
+| `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
+| `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -508,3 +510,48 @@ python tools/eval_source_compaction.py \
 随机对照是这个实验的命门，`randomize_compaction.py` 的标定逻辑：用训练 checkpoint 在**一篇真实
 文档**上测出残差幅度（0.2636），然后对随机 `out_proj` 做二分缩放直到幅度相同（实测误差 3e-8）。
 门的初值被开到 0.6（上限 0.30）只是为了让二分能取到目标值，方向仍然是随机的。
+
+### 反事实消融：收益到底靠不靠那 2,200 个槽位
+
+`eval_source_compaction.py` 只能回答"加上候选有没有用"，回答不了"是候选里的**知识**有用，还是
+随便动一动锚点就有用"。`tools/eval_counterfactual_candidates.py` 做的是后者：同一份权重、同一批
+158 题、同一套锚点，**不重训**，只把每个锚点读的候选槽位换成**另一篇文档**丢弃块里同样数量的
+槽位（评测顺序上的上一行；两个窗口都正好丢 10 块，所以第 k 个丢弃块对第 k 个丢弃块）。
+
+同一进程里五臂全跑，所以每个对比逐题配对，而且四臂必须与实验 2 的报告逐题一致——`--verify-against`
+除了 `Full`/`Selection`/`Graft`，还额外校验 `Fusion` 臂，因为它是反事实要减掉的那一臂。
+
+```bash
+python tools/eval_counterfactual_candidates.py --self-test      # 不需要 GPU
+
+python tools/eval_counterfactual_candidates.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --compaction runs/source_compaction/compaction_rank32.pt \
+  --verify-against reports/exp2_source_compaction/eval_trained_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/counterfactual_hotpotqa.json
+```
+
+结果：反事实 **0 救 0 伤**，158 题 QA F1 逐题相同（见
+[docs/03-results.md](../docs/03-results.md) 第 6 节）。所以还得再问一句"替换到底有没有进到模块里"，
+这就是第二个工具。
+
+`tools/probe_compaction_sensitivity.py` 不跑 reader 生成，只在 7 篇真实文档上把同一次替换逐级拆开
+（候选 → `context` → `raw` → 残差 → 窗口），并记录注意力熵/最大权重与 `tanh` 饱和比例。它的
+`shuffled` 臂是**接线检查**而不是敏感性测量：一行候选同时带着自己的 key 和 value，行序置换会一起
+搬走，输出按构造完全不变（实测 0.0）；不变才说明探针接对了。
+
+```bash
+python tools/probe_compaction_sensitivity.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --compaction runs/source_compaction/compaction_rank32.pt \
+  --cuda-device 0 --max-samples 8 \
+  --out reports/exp2_source_compaction/probe_candidate_sensitivity.json
+```
+
+衰减链：候选 130% → `context` 19% → `raw` 16% → 残差 5.0% → 窗口 1.5% → 答案 0。

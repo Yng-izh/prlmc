@@ -55,10 +55,16 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 7/40 涨到 16/40。**同结构、同残差幅度、但不训练的随机对照只 +1 题（p = 1.00），
 训练版比随机版多对 15 题（p = 0.008）** —— 收益来自学习，不是扰动。
 
+**但收益不来自那 2,200 个候选槽位**：把每个锚点读的候选全部换成另一篇文档的（不重训、同 158 题），
+`Counterfactual` 仍是 **57 题 / 36.08% / F1 32.82**，与训练版 **0 救 0 伤、逐题 F1 相同**（p = 1.00）。
+机制探针把原因量了出来：候选变了 130%，`context` 只变 19%，残差 5.0%，窗口 1.5%，答案 0。
+**起作用的是权重学到的残差方向，不是候选里的知识** —— "跨块信息融合"这个说法目前没有证据，
+能写的是"相同容量下提高嫁接槽位的可读取性"。详见 [docs/03-results.md](docs/03-results.md) 第 6 节。
+
 反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
 20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
 
-完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4、5 节和
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4、5、6 节和
 [reports/exp2_source_compaction/](reports/exp2_source_compaction/)。
 
 口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)，
@@ -80,6 +86,8 @@ tools/eval_learned_fusion.py   1B 评测入口（Graft vs Fusion，六臂）
 tools/train_source_compaction.py  2 训练入口（答案交叉熵 + KL 保护）
 tools/eval_source_compaction.py   2 评测入口（Graft vs Fusion，四臂）
 tools/randomize_compaction.py     2 的随机对照（同幅度、不训练）
+tools/eval_counterfactual_candidates.py  2 的反事实消融（候选换成另一篇文档的）
+tools/probe_compaction_sensitivity.py    2 的机制探针（候选→残差→窗口的逐级衰减）
 tools/runtime.py               流式运行时（写入、触发、merge、装载）
 tools/stream_eval.py           流式记忆与参考臂（Selection/Recent/Full）
 tools/v9_geometry_50block.py   50 块几何常量（被哈希锁定的算子直接 import）
@@ -92,7 +100,7 @@ tools/io_utils.py              sha/digest/atomic_json/tokenizer manifest
 configs/agent_conf/prlmc_e6.yaml  运行时 manager 配置
 reports/main_table/            主表结果与证据
 reports/diagnostics/           定位实验 1A 的报告（也是后续实验的 --verify-against 参考）
-reports/exp2_source_compaction/ 实验 2 的训练记录、日志、主结果与随机对照
+reports/exp2_source_compaction/ 实验 2 的训练记录、日志、主结果、随机对照与反事实消融
 docs/                          目标、方法、评测口径、结果
 ```
 
