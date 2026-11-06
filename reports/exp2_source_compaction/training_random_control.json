@@ -1,0 +1,25 @@
+{
+  "schema": "source_compaction/1/control",
+  "status": "complete",
+  "purpose": "untrained module with the trained residual size: separates 'the module learned the direction' from 'any rotation of this size helps'",
+  "config": {
+    "hidden_size": 4096,
+    "rank": 32,
+    "max_ratio": 0.5,
+    "gate_init": 0.0
+  },
+  "seed": 0,
+  "calibrated_on": "4c114f84ca41284c0845705943adc10b70a4fd3e8d0ca295",
+  "trained_checkpoint": "runs/source_compaction/compaction_rank32.pt",
+  "trained_checkpoint_sha256": "658bb0577db014e54ebf2caaba84ad5ce8ca0a4ab094fa05efc43c7210a3c797",
+  "trained_delta": 0.26362830907740614,
+  "target_delta": 0.26362830907740614,
+  "achieved_delta": 0.2636283160544318,
+  "out_proj_scale": 11.40980052947998,
+  "training_performed": false,
+  "optimizer_created": false,
+  "v10_checkpoint": "runs/natural_merge_v9/full_v10.pt",
+  "v10_checkpoint_sha256": "a4d1f6e77d899e40d4d411c43311fd175d65f74ec4768725985ef17acfd47134",
+  "out": "runs/source_compaction/random_rank32.pt",
+  "out_sha256": "38032ca1d3b42e5ac089572014c6d7e2f32f63649b1e04ea4e52d6a497f8d4fc"
+}

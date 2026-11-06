@@ -41,3 +41,37 @@
   只能说明"证据所在的块被降级成了嫁接来源"，不能说明它完全消失了。
 
 它也不能证明"救回的槽位被读者用上了"——那需要另一组实验。
+
+## 3. 两个基础设施事实（2026-11-05 实测，影响怎么训模型）
+
+### 3.1 这个 reader 在 train 模式下不确定，原因是 LoRA dropout
+
+reader 里挂着 **384 个 `nn.Dropout`，全部 p = 0.1**（`lora_dropout`），对应的 384 个 `lora_B`
+张量 99.999% 非零——LoRA 是活的，所以它的 dropout 会改输出。同一个池子、同一个输入：
+
+| 模式 | 两次前向的答案 CE | CUDA RNG |
+| --- | --- | --- |
+| eval | 0.877455 / 0.877455 | 不动 |
+| train | 0.880165 / 0.840025 | 前进 |
+| train，把 p 全置 0 | 0.877455 / 0.877455 | 不动，**与 eval 逐位相同** |
+
+**`tools/train.py` 的零 dropout 守卫只检查 `config.attention_dropout`，漏了
+`lora_config['lora_dropout']`。** 所以 V10 那 704 步是在 10% LoRA dropout 噪声下训完的。
+不影响已训出的 checkpoint（评测走 eval 模式，dropout 关闭），但任何需要"训练时的前向 == 评测时
+的前向"的实验，都必须先把所有 `Dropout.p` 置 0，再切 `train()`。
+
+### 3.2 反传必须给全宽记忆梯度，只有梯度检查点能装下
+
+一次反传要物化 `32 × 12800 × 4096` fp16 = **3.12 GiB** 的记忆梯度。40 GB 卡上，
+3,000 槽级的窗口 + 这份梯度 + 激活，不检查点就是 OOM（实测差 1.5–2 GB）。
+而这个 fork 把检查点开在 `self.training` 上，所以**只能先置零 dropout 再进 train 模式**——
+两件事绑在一起。实验 2 的训练脚本（`tools/train_source_compaction.py`）就是按这个顺序做的，
+峰值 33.4 GB、6.1 s/步。
+
+### 3.3 `methods/prlmc/probes.py` 曾缺 `@contextmanager`
+
+2026-11-05 整理仓库时，`differentiable_memory` / `active_mask_override` / `_pool_in_place`
+三个生成器丢了 `@contextmanager` 装饰器，`tools/train.py` 的 V10 训练路径因此**跑不起来**
+（`with _pool_in_place(...)` 会 TypeError）。已补回。任何人改动这个文件后，至少跑一次
+`python -c "from methods.prlmc.probes import _pool_in_place; print(hasattr(_pool_in_place, '__wrapped__'))"`
+确认装饰器还在。

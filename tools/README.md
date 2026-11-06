@@ -19,6 +19,9 @@
 | `eval_graft_span.py` | 实验 1A：嫁接来源端的 Span-4 成组选择（Full / Selection / Graft / Span，只改来源侧） |
 | `train_core_fusion.py` | 实验 1B 训练端：只训 0.52 M 的 core 融合模块，目标是 Reader 读出蒸馏（不碰答案） |
 | `eval_learned_fusion.py` | 实验 1B：学习式多对一融合 vs 原生嫁接（Full / Selection / Graft / Fusion / Graft2 / Fusion2） |
+| `train_source_compaction.py` | 实验 2 训练端：只训 0.52 M 的来源端浓缩模块，目标是**真实答案交叉熵** + KL 保护 |
+| `eval_source_compaction.py` | 实验 2：来源端浓缩 vs 原生嫁接（Full / Selection / Graft / Fusion，单次压缩） |
+| `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
 它直接 `from tools.v9_geometry_50block import GEOMETRY_50B`，因此该文件名不能改。
@@ -429,3 +432,79 @@ python tools/eval_learned_fusion.py \
 `--verify-against` 在这里同样不是走过场：`Full` / `Selection` / `Graft` 三臂必须和 1A 的报告
 逐题一致（1A 之后 `manifold_graft.py` 已与 checkpoint 清单不同，`operator_matches_checkpoint`
 会是 `false`，靠这个比对兜底）。
+
+## 实验 2：来源端浓缩 vs 原生嫁接
+
+实验 1、2、3、1A 测"怎么挑槽、怎么排槽"，1B 测"删掉的槽能不能先融进 core"。实验 2 换一头：
+原生嫁接从被扔掉的 10 个块（2,560 槽）里挑 360 个原样复制，**剩下 2,200 个槽彻底浪费**；
+实验 2 让这 360 个锚点各自从**自己来源块里未被选中的槽**聚合一个残差。
+
+| 臂 | 压缩方式 | 输出槽 |
+|---|---|---|
+| `Full` | 不压缩，19 块 4,864 槽 | — |
+| `Selection` | 9 个载体块原样 | 2,304 |
+| `Graft` | V10 原生嫁接：1,944 core + 360 逐字复制 | 2,304 |
+| `Fusion` | 同 `Graft`，但 360 个嫁接槽 = 原生锚点 + 学习式残差 | 2,304 |
+
+**容量、位置、顺序、配额全不变，core 逐字节原样**——与 1B 正好互为镜像（1B 动 core、不动嫁接）。
+
+模块（`methods/prlmc/source_compaction.py`，rank 32 时 524,289 参数）只做一件事：每个锚点对
+**本块**未被选中的槽做一次 cross-attention，取回一个残差。残差三重约束（同 1B）：`tanh` 压在
+锚点 RMS 的 `max_ratio` 倍以内、sigmoid 门再缩放、加完**恢复原 RMS**。`out_proj` 零初始化，
+所以训练起点上 `Fusion` 与 `Graft` **逐位相同**（训练脚本开跑前实测 `window_bit_identical`）。
+
+```bash
+# 1) 训练（384 步约 45 min，6 s/步，峰值 33 GB）
+python tools/train_source_compaction.py --dry-run \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique
+
+python tools/train_source_compaction.py --updates 384 --lr 1e-3 --protect-weight 0.1 \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --out runs/source_compaction/compaction_rank32.pt \
+  --report runs/source_compaction/compaction_rank32.json
+
+# 2) 随机对照（同结构、同残差幅度、不训练）
+python tools/randomize_compaction.py \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --v10-checkpoint runs/natural_merge_v9/full_v10.pt \
+  --trained runs/source_compaction/compaction_rank32.pt \
+  --out runs/source_compaction/random_rank32.pt
+
+# 3) 评测（158 题约 39 min）
+python tools/eval_source_compaction.py --self-test        # 不需要 GPU
+python tools/eval_source_compaction.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --compaction runs/source_compaction/compaction_rank32.pt \
+  --verify-against reports/diagnostics/graft_span_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/source_compaction_hotpotqa.json
+```
+
+训练端有两处**必须**按顺序做，否则要么不收敛、要么 OOM（细节见
+[docs/04-diagnostics.md](../docs/04-diagnostics.md) 第 3 节）：
+
+1. **先把所有 `nn.Dropout` 的 `p` 置 0，再 `model.train()`**。reader 有 384 个 p=0.1 的
+   `lora_dropout`，`tools/train.py` 的守卫只查 `attention_dropout`，漏了它们；不置零的话
+   train 模式的前向和评测时不一致，而且不确定。
+2. **然后开梯度检查点**。反传要物化 3.12 GiB 的全宽记忆梯度，不检查点在 40 GB 卡上装不下。
+
+梯度路径不是假设出来的：第 1 步只有 `out_proj` 该有梯度（残差还是零），第 2 步四个投影必须
+全部有梯度，脚本会在那里直接报错而不是安静地训练一个被 detach 的模块。
+
+驱动硬校验的是**"只动了嫁接槽"**：
+
+- `Fusion` 的 1,944 个 core 槽与 `Graft` **逐位相同**（`torch.equal`）；
+- 360 个嫁接槽确实变了，且每个锚点的候选只来自它**自己那一块**、且都不是锚点；
+- 两臂装进 Reader 后的 `active_fingerprint` 不同（证明真的换了池子）。
+
+`--verify-against` 同样要求 `Full` / `Selection` / `Graft` 三臂与 1A 逐题一致——2026-11-06 那
+两次 158 题运行都是 158/158 一致。
+
+随机对照是这个实验的命门，`randomize_compaction.py` 的标定逻辑：用训练 checkpoint 在**一篇真实
+文档**上测出残差幅度（0.2636），然后对随机 `out_proj` 做二分缩放直到幅度相同（实测误差 3e-8）。
+门的初值被开到 0.6（上限 0.30）只是为了让二分能取到目标值，方向仍然是随机的。

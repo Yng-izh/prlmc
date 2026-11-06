@@ -15,24 +15,6 @@ import torch
 import torch.nn.functional as F
 
 
-import os
-
-
-from contextlib import contextmanager
-
-
-from dataclasses import dataclass, field
-
-
-from typing import Callable, Dict, List, Optional, Sequence
-
-
-import torch
-
-
-import torch.nn.functional as F
-
-
 def _mem(label, device):
     """Phase-boundary memory trace, enabled by PRLMC_MEM_TRACE=1.
 
@@ -76,6 +58,7 @@ def _checkpoint_func():
     return func
 
 
+@contextmanager
 def differentiable_memory(model, memory: torch.Tensor):
     """Present `memory` to the model's forward pass while keeping autograd.
 
@@ -98,6 +81,7 @@ def differentiable_memory(model, memory: torch.Tensor):
             parameters["memory"] = original
 
 
+@contextmanager
 def active_mask_override(model, mask):
     """Temporarily publish `mask` as the reader's active-slot mask.
 
@@ -266,6 +250,7 @@ class _PoolInjection:
             ] = self.saved.to(self.base.device)
 
 
+@contextmanager
 def _pool_in_place(manager, device, candidate, window_used, target):
     """Rearrange the window in place, yielding a live `_PoolInjection`.
 

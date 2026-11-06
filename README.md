@@ -30,19 +30,36 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 定位实验（HotpotQA 158 题配对）的完整数字、以及每个配对的救回/弄坏与 McNemar p，
 在 [docs/03-results.md](docs/03-results.md)。
 
-结论：**目前没有测到涨点**。157 题上 V10 与原生基线统计不可区分（±6pp）；20 题配对比较是平局，
+结论：**主表上没测到涨点**。157 题上 V10 与原生基线统计不可区分（±6pp）；20 题配对比较是平局，
 样本量只够排除 ±18pp 的差异。
 
 更值得注意的一条：两臂对**正确选项**的概率都只有 0.24 左右（四选一随机是 0.25），
 20 题里没有一题过半。融合把 19/20 题的概率挪动了一点，但没有一题因此改对 ——
 说明在这个 128k / 50 块设置下读者基本没读到证据，融合是否有用还不是主要矛盾。
 
-实验 1B（学习式多对一融合）在 158 题上跑完了：**`Fusion` 23.42 vs `Graft` 25.95**
-（1 救 5 伤，p = 0.22），F1 25.18 vs 27.05。它把读出距离拉近了 20%（在被监督的 4 层上），
-准确率反而掉 2.5 pp —— 训练目标被优化了，但和"答对"脱钩。`Full` 答对的 47 题里它丢 17 题
-（`Graft` 丢 13 题），知识损伤没有变小；证据在被删块里的 40 题上 `Graft` 17.5 → `Fusion` 10.0。
-逐层证据与训练记录见 [docs/03-results.md](docs/03-results.md) 第 4 节和
-[reports/exp1b_fusion/](reports/exp1b_fusion/)。
+实验 1B（把删掉的槽先融进 core，读出蒸馏监督）是**负结果**：158 题上 `Fusion` 23.42 vs
+`Graft` 25.95（1 救 5 伤，p = 0.22）。它把读出距离拉近了 20%，准确率反而掉 2.5 pp —— 训练目标被
+优化了，但和"答对"脱钩。
+
+实验 2（**来源端浓缩**）是**第一个统计显著的正结果**：不改容量、不改载体、不动 1,944 个 core，
+只让 360 个嫁接槽各自从"自己来源块里未被选中的槽"聚合一个残差（0.52 M 模块，用真实答案交叉熵
+训练，MuSiQue 训 / HotpotQA 测）。
+
+| 158 题 | 答对 | 准确率 | QA F1 |
+| --- | --- | --- | --- |
+| `Full`（不压缩） | 47 | 29.75% | 30.40 |
+| `Graft`（原生嫁接） | 41 | 25.95% | 27.05 |
+| **`Fusion`（来源端浓缩）** | **57** | **36.08%** | **32.82** |
+
+`Fusion − Graft`：23 救 / 7 伤，净 **+16**，McNemar **p = 0.005**。证据在被删块里的 40 题从
+7/40 涨到 16/40。**同结构、同残差幅度、但不训练的随机对照只 +1 题（p = 1.00），
+训练版比随机版多对 15 题（p = 0.008）** —— 收益来自学习，不是扰动。
+
+反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
+20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
+
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4、5 节和
+[reports/exp2_source_compaction/](reports/exp2_source_compaction/)。
 
 口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)，
 读报告时的两个约定（`--operator-variant native`、`last_merge` 记录）见
@@ -53,12 +70,16 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 ```text
 methods/prlmc/                 压缩算子、载体选择、记忆布局、可微注入
 methods/prlmc/core_fusion.py   1B 的 core 融合模块（0.52 M 参数）
+methods/prlmc/source_compaction.py  2 的来源端浓缩模块（0.52 M 参数）
 methods/memoryllm_modeling/    MemoryLLM reader（冻结）
 tools/plan.py                  训练计划构建与校验（sealed plan）
 tools/objective.py             V10 训练目标（恢复/蒸馏/保护/锚定/EOS）
 tools/train.py                 训练入口（704 更新）
 tools/train_core_fusion.py     1B 训练入口（只训融合模块，读出蒸馏）
 tools/eval_learned_fusion.py   1B 评测入口（Graft vs Fusion，六臂）
+tools/train_source_compaction.py  2 训练入口（答案交叉熵 + KL 保护）
+tools/eval_source_compaction.py   2 评测入口（Graft vs Fusion，四臂）
+tools/randomize_compaction.py     2 的随机对照（同幅度、不训练）
 tools/runtime.py               流式运行时（写入、触发、merge、装载）
 tools/stream_eval.py           流式记忆与参考臂（Selection/Recent/Full）
 tools/v9_geometry_50block.py   50 块几何常量（被哈希锁定的算子直接 import）
@@ -70,8 +91,8 @@ tools/native_eval.py           MemoryLLM-8B 原生基线评测
 tools/io_utils.py              sha/digest/atomic_json/tokenizer manifest
 configs/agent_conf/prlmc_e6.yaml  运行时 manager 配置
 reports/main_table/            主表结果与证据
-reports/diagnostics/           定位实验 1A 的报告（也是 1B 的 --verify-against 参考）
-reports/exp1b_fusion/          实验 1B 的训练记录、日志与逐层诊断
+reports/diagnostics/           定位实验 1A 的报告（也是后续实验的 --verify-against 参考）
+reports/exp2_source_compaction/ 实验 2 的训练记录、日志、主结果与随机对照
 docs/                          目标、方法、评测口径、结果
 ```
 

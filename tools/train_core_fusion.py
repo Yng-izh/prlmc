@@ -106,14 +106,26 @@ def chunks_of(document):
 
 
 def load_documents(tokenizer, data_dir, task, limit=None):
-    """Training documents that fill one 19-block window, with their question."""
+    """Training documents that fill one 19-block window, with their question.
+
+    The gold answer ids are carried too. Experiment 1B never reads them, but
+    experiment 2 supervises real answer cross-entropy and loads its documents
+    through this same function; keeping one loader is what makes "both arms see
+    the same documents" true by construction.
+    """
     rows = nv.load_rows(data_dir, task)
     if limit is not None:
         rows = rows[:limit]
     documents, skipped = [], 0
     for row in rows:
         ids = tokenizer(row["context"], add_special_tokens=False)["input_ids"]
-        if len(ids) // BLOCK_TOKENS < WINDOW_BLOCKS:
+        answers = [str(answer) for answer in (row.get("answers") or []) if str(answer).strip()]
+        if len(ids) // BLOCK_TOKENS < WINDOW_BLOCKS or not answers:
+            skipped += 1
+            continue
+        answer_ids = tokenizer(" " + answers[0].strip(),
+                               add_special_tokens=False).input_ids
+        if not answer_ids:
             skipped += 1
             continue
         documents.append(dict(
@@ -121,6 +133,8 @@ def load_documents(tokenizer, data_dir, task, limit=None):
             write_ids=list(ids[:WRITE_TOKENS]),
             query_ids=tokenizer(gr.QUERY_SUFFIX.format(input=row["input"]),
                                 add_special_tokens=False).input_ids,
+            answers=answers,
+            answer_ids=list(answer_ids),
             context_sha256=digest(row["context"])))
     return documents, dict(rows=len(rows), eligible=len(documents), too_short=skipped)
 
