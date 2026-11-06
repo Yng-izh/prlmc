@@ -1,24 +1,35 @@
 #!/usr/bin/env python3
-"""Compaction training: teach the 360 graft slots to carry more than they copy.
+"""One trainer for every module this project has put on the 360 graft slots.
 
-Two variants, one trainer, so the two runs differ only in the module
---------------------------------------------------------------------
-    --variant compaction    the experiment-2 module: each anchor attends to the
-                            unselected slots of its own source block
-                            (`methods.prlmc.source_compaction.SourceCompaction`)
-    --variant anchor-only   the same trainer with the candidate path removed: a
-                            low-rank map from the anchor to its own residual
-                            (`methods.prlmc.anchor_residual.AnchorResidual`)
+Three variants, one trainer, so the runs differ only in the module
+-------------------------------------------------------------------
+    --variant compaction     the experiment-2 module: each anchor attends to the
+                             unselected slots of its own source block
+                             (`methods.prlmc.source_compaction.SourceCompaction`)
+    --variant anchor-only    the same trainer with the candidate path removed: a
+                             low-rank map from the anchor to its own residual
+                             (`methods.prlmc.anchor_residual.AnchorResidual`)
+    --variant anchor-fusion  the trained AnchorResidual, frozen, plus a trainable
+                             sparse top-k candidate branch on top
+                             (`methods.prlmc.anchor_fusion.FrozenAnchorFusion`)
 
-The rank defaults are chosen so the two modules have the SAME parameter count
-(4 x 32 x 4096 + 1 = 2 x 64 x 4096 + 1 = 524,289). Everything else -- data,
-updates, learning rate, loss, bounds, seeds -- is shared code, which is what
-makes "anchor-only vs compaction" a comparison of modules and not of scripts.
+The rank defaults are chosen so every module has the SAME parameter count
+(4 x 32 x 4096 + 1 = 2 x 64 x 4096 + 1 = 4 x 32 x 4096 + 1 = 524,289). Everything
+else -- data, updates, learning rate, loss, bounds, seeds -- is shared code, which
+is what makes "anchor-only vs compaction vs anchor-fusion" a comparison of modules
+and not of scripts.
+
+The third variant is the only one that is not trained from the graft slots: it
+starts from the finished anchor-only checkpoint, which is frozen and byte-checked
+against the file it was loaded from. Its identity check is therefore different in
+one respect -- the fused window must reproduce the ANCHOR-ONLY window before the
+first update, not the grafted one.
 
 What is trained
 ---------------
-Exactly one module, 0.52 M parameters. Reader, writer and the V10 graft operator
-are frozen; nothing else in the system has a gradient.
+Exactly one module, 0.52 M trainable parameters. Reader, writer, the V10 graft
+operator, and (in the third variant) the anchor module are frozen; nothing else in
+the system has a gradient.
 
 What the objective is
 --------------------
@@ -34,11 +45,18 @@ supervised the reader-readout distance and watched it fall 20% while accuracy fe
 
 Step 3 is the only line the variants disagree on, and the disagreement is one
 call: `compact_anchors(output, source, parts, module)` against
-`compact_anchors(output, parts, module)` -- with or without a window to read.
+`compact_anchors(output, parts, module)` -- with or without a window to read. The
+third variant calls the first with a module that has the frozen anchor stage
+inside it, and additionally scores the frozen stage alone so that the report
+carries the anchor-only CE next to the fused CE at every validation point.
 
 The KL term is the knowledge protection: it is what stops the module from trading
-a fact the Graft window already answers for one it might add. It is a regulariser,
-not a target -- the CE is what moves.
+a fact the reference window already answers for one it might add. It is a
+regulariser, not a target -- the CE is what moves. The reference is the grafted
+window for the two variants that start there (where KL is exactly zero at
+initialisation), and the frozen AnchorOnly window for the third (where KL against
+the graft would be strictly positive and its only easy gradient would be to undo
+the calibration the branch is supposed to build on).
 
 Why the gradient reaches the module
 -----------------------------------
@@ -48,10 +66,13 @@ uses: `_pool_in_place` writes the candidate window into the reader's pool behind
 custom autograd Function, `active_mask_override` makes the reader attend to exactly
 the 2,304 kept slots, and `differentiable_memory` routes the forward pass to that
 pool. The first backwards are checked, not assumed: update 1 must deliver gradient
-to the output projection (`out_proj`, or `up` in the anchor-only variant -- the
-only parameter that can move while the residual is still zero) and update 2 must
-deliver gradient to every projection. If it does not, the run
-stops instead of training a silently detached module.
+to the output projection (`out_proj`, or `up` in the anchor-only variant, or
+`fusion.fuse_up` in the anchor-fusion variant -- the only parameter that can move
+while the residual is still zero) and update 2 must deliver gradient to every
+projection. The anchor-fusion variant additionally checks that the FROZEN anchor
+module received no gradient at all: it is the baseline, and a baseline that trains
+is not a baseline. If any of that does not hold, the run stops instead of training
+a silently detached module.
 
 Why the dropout is zeroed, and why the reader is checkpointed
 -----------------------------------------------------------
@@ -96,6 +117,14 @@ Usage
         --checkpoint runs/natural_merge_v9/full_v10.pt \
         --out runs/source_compaction/compaction_rank32.pt \
         --report runs/source_compaction/compaction_rank32.json
+
+    python tools/train_source_compaction.py --variant anchor-fusion --updates 384 \
+        --data-dir /data/.../LongBench/extracted/data --train-task musique \
+        --model-path /dev/shm/s1d_reader_fp16 \
+        --checkpoint runs/natural_merge_v9/full_v10.pt \
+        --anchor-checkpoint runs/anchor_residual/anchor_only_rank64.pt \
+        --out runs/anchor_fusion/fusion_top4_rank32.pt \
+        --report runs/anchor_fusion/fusion_top4_rank32.json
 """
 import argparse
 import json
@@ -117,13 +146,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import eval_graft_recovery as gr                          # noqa: E402
 import native_eval as nv                                  # noqa: E402
 from io_utils import atomic_json, sha                     # noqa: E402
-from runtime import critical_manifest, load_runtime, reset  # noqa: E402
+from runtime import (critical_manifest, load_runtime, reset,  # noqa: E402
+                     tensor_digest)
 from methods.prlmc.probes import (                        # noqa: E402
     _checkpoint_func, _compacted_mask, _pool_in_place, active_mask_override,
     differentiable_memory)
 from methods.prlmc.anchor_residual import (               # noqa: E402
     SCHEMA as ANCHOR_SCHEMA, AnchorResidual,
     compact_anchors as compact_anchors_only)
+from methods.prlmc.anchor_fusion import (                 # noqa: E402
+    SCHEMA as FUSION_SCHEMA, FrozenAnchorFusion, SparseCandidateFusion,
+    compact_anchors as compact_anchors_fusion,
+    frozen_stage as anchor_stage)
 from methods.prlmc.source_compaction import (             # noqa: E402
     SCHEMA, SourceCompaction, compact_anchors, split_source_anchors)
 from objective import answer_logits                       # noqa: E402
@@ -138,10 +172,30 @@ TARGET_SLOTS = TARGET_BLOCKS * SLOTS_PER_BLOCK
 # residual is still exactly zero; the upstream half only starts moving after it
 # leaves zero. Named per variant so the check is the same check.
 PROJECTIONS = dict(compaction=("q_proj", "k_proj", "v_proj", "out_proj"),
-                   **{"anchor-only": ("down", "up")})
-OUTPUT_PROJECTION = dict(compaction="out_proj", **{"anchor-only": "up"})
-# Equal parameter count: 4 x rank x hidden + 1 against 2 x rank x hidden + 1.
-DEFAULT_RANK = dict(compaction=32, **{"anchor-only": 64})
+                   **{"anchor-only": ("down", "up"),
+                      "anchor-fusion": ("fusion.score_q", "fusion.score_k",
+                                        "fusion.fuse_down", "fusion.fuse_up")})
+OUTPUT_PROJECTION = dict(compaction="out_proj", **{"anchor-only": "up",
+                                                  "anchor-fusion": "fusion.fuse_up"})
+# The gate, by its name inside the module the variant trains.
+GATE = dict(compaction="gate_logit", **{"anchor-only": "gate_logit",
+                                        "anchor-fusion": "fusion.gate_logit"})
+# Equal parameter count: 4 x rank x hidden + 1 for all three.
+DEFAULT_RANK = dict(compaction=32, **{"anchor-only": 64, "anchor-fusion": 32})
+
+
+def load_anchor(path, hidden):
+    """The frozen AnchorOnly module, rebuilt from the checkpoint it was saved as."""
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    if payload.get("schema") != ANCHOR_SCHEMA + "/checkpoint":
+        raise SystemExit(f"{path} is not a {ANCHOR_SCHEMA} checkpoint")
+    config = dict(payload["config"])
+    if int(config.get("hidden_size", -1)) != int(hidden):
+        raise SystemExit(f"{path} was built for hidden {config.get('hidden_size')}, "
+                         f"the reader is {hidden}")
+    anchor = AnchorResidual(**config)
+    anchor.load_state_dict(payload["state_dict"], strict=True)
+    return anchor, config
 
 
 def build_module(args, hidden):
@@ -151,9 +205,34 @@ def build_module(args, hidden):
         module = AnchorResidual(hidden_size=hidden, rank=rank,
                                 max_ratio=args.max_ratio, gate_init=args.gate_init)
         return module, rank, ANCHOR_SCHEMA
+    if args.variant == "anchor-fusion":
+        if not args.anchor_checkpoint or not Path(args.anchor_checkpoint).is_file():
+            raise SystemExit("--anchor-checkpoint (the trained AnchorOnly module) is "
+                             "required by --variant anchor-fusion")
+        anchor, _ = load_anchor(args.anchor_checkpoint, hidden)
+        fusion = SparseCandidateFusion(hidden_size=hidden, rank=rank,
+                                       top_k=args.top_k, max_ratio=args.max_ratio,
+                                       gate_init=args.gate_init)
+        return FrozenAnchorFusion(anchor, fusion), rank, FUSION_SCHEMA
     module = SourceCompaction(hidden_size=hidden, rank=rank,
                               max_ratio=args.max_ratio, gate_init=args.gate_init)
     return module, rank, SCHEMA
+
+
+def parameter_counts(module):
+    """Trainable and frozen parameter counts; the first is what the runs compare."""
+    trainable = int(sum(p.numel() for p in module.parameters() if p.requires_grad))
+    frozen = int(sum(p.numel() for p in module.parameters() if not p.requires_grad))
+    return trainable, frozen
+
+
+def compact_for_variant(args, output, source, parts, module):
+    """The one call the variants disagree on."""
+    if args.variant == "anchor-only":
+        return compact_anchors_only(output, parts, module)
+    if args.variant == "anchor-fusion":
+        return compact_anchors_fusion(output, source, parts, module)
+    return compact_anchors(output, source, parts, module)
 
 
 # ---------------------------------------------------------------------------
@@ -230,41 +309,103 @@ def document_step(model, manager, merge, module, initial, document, args, train)
     # Built BEFORE any injection: `source` is a view into the reader's pool and the
     # injection writes into that same pool, so the candidates have to be gathered
     # first. The anchor-only variant has no candidates and never reads the window.
-    anchors, info = (compact_anchors_only(output, parts, module)
-                     if args.variant == "anchor-only"
-                     else compact_anchors(output, source, parts, module))
+    anchors, info = compact_for_variant(args, output, source, parts, module)
     offsets = parts["anchor_offsets"]
+    # The frozen stage of the anchor-fusion variant. It is BOTH the baseline the
+    # report scores the fused window against and the reference the protection term
+    # holds the branch to (see below), so it is built on every step of that variant.
+    anchor_anchors = (compact_anchors_only(output, parts, module.anchor)[0]
+                      if args.variant == "anchor-fusion" else None)
 
     if not train:
         with torch.no_grad():
             graft_logits, gold = reader_logits(model, manager, output, None, None, qa)
             graft_ce = float(F.cross_entropy(graft_logits, gold))
             del graft_logits
+            anchor_ce = None
+            if anchor_anchors is not None:
+                logits, _ = reader_logits(model, manager, output, anchor_anchors,
+                                          offsets, qa)
+                anchor_ce = float(F.cross_entropy(logits, gold))
+                del logits
             logits, _ = reader_logits(model, manager, output, anchors, offsets, qa)
             ce = float(F.cross_entropy(logits, gold))
-        return dict(ce=ce, graft_ce=graft_ce, removed=1.0 - ce / max(graft_ce, 1e-9),
-                    **info)
+        record = dict(ce=ce, graft_ce=graft_ce,
+                      removed=1.0 - ce / max(graft_ce, 1e-9), **info)
+        if anchor_ce is not None:
+            record["anchor_ce"] = anchor_ce
+            record["removed_vs_anchor"] = 1.0 - ce / max(anchor_ce, 1e-9)
+        return record
 
-    graft_log_prob = None
-    graft_ce = None
+    # What the protection term protects. For the two variants that START at the
+    # grafted window it is the grafted window, and KL is exactly zero there, so the
+    # term only stops the module drifting away from what the graft already answers.
+    # For anchor-fusion the branch starts at the ANCHOR-ONLY window, where
+    # KL(anchor || graft) is strictly positive: protecting the graft would put a
+    # gradient on the branch whose only way to satisfy it is to undo the calibration
+    # it was built on. It protects the frozen baseline instead, and KL is zero there.
+    reference_anchors = anchor_anchors
+    reference_name = ("anchor_ce" if args.variant == "anchor-fusion" else "graft_ce")
+    reference_log_prob = None
+    reference_ce = None
     if args.protect_weight > 0:
         with torch.no_grad():
-            graft_logits, graft_gold = reader_logits(model, manager, output, None,
-                                                     None, qa)
-            graft_ce = F.cross_entropy(graft_logits, graft_gold)
-            graft_log_prob = F.log_softmax(graft_logits.float(), dim=-1)
-            del graft_logits, graft_gold
+            reference_logits, reference_gold = reader_logits(
+                model, manager, output, reference_anchors, offsets, qa)
+            reference_ce = F.cross_entropy(reference_logits, reference_gold)
+            reference_log_prob = F.log_softmax(reference_logits.float(), dim=-1)
+            del reference_logits, reference_gold
     logits, gold = reader_logits(model, manager, output, anchors, offsets, qa)
     ce = F.cross_entropy(logits, gold)
     protection = torch.zeros((), device=ce.device)
-    if graft_log_prob is not None:
+    if reference_log_prob is not None:
         protection = F.kl_div(F.log_softmax(logits.float(), dim=-1),
-                              graft_log_prob.exp(), reduction="batchmean")
-        del graft_log_prob
-    return dict(loss=ce + args.protect_weight * protection, ce=ce,
-                graft_ce=(graft_ce if graft_ce is not None
-                          else torch.zeros((), device=ce.device)),
-                protection=protection, **info)
+                              reference_log_prob.exp(), reduction="batchmean")
+        del reference_log_prob
+    record = dict(loss=ce + args.protect_weight * protection, ce=ce,
+                  protection=protection, reference=reference_name, **info)
+    record[reference_name] = (reference_ce if reference_ce is not None
+                              else torch.zeros((), device=ce.device))
+    return record
+
+
+def build_module_report(args, schema, rank, hidden, trainable, frozen_parameters):
+    """What the module is, in the report, per variant."""
+    report = dict(schema=schema, variant=args.variant, rank=rank,
+                  max_ratio=args.max_ratio, gate_init=args.gate_init, hidden=hidden,
+                  trainable_parameters=trainable, frozen_parameters=frozen_parameters,
+                  anchors="the 360 graft slots, copied verbatim from the dropped "
+                          "blocks by the frozen operator")
+    if args.variant == "anchor-fusion":
+        report.update(
+            top_k=args.top_k,
+            frozen_anchor=dict(
+                path=args.anchor_checkpoint, sha256=sha(args.anchor_checkpoint),
+                schema=ANCHOR_SCHEMA + "/checkpoint", parameters=frozen_parameters,
+                trainable=False,
+                note="loaded from the finished anchor-only run and never updated; its "
+                     "digest is compared before and after training"),
+            candidates="the top-%d leftovers of each anchor's own source block, "
+                       "selected by a bilinear score and mixed at their native %d "
+                       "dimensions" % (args.top_k, hidden),
+            bound="vector norm, not element-wise: delta = raw * bound / (bound + "
+                  "rms(raw)) with bound = gate * max_ratio * rms(anchor). The "
+                  "direction of the residual is untouched, and no coordinate "
+                  "saturates against the bound on its own",
+            initialization=(
+                "the score and down projections are orthogonal and the output "
+                "projection is zero: the fused window starts bit-identical to the "
+                "AnchorOnly window, not to the grafted one"))
+        return report
+    report.update(
+        candidates=("every unselected slot of each anchor's own source block"
+                    if args.variant == "compaction" else
+                    "none: the module takes the anchor alone and has no candidate "
+                    "input at all"),
+        initialization=(
+            "the input projections are orthogonal and the output projection is zero: "
+            "the compacted window starts bit-identical to the grafted one"))
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +420,7 @@ def dry_run(args):
         raise SystemExit(f"no {args.train_task} document fills a {WINDOW_BLOCKS}-block "
                          f"window")
     module, rank, _ = build_module(args, 4096)
+    trainable, frozen = parameter_counts(module)
     print(json.dumps(dict(
         dry_run=True, train_task=args.train_task, counts=counts,
         updates=args.updates, steps_per_doc=args.steps_per_doc,
@@ -290,8 +432,10 @@ def dry_run(args):
                       window_slots=WINDOW_SLOTS, target_slots=TARGET_SLOTS),
         module=dict(variant=args.variant, rank=rank, max_ratio=args.max_ratio,
                     gate_init=args.gate_init, hidden=4096,
-                    parameters=int(sum(parameter.numel()
-                                       for parameter in module.parameters())),
+                    top_k=(args.top_k if args.variant == "anchor-fusion" else None),
+                    trainable_parameters=trainable, frozen_parameters=frozen,
+                    anchor_checkpoint=(args.anchor_checkpoint
+                                       if args.variant == "anchor-fusion" else None),
                     initial_residual="exactly zero (the output projection starts at "
                                      "zero)"),
         objective=("answer cross-entropy of the compacted window + "
@@ -349,7 +493,15 @@ def train(args):
         model.model._gradient_checkpointing_func = _checkpoint_func()
     module, rank, schema = build_module(args, manager.hidden)
     module = module.to(model.memory.device).float()
-    optimizer = torch.optim.Adam(module.parameters(), lr=args.lr)
+    trainable, frozen_parameters = parameter_counts(module)
+    optimizer = torch.optim.Adam(
+        [p for p in module.parameters() if p.requires_grad], lr=args.lr)
+    # Digest of the frozen anchor before the first update; compared at the end. An
+    # Adam step cannot move a parameter that never received a gradient, but "cannot"
+    # is the kind of claim this project measures.
+    frozen_before = ({name: tensor_digest(p) for name, p in module.named_parameters()
+                      if not p.requires_grad} if args.variant == "anchor-fusion"
+                     else None)
 
     report = dict(
         schema=schema + "/training", status="running",
@@ -363,23 +515,19 @@ def train(args):
                     checkpoint=args.checkpoint, checkpoint_sha256=sha(args.checkpoint),
                     checkpoint_code_hash_verified=(saved or {}).get("code_hash_verified"),
                     operator_mode="native"),
-        module=dict(schema=schema, variant=args.variant, rank=rank,
-                    max_ratio=args.max_ratio, gate_init=args.gate_init,
-                    hidden=manager.hidden,
-                    parameters=int(sum(p.numel() for p in module.parameters())),
-                    anchors="the 360 graft slots, copied verbatim from the dropped "
-                            "blocks by the frozen operator",
-                    candidates=("every unselected slot of each anchor's own source block"
-                                if args.variant == "compaction" else
-                                "none: the module takes the anchor alone and has no "
-                                "candidate input at all"),
-                    initialization=(
-                        "the input projections are orthogonal and the output "
-                        "projection is zero: the compacted window starts bit-identical "
-                        "to the grafted one")),
-        objective=dict(loss="answer cross-entropy of the compacted window",
-                       protection=f"protect_weight * KL(compacted || graft)",
-                       protect_weight=args.protect_weight, answers_seen=True),
+        module=build_module_report(args, schema, rank, manager.hidden, trainable,
+                                   frozen_parameters),
+        objective=dict(
+            loss="answer cross-entropy of the compacted window",
+            protection=("protect_weight * KL(compacted || anchor-only)"
+                        if args.variant == "anchor-fusion" else
+                        "protect_weight * KL(compacted || graft)"),
+            protection_reference=("the frozen AnchorOnly window, because the branch "
+                                  "starts there and KL against the graft would push it "
+                                  "to undo the calibration"
+                                  if args.variant == "anchor-fusion" else
+                                  "the grafted window, which the module starts at"),
+            protect_weight=args.protect_weight, answers_seen=True),
         optimizer=dict(name="Adam", lr=args.lr, grad_clip=args.grad_clip),
         updates=args.updates, steps_per_doc=args.steps_per_doc,
         critical_manifest=critical_manifest(), history=[], validation=[],
@@ -388,9 +536,11 @@ def train(args):
         Path(args.report).parent.mkdir(parents=True, exist_ok=True)
         atomic_json(args.report, report)
 
-    # A zero output projection must reproduce the grafted window EXACTLY. This is
-    # the whole "the two arms differ only by the compaction" claim, so it is
-    # measured once before the first update instead of being assumed.
+    # A zero output projection must reproduce the baseline window EXACTLY. This is
+    # the whole "the arms differ only by the new branch" claim, so it is measured
+    # once before the first update instead of being assumed. The baseline is the
+    # grafted window, except for anchor-fusion, whose baseline is the AnchorOnly
+    # window the frozen stage produces.
     with torch.no_grad():
         reset(manager, initial)
         write_blocks(manager, merge, chunks_of(training[0]))
@@ -401,22 +551,37 @@ def train(args):
                                               frozen, pinned)
         parts = split_source_anchors(telemetry, SLOTS_PER_BLOCK, WINDOW_BLOCKS,
                                      device=output.device)
-        anchors, identity_info = (compact_anchors_only(output, parts, module)
-                                  if args.variant == "anchor-only"
-                                  else compact_anchors(output, source, parts, module))
-        identity_same = bool(torch.equal(
-            anchors, output.index_select(1, parts["anchor_offsets"])))
+        anchors, identity_info = compact_for_variant(args, output, source, parts,
+                                                     module)
+        if args.variant == "anchor-fusion":
+            # The frozen stage inside the fused path, against that arm's own code.
+            baseline = anchor_stage(output, parts, module)
+            reference_anchors = compact_anchors_only(output, parts, module.anchor)[0]
+            if not torch.equal(baseline, reference_anchors):
+                raise ValueError("the frozen stage inside the fused path is not the "
+                                 "AnchorOnly window: the baseline under the new "
+                                 "branch is not the baseline being claimed")
+            identity_same = bool(torch.equal(anchors, baseline))
+            identity_reference = "anchor-only"
+        else:
+            identity_same = bool(torch.equal(
+                anchors, output.index_select(1, parts["anchor_offsets"])))
+            identity_reference = "graft"
     if not identity_same:
         raise ValueError("the fresh module is not the identity: the compacted window "
-                         "differs from the grafted one before any update")
+                         "differs from the baseline one before any update")
     identity = document_step(model, manager, merge, module, initial, training[0],
                              args, train=False)
-    if abs(identity["ce"] - identity["graft_ce"]) > 1e-6:
+    expected_ce = (identity["anchor_ce"] if args.variant == "anchor-fusion"
+                   else identity["graft_ce"])
+    if abs(identity["ce"] - expected_ce) > 1e-6:
         raise ValueError(f"the fresh module changes the answer CE: compacted "
-                         f"{identity['ce']} != grafted {identity['graft_ce']}")
+                         f"{identity['ce']} != {identity_reference} {expected_ce}")
     report["identity_check"] = dict(
-        document=training[0]["id"], window_bit_identical=identity_same,
-        ce=identity["ce"], graft_ce=identity["graft_ce"],
+        document=training[0]["id"], reference=identity_reference,
+        window_bit_identical=identity_same, ce=identity["ce"],
+        graft_ce=identity["graft_ce"],
+        anchor_ce=identity.get("anchor_ce"),
         anchor_slots=identity["anchor_slots"],
         candidate_slots=identity["candidate_slots"], passed=True)
     print(json.dumps({"identity_check": report["identity_check"]}), flush=True)
@@ -449,23 +614,36 @@ def train(args):
             if missing:
                 raise ValueError(f"no gradient on {missing} at update {update}: the "
                                  f"frozen reader's backward did not reach the window")
-            norm = float(torch.nn.utils.clip_grad_norm_(module.parameters(),
-                                                        args.grad_clip))
+            training_frozen = [name for name, parameter in module.named_parameters()
+                               if not parameter.requires_grad
+                               and parameter.grad is not None]
+            if training_frozen:
+                raise ValueError(f"the frozen parameters {training_frozen} received a "
+                                 f"gradient at update {update}: the baseline is being "
+                                 f"trained, so it is not a baseline")
+            norm = float(torch.nn.utils.clip_grad_norm_(
+                [p for p in module.parameters() if p.requires_grad], args.grad_clip))
             optimizer.step()
+            ce = float(measured["ce"].detach())
+            reference = measured["reference"]
             row = dict(update=update, document=document["id"],
-                       loss=float(measured["loss"].detach()),
-                       ce=float(measured["ce"].detach()),
-                       graft_ce=float(measured["graft_ce"].detach()),
-                       removed=float(1.0 - measured["ce"].detach()
-                                     / measured["graft_ce"].detach().clamp_min(1e-9)),
+                       loss=float(measured["loss"].detach()), ce=ce,
                        protection=float(measured["protection"].detach()),
                        grad_norm=norm, seconds=time.monotonic() - step_started,
                        gate=measured["gate"], delta=measured["relative_delta"],
                        grad_out_proj=float(
                            gradients[OUTPUT_PROJECTION[args.variant]].norm())
                        if OUTPUT_PROJECTION[args.variant] in gradients else None,
-                       grad_gate=float(gradients["gate_logit"].norm())
-                       if "gate_logit" in gradients else None)
+                       grad_gate=float(gradients[GATE[args.variant]].norm())
+                       if GATE[args.variant] in gradients else None)
+            row[reference] = float(measured[reference].detach())
+            row["removed" if reference == "graft_ce" else "removed_vs_anchor"] = (
+                1.0 - ce / max(row[reference], 1e-9))
+            # Variant-specific diagnostics, only where the module produced them.
+            for extra in ("anchor_relative_delta", "max_weight", "entropy",
+                          "novelty_ratio", "raw_rms_ratio", "rms_preserved"):
+                if extra in measured:
+                    row[extra] = measured[extra]
             report["history"].append(row)
             print(json.dumps({k: (round(v, 5) if isinstance(v, float) else v)
                               for k, v in row.items()}), flush=True)
@@ -480,6 +658,15 @@ def train(args):
                     graft_ce=float(np.mean([score["graft_ce"] for score in scores])))
                 summary["removed"] = (1.0 - summary["ce"] / summary["graft_ce"]
                                       if summary["graft_ce"] else None)
+                # The anchor-fusion variant also scores the frozen stage, so the
+                # validation curve says whether the new branch beat the baseline it
+                # was built on -- not merely whether it beat the grafted window.
+                if scores and "anchor_ce" in scores[0]:
+                    summary["anchor_ce"] = float(np.mean([score["anchor_ce"]
+                                                          for score in scores]))
+                    summary["removed_vs_anchor"] = (
+                        1.0 - summary["ce"] / summary["anchor_ce"]
+                        if summary["anchor_ce"] else None)
                 report["validation"].append(summary)
                 print(json.dumps({key: (round(value, 5) if isinstance(value, float)
                                         else value)
@@ -491,17 +678,35 @@ def train(args):
     report["elapsed_seconds"] = time.monotonic() - started
     report["peak_allocated_bytes"] = int(torch.cuda.max_memory_allocated())
     report["final_gate"] = float(torch.sigmoid(module.gate_logit.detach()))
+    config = dict(hidden_size=manager.hidden, rank=rank,
+                  max_ratio=args.max_ratio, gate_init=args.gate_init)
+    if args.variant == "anchor-fusion":
+        config["top_k"] = args.top_k
+        frozen_after = {name: tensor_digest(parameter) for name, parameter
+                        in module.named_parameters() if not parameter.requires_grad}
+        unchanged = frozen_after == frozen_before
+        report["frozen_anchor_check"] = dict(
+            parameters=sorted(frozen_before), digest_before=frozen_before,
+            digest_after=frozen_after, unchanged=unchanged, passed=unchanged)
+        if not unchanged:
+            raise ValueError("the frozen anchor module changed during training: the "
+                             "baseline under the new branch is not the checkpoint it "
+                             "was loaded from")
     report["status"] = "complete"
     payload = dict(
         schema=schema + "/checkpoint", state_dict=module.state_dict(),
-        config=dict(hidden_size=manager.hidden, rank=rank,
-                    max_ratio=args.max_ratio, gate_init=args.gate_init),
+        config=config,
         training=dict(variant=args.variant, task=args.train_task,
                       updates=args.updates, lr=args.lr,
                       seed=args.seed, protect_weight=args.protect_weight,
                       data_sha256=report["data"]["sha256"],
                       checkpoint=args.checkpoint,
-                      checkpoint_sha256=report["reader"]["checkpoint_sha256"]))
+                      checkpoint_sha256=report["reader"]["checkpoint_sha256"],
+                      anchor_checkpoint=(args.anchor_checkpoint
+                                         if args.variant == "anchor-fusion" else None),
+                      anchor_checkpoint_sha256=(sha(args.anchor_checkpoint)
+                                                if args.variant == "anchor-fusion"
+                                                else None)))
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, args.out)
     report["checkpoint"] = args.out
@@ -531,14 +736,24 @@ def build_parser():
     p.add_argument("--steps-per-doc", dest="steps_per_doc", type=int, default=1)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--protect-weight", dest="protect_weight", type=float, default=0.1,
-                   help="weight of KL(compacted || graft); 0 disables the guard")
+                   help="weight of the KL guard against the variant's reference "
+                        "window (graft, or anchor-only for --variant anchor-fusion); "
+                        "0 disables it")
     p.add_argument("--variant", default="compaction",
-                   choices=("compaction", "anchor-only"),
+                   choices=("compaction", "anchor-only", "anchor-fusion"),
                    help="compaction: each anchor reads its block's leftovers; "
-                        "anchor-only: the same trainer with the candidate path removed")
+                        "anchor-only: the same trainer with the candidate path "
+                        "removed; anchor-fusion: a frozen anchor-only module plus a "
+                        "sparse top-k candidate branch")
+    p.add_argument("--anchor-checkpoint", dest="anchor_checkpoint", default=None,
+                   help="the trained AnchorResidual to freeze under "
+                        "--variant anchor-fusion")
+    p.add_argument("--top-k", dest="top_k", type=int, default=4,
+                   help="how many of a block's leftovers the fusion branch reads")
     p.add_argument("--rank", type=int, default=None,
-                   help="bottleneck rank; defaults to 32 for compaction and 64 for "
-                        "anchor-only so the two modules have the same parameter count")
+                   help="bottleneck rank; the defaults are chosen so all three "
+                        "variants have the same parameter count (compaction 32, "
+                        "anchor-only 64, anchor-fusion 32)")
     p.add_argument("--max-ratio", dest="max_ratio", type=float, default=0.5)
     p.add_argument("--gate-init", dest="gate_init", type=float, default=0.0)
     p.add_argument("--grad-clip", dest="grad_clip", type=float, default=1.0)

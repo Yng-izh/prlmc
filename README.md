@@ -73,12 +73,31 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 没有证据，能写的是"相同容量下提高嫁接槽位的可读取性"，而且有一个更简单、更强的实现。
 详见 [docs/03-results.md](docs/03-results.md) 第 6、7 节。
 
+实验 3（**在冻结的校准之上再读一次候选**）把这个结论钉死了：冻结 `AnchorOnly`，只在它上面加一个
+只读本块 **Top-4** 候选（原生 4,096 维混合、向量范数限幅）的分支，158 题掉到 **50 / 31.65%**，
+对 56 题基线 **净 −6（10 救 16 伤，p = 0.33）**；同一个分支换成读**别的文档**的候选反而回到
+**53**。47 道 `Full` 答对的题被分支改错 21 道（`AnchorOnly` 是 13 道）。丢弃块证据的 40 题上，
+读别人的候选（40.0%）比读自己的（32.5%）更好。
+
+| 做法 | 158 题正确 |
+| --- | --- |
+| 候选全读（实验 2） | 57 |
+| 候选不读（Anchor-Only） | 56 |
+| 候选换掉（反事实） | 57 |
+| 候选只读 Top-4，加在冻结校准之上 | **50** |
+| Top-4 但读别人的 | 53 |
+
+**"把未入选槽位的知识浓缩进锚点"这条路，三个独立机制都没走通**（全注意力、删掉、稀疏原生宽度
++ 范数限幅），第三个方向还是负的。论文主线因此收束到第一层：跨块搬运后的原生槽位如何适配冻结
+Reader。详见 [docs/03-results.md](docs/03-results.md) 第 8 节。
+
 反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
 20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
 
-完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–7 节、
-[reports/exp2_source_compaction/](reports/exp2_source_compaction/) 与
-[reports/anchor_only/](reports/anchor_only/)。
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–8 节、
+[reports/exp2_source_compaction/](reports/exp2_source_compaction/)、
+[reports/anchor_only/](reports/anchor_only/) 与
+[reports/anchor_fusion/](reports/anchor_fusion/)。
 
 口径与限制见 [docs/02-eval-protocol.md](docs/02-eval-protocol.md)，
 读报告时的两个约定（`--operator-variant native`、`last_merge` 记录）见
@@ -91,6 +110,7 @@ methods/prlmc/                 压缩算子、载体选择、记忆布局、可�
 methods/prlmc/core_fusion.py   1B 的 core 融合模块（0.52 M 参数）
 methods/prlmc/source_compaction.py  2 的来源端浓缩模块（0.52 M 参数）
 methods/prlmc/anchor_residual.py  Anchor-Only 的锚点残差模块（同参数量的 0.52 M）
+methods/prlmc/anchor_fusion.py    冻结校准 + 稀疏 Top-4 候选分支（可训练 0.52 M）
 methods/memoryllm_modeling/    MemoryLLM reader（冻结）
 tools/plan.py                  训练计划构建与校验（sealed plan）
 tools/objective.py             V10 训练目标（恢复/蒸馏/保护/锚定/EOS）
@@ -100,6 +120,7 @@ tools/eval_learned_fusion.py   1B 评测入口（Graft vs Fusion，六臂）
 tools/train_source_compaction.py  浓缩训练入口（--variant compaction / anchor-only）
 tools/eval_source_compaction.py   2 评测入口（Graft vs Fusion，四臂）
 tools/eval_anchor_residual.py     Anchor-Only 评测入口（五臂，含 Fusion 对照）
+tools/eval_anchor_fusion.py       实验 3 评测入口（六臂，含 Donor 对照）
 tools/randomize_compaction.py     2 的随机对照（同幅度、不训练）
 tools/eval_counterfactual_candidates.py  2 的反事实消融（候选换成另一篇文档的）
 tools/probe_compaction_sensitivity.py    2 的机制探针（候选→残差→窗口的逐级衰减）
@@ -117,6 +138,7 @@ reports/main_table/            主表结果与证据
 reports/diagnostics/           定位实验 1A 的报告（也是后续实验的 --verify-against 参考）
 reports/exp2_source_compaction/ 实验 2 的训练记录、日志、主结果、随机对照与反事实消融
 reports/anchor_only/           Anchor-Only 的训练记录与 158 题主结果
+reports/anchor_fusion/         实验 3 的训练记录与 158 题主结果
 docs/                          目标、方法、评测口径、结果
 ```
 
