@@ -37,6 +37,20 @@ enough either -- a donor arm that loses accuracy is consistent with the branch
 being harmful in general. What the pair rules out is the explanation that the gain
 is a generic perturbation of the anchors rather than content.
 
+The fusion mode
+---------------
+The branch writes its residual one of two ways, and the checkpoint records which:
+
+    plain      `apply_delta(base, delta)` -- the residual moves all 4,096 dimensions
+               the reader uses for both its keys and its values (experiment 3)
+    key-safe   the residual is confined to the null space of the layer's key map
+               and the slot's L2 norm is held, so the reader's keys stay put while
+               its values move (`methods/prlmc/key_safe_projection.py`)
+
+`--fusion-mode` overrides the checkpoint's mode for one legitimate case -- projecting
+an already-trained plain checkpoint without retraining -- and the override is
+recorded, never inferred.
+
 The integrity checks
 --------------------
 * the frozen stage inside the fused path must be the AnchorOnly window, bit for
@@ -90,6 +104,7 @@ from methods.prlmc.anchor_residual import (               # noqa: E402
 from methods.prlmc.anchor_fusion import (                 # noqa: E402
     SCHEMA as FUSION_SCHEMA, FrozenAnchorFusion, SparseCandidateFusion,
     compact_window as compact_window_fusion, frozen_stage)
+import methods.prlmc.key_safe_projection as ks              # noqa: E402
 from methods.prlmc.source_compaction import split_source_anchors  # noqa: E402
 
 BLOCK_TOKENS = gr.BLOCK_TOKENS
@@ -124,10 +139,48 @@ def compress_window(manager, merge, anchor_module, fusion_module, args):
                 fusion_info=fusion_info)
 
 
+def key_preservation(model, round1, module):
+    """Measured once per run, on the real RMSNorm and the real k_proj / v_proj.
+
+    `plain` is the same branch with the projection switched off -- the operator
+    experiment 3 evaluated -- so the report carries the ratio between the two key
+    perturbations rather than an absolute number with no reference point.
+    """
+    offsets = round1["parts"]["anchor_offsets"]
+    base = round1["anchor_window"].index_select(1, offsets)
+    fused = round1["fused"].index_select(1, offsets)
+    loose_module = FrozenAnchorFusion(module.anchor, module.fusion, key_bases=None,
+                                      key_safe=False)
+    with torch.no_grad():
+        loose_window, _ = compact_window_fusion(round1["output"], round1["source"],
+                                                round1["parts"], loose_module)
+    loose = loose_window.index_select(1, offsets)
+    safe = ks.measured_key_error(model, base, fused)
+    plain = ks.measured_key_error(model, base, loose)
+    values = ks.measured_value_change(model, base, fused)
+    return dict(
+        definition=("relative change of the reader's keys (RMSNorm then k_proj, the "
+                    "real modules) and of its values (v_proj) when the branch writes "
+                    "into the 360 graft slots"),
+        key_safe=safe, plain=plain, value=values,
+        key_error_ratio=float(plain["stored"] / max(safe["stored"], 1e-12)))
+
+
 def check_fusion(result):
     """Graft slots only, core untouched, and the frozen stage is the AnchorOnly arm."""
     check = es.check_compaction(dict(result, fused=result["fused"],
                                      compaction_info=result["fusion_info"]))
+    if result["fusion_info"].get("fusion_mode") == "key-safe":
+        # Both halves of the constraint, on every row: the arithmetic must leave the
+        # merged slot exactly on the null-space shell, whatever fp16 does afterwards.
+        leak = float(result["fusion_info"].get("row_leak", 0.0))
+        if leak > 1e-4:
+            raise ValueError(f"the key-safe merge leaked {leak:.2e} of the change into "
+                             f"the key's row space; the null space is wrong")
+        preserved = float(result["fusion_info"].get("norm_preserved", 0.0))
+        if abs(preserved - 1.0) > 1e-5:
+            raise ValueError(f"the key-safe merge changed the slot norm by "
+                             f"{preserved - 1.0:.2e}; the RMSNorm denominator moved")
     offsets = result["parts"]["anchor_offsets"]
     # The baseline under the new branch must be the AnchorOnly window itself, not a
     # re-implementation of it: compared as tensors, on every row.
@@ -225,6 +278,11 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
     check = es.check_compaction(dict(round1, compaction_info=round1["fusion_info"]))
     fusion_check = check_fusion(round1)
     donor_check = check_donor(round1, donor_arm, donor_info, prepared["id"])
+    # Once per run, on the first row: this is the check the whole round exists for,
+    # and it needs the reader's own modules rather than a re-derivation.
+    preservation = (key_preservation(model, round1, fusion_module)
+                    if position == 0 and fusion_module.fusion_mode == "key-safe"
+                    else None)
     # Keyed by arm because the shared analysis reads `structure[Graft]`; the same
     # check covers every compacted arm -- each changes the graft slots and leaves
     # the core alone.
@@ -288,6 +346,7 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
                   anchor=dict(**round1["anchor_info"], check=check),
                   fusion=dict(**round1["fusion_info"], check=fusion_check),
                   donor=dict(**donor_info, check=donor_check),
+                  key_preservation=preservation,
                   carrier_ages=[int(round1["ages"][block]) for block in round1["picked"]])
     next_donor = dict(id=prepared["id"],
                       slots=round1["source"].index_select(
@@ -372,6 +431,20 @@ def fusion_summary(samples, threshold):
             novelty_ratio=_stats([sample["fusion"]["novelty_ratio"]
                                   for sample in graded]),
             top_k=sorted({int(sample["fusion"]["top_k"]) for sample in graded})),
+        key_safe=dict(
+            definition=("what the key-safe constraint cost and what it kept: the share "
+                        "of the branch's residual the projection removed, how far the "
+                        "null component moved, and whether the slot norm held"),
+            row_space_fraction=_stats([sample["fusion"]["row_space_fraction"]
+                                       for sample in graded
+                                       if "row_space_fraction" in sample["fusion"]]),
+            null_shift=_stats([sample["fusion"]["null_shift"] for sample in graded
+                               if "null_shift" in sample["fusion"]]),
+            norm_preserved=_stats([sample["fusion"]["norm_preserved"]
+                                   for sample in graded
+                                   if "norm_preserved" in sample["fusion"]]),
+            modes=sorted({sample["fusion"].get("fusion_mode", "plain")
+                          for sample in graded})),
         readout=dict(
             definition="mean reader-readout distance from the uncompressed window",
             by_arm={arm: ef._gap_summary(graded, arm)
@@ -530,6 +603,8 @@ def build_protocol(args, task, anchor_config, fusion_config):
             frozen="the AnchorResidual from --anchor, digest-checked before and after "
                    "training and again when this report is written",
             trainable="the sparse top-4 candidate branch, 524,289 parameters",
+            fusion_mode=("read from the checkpoint config; an override is recorded "
+                         "in identity.fusion_mode_override"),
             selection="top-4 of each anchor's own block's leftovers by a bilinear score",
             width="the four winners are mixed at their native 4,096 dimensions; only "
                   "the mixture is compressed",
@@ -604,22 +679,54 @@ def load_anchor_module(path, hidden):
     return module.eval().requires_grad_(False), config
 
 
-def load_fusion_module(path, anchor, anchor_path, hidden):
+def load_fusion_module(path, anchor, anchor_path, hidden, reader, mode_override=None):
+    """Rebuild the trained branch in the mode it was trained in.
+
+    The mode is part of the checkpoint config, not a flag: a branch trained with the
+    plain merge and evaluated with the key-safe one is a different operator, and the
+    only way to tell them apart afterwards is to have recorded it. `mode_override`
+    exists for the one legitimate case -- projecting an already-trained plain
+    checkpoint without retraining -- and is reported as an override, never silently.
+    """
     payload = torch.load(path, map_location="cpu", weights_only=True)
     if payload.get("schema") != FUSION_SCHEMA + "/checkpoint":
         raise ValueError(f"{path} is not a {FUSION_SCHEMA} checkpoint")
     config = dict(payload["config"])
+    trained_mode = config.pop("fusion_mode", "plain")
+    mode = trained_mode if mode_override is None else mode_override
     recorded = (payload.get("training") or {}).get("anchor_checkpoint_sha256")
     if recorded and recorded != sha(anchor_path):
         raise ValueError(f"{path} was trained on top of anchor checkpoint {recorded}, "
                          f"but --anchor is {sha(anchor_path)}: the frozen baseline in "
                          f"the checkpoint is not the one being evaluated")
-    module = FrozenAnchorFusion(anchor, SparseCandidateFusion(**config))
-    module.load_state_dict(payload["state_dict"], strict=True)
     if int(config.get("hidden_size", -1)) != int(hidden):
         raise ValueError(f"{path} was built for hidden {config.get('hidden_size')}, "
                          f"the reader is {hidden}")
-    return module.to(next(iter(module.parameters())).device).eval().requires_grad_(False), config
+
+    key_bases = key_report = key_digest = None
+    if mode == "key-safe":
+        # Rebuilt from the reader being evaluated, then matched against the digest
+        # the training run recorded: a basis built from different weights (or from a
+        # different LoRA adapter) annihilates the wrong keys and every later number
+        # would be meaningless.
+        key_bases, key_report = ks.build_key_bases(reader)
+        key_digest = ks.basis_digest(key_bases)
+        recorded_basis = (payload.get("training") or {}).get("key_basis_sha256")
+        if recorded_basis and recorded_basis != key_digest:
+            raise ValueError(
+                f"the key basis rebuilt from this reader is {key_digest}, the "
+                f"checkpoint recorded {recorded_basis}: the reader weights or the "
+                f"active LoRA adapter are not the ones the branch was trained "
+                f"against")
+
+    module = FrozenAnchorFusion(anchor, SparseCandidateFusion(**config),
+                                key_bases=key_bases, key_safe=(mode == "key-safe"))
+    module.load_state_dict(payload["state_dict"], strict=True)
+    meta = dict(trained_mode=trained_mode, mode=mode,
+                override=(mode != trained_mode), key_basis=key_report,
+                key_basis_sha256=key_digest)
+    return (module.to(next(iter(module.parameters())).device).eval()
+            .requires_grad_(False), config, meta)
 
 
 def evaluate(args):
@@ -661,8 +768,9 @@ def evaluate(args):
     anchor_module = anchor_module.to(model.memory.device)
     device = model.memory.device
     reference_digest = state_digest(anchor_module)
-    fusion_module, fusion_config = load_fusion_module(args.fusion, anchor_module,
-                                                      args.anchor, manager.hidden)
+    override = None if args.fusion_mode == "from-checkpoint" else args.fusion_mode
+    fusion_module, fusion_config, fusion_meta = load_fusion_module(
+        args.fusion, anchor_module, args.anchor, manager.hidden, model, override)
     fusion_module = fusion_module.to(device)
     # The frozen weights inside the fusion checkpoint must be the ones in --anchor:
     # otherwise the branch is being added to a baseline nobody evaluated.
@@ -694,6 +802,11 @@ def evaluate(args):
             anchor_state_digest=reference_digest,
             fusion=args.fusion, fusion_sha256=sha(args.fusion),
             fusion_state_digest=state_digest(fusion_module),
+            fusion_mode=fusion_meta["mode"],
+            fusion_mode_trained=fusion_meta["trained_mode"],
+            fusion_mode_override=fusion_meta["override"],
+            key_basis=fusion_meta["key_basis"],
+            key_basis_sha256=fusion_meta["key_basis_sha256"],
             parameters=parameters,
             data_dir=args.data_dir,
             data_sha256=sha(Path(args.data_dir) / (args.task + ".jsonl")),
@@ -740,6 +853,9 @@ def evaluate(args):
             delta_donor=record["donor"]["relative_delta"],
             seconds=round(record["seconds"], 1))), flush=True)
 
+    first = report["samples"][0] if report["samples"] else {}
+    if first.get("key_preservation"):
+        report["identity"]["key_preservation"] = first["key_preservation"]
     report["summary"] = fusion_summary(report["samples"], args.f1_threshold)
     if args.verify_against:
         report["verification_against_reference"] = verify_anchor_reference(
@@ -771,6 +887,11 @@ def build_parser():
                    help="the trained AnchorResidual checkpoint (the frozen baseline)")
     p.add_argument("--fusion", default=None,
                    help="the trained sparse fusion checkpoint (the new arms)")
+    p.add_argument("--fusion-mode", dest="fusion_mode", default="from-checkpoint",
+                   choices=("from-checkpoint", "plain", "key-safe"),
+                   help="rebuild the branch in this mode instead of the one the "
+                        "checkpoint records; an override is reported in "
+                        "identity.fusion_mode_override rather than applied silently")
     p.add_argument("--out", default=None)
     p.add_argument("--cuda-device", default="0")
     p.add_argument("--window-blocks", dest="window_blocks", type=int,

@@ -67,6 +67,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from methods.prlmc.core_fusion import apply_delta
+from methods.prlmc.key_safe_projection import key_safe_merge
 from tools.v9_geometry_50block import GEOMETRY_50B
 
 SCHEMA = "anchor_fusion/1"
@@ -180,24 +181,50 @@ class SparseCandidateFusion(nn.Module):
 class FrozenAnchorFusion(nn.Module):
     """A frozen `AnchorResidual` with a trainable `SparseCandidateFusion` on top.
 
-    The composition is `base = apply_delta(anchors, anchor(anchors))` and then
-    `apply_delta(base, fusion(base, candidates))`, i.e. exactly the AnchorOnly
-    arm followed by the new branch. With `fuse_up = 0` the second step is the
-    identity -- bit for bit, since `rms_preserve` divides by the same RMS it
-    multiplied by -- so the fused window starts as the AnchorOnly window.
+    The composition is `base = apply_delta(anchors, anchor(anchors))` and then the
+    branch's residual, i.e. exactly the AnchorOnly arm followed by the new module.
+    With `fuse_up = 0` the second step is the identity -- bit for bit, since
+    `rms_preserve` divides by the same RMS it multiplied by -- so the fused window
+    starts as the AnchorOnly window.
+
+    Two ways to apply that residual:
+
+    `plain`      `apply_delta(base, delta)`: the residual moves all 4,096 dimensions
+                 the reader uses for BOTH its keys and its values. This is what
+                 experiment 3 did, and it is why experiment 3 lost six questions.
+    `key-safe`   `key_safe_merge(base, delta, basis)`: the residual is confined to
+                 the null space of the layer's key map and the slot's L2 norm is
+                 held, so the reader's keys do not move while its values do. See
+                 `methods/prlmc/key_safe_projection.py` for why both halves of that
+                 condition are needed and what "does not move" means at fp16.
+
+    The mode is part of the module, not a flag at the call site: a checkpoint that
+    was trained one way must be evaluated the same way, and `fusion_mode` is what
+    the driver records and rebuilds from.
 
     `forward` returns the frozen stage as well: it is the AnchorOnly arm, and the
     driver compares it against that arm's own code path to prove the baseline
     underneath the new branch is the baseline being claimed.
     """
 
-    def __init__(self, anchor, fusion):
+    def __init__(self, anchor, fusion, key_bases=None, key_safe=False):
         super().__init__()
         self.anchor = anchor
         self.fusion = fusion
         for parameter in self.anchor.parameters():
             parameter.requires_grad_(False)
         self.anchor.eval()
+        self.key_safe = bool(key_safe)
+        # Non-persistent: the basis is 32 x 4096 x 1024 floats (537 MB) and is a
+        # function of the frozen reader, so it is rebuilt from the reader and
+        # matched by digest instead of being copied into every checkpoint.
+        self.register_buffer("key_bases",
+                             torch.empty(0) if key_bases is None else key_bases.float(),
+                             persistent=False)
+
+    @property
+    def fusion_mode(self):
+        return "key-safe" if self.key_safe else "plain"
 
     @property
     def gate_logit(self):
@@ -207,10 +234,23 @@ class FrozenAnchorFusion(nn.Module):
     def anchor_slots(self, anchors):
         return apply_delta(anchors, self.anchor(anchors))
 
-    def forward(self, anchors, candidates, same_block):
+    def forward(self, anchors, candidates, same_block, layer_start=0):
         base = self.anchor_slots(anchors)
         delta, stats = self.fusion(base, candidates, same_block)
-        return apply_delta(base, delta), base, stats
+        if not self.key_safe:
+            return apply_delta(base, delta), base, stats
+        if self.key_bases.numel() == 0:
+            raise ValueError("this module is in key-safe mode but carries no key "
+                             "basis: build it with `build_key_bases(reader)`")
+        basis = self.key_bases[layer_start:layer_start + base.shape[0]]
+        if basis.shape[0] != base.shape[0]:
+            raise ValueError(f"the key basis covers layers "
+                             f"{layer_start}..{layer_start + basis.shape[0]}, the "
+                             f"window carries {base.shape[0]}")
+        fused, merge = key_safe_merge(base, delta, basis)
+        # No `apply_delta` here on purpose: it would rescale the merged slot and
+        # move the RMSNorm denominator the constraint just fixed.
+        return fused, base, dict(stats, **merge)
 
 
 # ---------------------------------------------------------------------------
@@ -238,12 +278,20 @@ def compact_anchors(output, window_memory, parts, module, layer_chunk=8):
     pieces = []
     base_sq = fused_sq = delta_sq = anchor_sq = source_sq = 0.0
     weighted = dict(max_weight=0.0, entropy=0.0, novelty_ratio=0.0, raw_rms_ratio=0.0)
+    # Only present in key-safe mode; summed the same way so the report has one row
+    # per sample whatever the mode.
+    optional = ("row_space_fraction", "null_shift", "row_leak", "norm_preserved")
+    extra = {name: 0.0 for name in optional}
+    present = set()
     slots = 0
     for start in range(0, output.shape[0], layer_chunk):
         stop = min(start + layer_chunk, output.shape[0])
         candidates = window_memory[start:stop].index_select(1, parts["candidate_positions"])
         chunk = anchors[start:stop]
-        fused, base, stats = module(chunk, candidates, parts["same_block"])
+        # `layer_start` is what lets a key-safe module pick the basis of the layer it
+        # is writing into; the module is shared across layers, the basis is not.
+        fused, base, stats = module(chunk, candidates, parts["same_block"],
+                                    layer_start=start)
         pieces.append(fused)
         base_sq += float(base.detach().float().square().sum())
         fused_sq += float(fused.detach().float().square().sum())
@@ -252,6 +300,10 @@ def compact_anchors(output, window_memory, parts, module, layer_chunk=8):
         source_sq += float(chunk.detach().float().square().sum())
         for name in weighted:
             weighted[name] += stats[name] * stats["slots"]
+        for name in optional:
+            if name in stats:
+                extra[name] += stats[name] * stats["slots"]
+                present.add(name)
         slots += stats["slots"]
         del candidates, fused, base
     info = dict(
@@ -266,8 +318,10 @@ def compact_anchors(output, window_memory, parts, module, layer_chunk=8):
         # `rms_preserve` restores each slot's RMS, so this must be 1.0: the branch
         # may change what a slot says but never how loud it is.
         rms_preserved=(fused_sq / max(base_sq, 1e-24)) ** 0.5,
+        fusion_mode=module.fusion_mode,
     )
     info.update({name: value / max(slots, 1) for name, value in weighted.items()})
+    info.update({name: extra[name] / max(slots, 1) for name in sorted(present)})
     return torch.cat(pieces, dim=0), info
 
 

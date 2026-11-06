@@ -158,6 +158,7 @@ from methods.prlmc.anchor_fusion import (                 # noqa: E402
     SCHEMA as FUSION_SCHEMA, FrozenAnchorFusion, SparseCandidateFusion,
     compact_anchors as compact_anchors_fusion,
     frozen_stage as anchor_stage)
+import methods.prlmc.key_safe_projection as ks              # noqa: E402
 from methods.prlmc.source_compaction import (             # noqa: E402
     SCHEMA, SourceCompaction, compact_anchors, split_source_anchors)
 from objective import answer_logits                       # noqa: E402
@@ -198,8 +199,14 @@ def load_anchor(path, hidden):
     return anchor, config
 
 
-def build_module(args, hidden):
-    """The one module this variant trains, its rank, and its checkpoint schema."""
+def build_module(args, hidden, key_bases=None):
+    """The one module this variant trains, its rank, and its checkpoint schema.
+
+    `key_bases` is only meaningful for `--variant anchor-fusion
+    --fusion-mode key-safe`; it is built from the reader (see `train`) and attached
+    as a non-persistent buffer, so it travels with `.to(device)` but never enters a
+    checkpoint. `dry_run` passes None and never calls the forward path.
+    """
     rank = int(args.rank) if args.rank else DEFAULT_RANK[args.variant]
     if args.variant == "anchor-only":
         module = AnchorResidual(hidden_size=hidden, rank=rank,
@@ -213,7 +220,9 @@ def build_module(args, hidden):
         fusion = SparseCandidateFusion(hidden_size=hidden, rank=rank,
                                        top_k=args.top_k, max_ratio=args.max_ratio,
                                        gate_init=args.gate_init)
-        return FrozenAnchorFusion(anchor, fusion), rank, FUSION_SCHEMA
+        module = FrozenAnchorFusion(anchor, fusion, key_bases=key_bases,
+                                    key_safe=args.fusion_mode == "key-safe")
+        return module, rank, FUSION_SCHEMA
     module = SourceCompaction(hidden_size=hidden, rank=rank,
                               max_ratio=args.max_ratio, gate_init=args.gate_init)
     return module, rank, SCHEMA
@@ -369,7 +378,8 @@ def document_step(model, manager, merge, module, initial, document, args, train)
     return record
 
 
-def build_module_report(args, schema, rank, hidden, trainable, frozen_parameters):
+def build_module_report(args, schema, rank, hidden, trainable, frozen_parameters,
+                        key_report=None, key_digest=None):
     """What the module is, in the report, per variant."""
     report = dict(schema=schema, variant=args.variant, rank=rank,
                   max_ratio=args.max_ratio, gate_init=args.gate_init, hidden=hidden,
@@ -378,7 +388,7 @@ def build_module_report(args, schema, rank, hidden, trainable, frozen_parameters
                           "blocks by the frozen operator")
     if args.variant == "anchor-fusion":
         report.update(
-            top_k=args.top_k,
+            top_k=args.top_k, fusion_mode=args.fusion_mode,
             frozen_anchor=dict(
                 path=args.anchor_checkpoint, sha256=sha(args.anchor_checkpoint),
                 schema=ANCHOR_SCHEMA + "/checkpoint", parameters=frozen_parameters,
@@ -396,6 +406,18 @@ def build_module_report(args, schema, rank, hidden, trainable, frozen_parameters
                 "the score and down projections are orthogonal and the output "
                 "projection is zero: the fused window starts bit-identical to the "
                 "AnchorOnly window, not to the grafted one"))
+        if args.fusion_mode == "key-safe":
+            report["key_safe"] = dict(
+                mechanism=(
+                    "the residual is confined to the null space of the layer's key "
+                    "map W_K diag(gamma) and the slot's L2 norm is held, so the "
+                    "reader's keys are unchanged while its values move; apply_delta "
+                    "is deliberately NOT called afterwards, because rescaling the "
+                    "merged slot would move the RMSNorm denominator"),
+                basis=key_report, basis_sha256=key_digest,
+                note=("the basis is a function of the frozen reader, so it is a "
+                      "non-persistent buffer: rebuilt at evaluation time and matched "
+                      "by digest instead of being copied into the checkpoint"))
         return report
     report.update(
         candidates=("every unselected slot of each anchor's own source block"
@@ -433,6 +455,11 @@ def dry_run(args):
         module=dict(variant=args.variant, rank=rank, max_ratio=args.max_ratio,
                     gate_init=args.gate_init, hidden=4096,
                     top_k=(args.top_k if args.variant == "anchor-fusion" else None),
+                    fusion_mode=(args.fusion_mode
+                                 if args.variant == "anchor-fusion" else None),
+                    key_basis=("built from the reader at train time"
+                               if args.variant == "anchor-fusion"
+                               and args.fusion_mode == "key-safe" else None),
                     trainable_parameters=trainable, frozen_parameters=frozen,
                     anchor_checkpoint=(args.anchor_checkpoint
                                        if args.variant == "anchor-fusion" else None),
@@ -491,7 +518,17 @@ def train(args):
             gradient_checkpointing_kwargs={"use_reentrant": False})
         model.model.gradient_checkpointing = True
         model.model._gradient_checkpointing_func = _checkpoint_func()
-    module, rank, schema = build_module(args, manager.hidden)
+    key_bases = key_report = key_digest = None
+    if args.variant == "anchor-fusion" and args.fusion_mode == "key-safe":
+        # Built from the frozen reader, once, before the first forward: the basis
+        # has to describe the key map the reader will actually use, LoRA included.
+        key_bases, key_report = ks.build_key_bases(model)
+        key_bases = key_bases.to(model.memory.device)
+        key_digest = ks.basis_digest(key_bases)
+        print(json.dumps({"key_basis": {k: v for k, v in key_report.items()
+                                        if k not in ("ranks",)},
+                          "sha256": key_digest}), flush=True)
+    module, rank, schema = build_module(args, manager.hidden, key_bases)
     module = module.to(model.memory.device).float()
     trainable, frozen_parameters = parameter_counts(module)
     optimizer = torch.optim.Adam(
@@ -516,7 +553,7 @@ def train(args):
                     checkpoint_code_hash_verified=(saved or {}).get("code_hash_verified"),
                     operator_mode="native"),
         module=build_module_report(args, schema, rank, manager.hidden, trainable,
-                                   frozen_parameters),
+                                   frozen_parameters, key_report, key_digest),
         objective=dict(
             loss="answer cross-entropy of the compacted window",
             protection=("protect_weight * KL(compacted || anchor-only)"
@@ -682,6 +719,9 @@ def train(args):
                   max_ratio=args.max_ratio, gate_init=args.gate_init)
     if args.variant == "anchor-fusion":
         config["top_k"] = args.top_k
+        # Part of the config, not an evaluation flag: a checkpoint trained one way
+        # has to be rebuilt the same way, and the driver records which.
+        config["fusion_mode"] = args.fusion_mode
         frozen_after = {name: tensor_digest(parameter) for name, parameter
                         in module.named_parameters() if not parameter.requires_grad}
         unchanged = frozen_after == frozen_before
@@ -706,7 +746,11 @@ def train(args):
                                          if args.variant == "anchor-fusion" else None),
                       anchor_checkpoint_sha256=(sha(args.anchor_checkpoint)
                                                 if args.variant == "anchor-fusion"
-                                                else None)))
+                                                else None),
+                      fusion_mode=(args.fusion_mode
+                                   if args.variant == "anchor-fusion" else None),
+                      key_basis_sha256=key_digest,
+                      key_basis=key_report))
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, args.out)
     report["checkpoint"] = args.out
@@ -750,6 +794,12 @@ def build_parser():
                         "--variant anchor-fusion")
     p.add_argument("--top-k", dest="top_k", type=int, default=4,
                    help="how many of a block's leftovers the fusion branch reads")
+    p.add_argument("--fusion-mode", dest="fusion_mode", default="plain",
+                   choices=("plain", "key-safe"),
+                   help="how the fusion residual is written into the slot: plain "
+                        "moves all 4096 dimensions (experiment 3); key-safe confines "
+                        "it to the null space of the reader's key map and holds the "
+                        "slot norm. Only meaningful with --variant anchor-fusion")
     p.add_argument("--rank", type=int, default=None,
                    help="bottleneck rank; the defaults are chosen so all three "
                         "variants have the same parameter count (compaction 32, "
@@ -776,6 +826,10 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if args.fusion_mode == "key-safe" and args.variant != "anchor-fusion":
+        raise SystemExit("--fusion-mode key-safe only applies to --variant "
+                         "anchor-fusion; the other variants have no frozen baseline "
+                         "to protect")
     return dry_run(args) if args.dry_run else train(args)
 
 

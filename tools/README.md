@@ -19,10 +19,11 @@
 | `eval_graft_span.py` | 实验 1A：嫁接来源端的 Span-4 成组选择（Full / Selection / Graft / Span，只改来源侧） |
 | `train_core_fusion.py` | 实验 1B 训练端：只训 0.52 M 的 core 融合模块，目标是 Reader 读出蒸馏（不碰答案） |
 | `eval_learned_fusion.py` | 实验 1B：学习式多对一融合 vs 原生嫁接（Full / Selection / Graft / Fusion / Graft2 / Fusion2） |
-| `train_source_compaction.py` | 浓缩训练端（`--variant compaction` / `anchor-only` / `anchor-fusion`）：只训 0.52 M 模块，目标是**真实答案交叉熵** + KL 保护 |
+| `train_source_compaction.py` | 浓缩训练端（`--variant compaction` / `anchor-only` / `anchor-fusion`，后者可加 `--fusion-mode key-safe`）：只训 0.52 M 模块，目标是**真实答案交叉熵** + KL 保护 |
 | `eval_source_compaction.py` | 实验 2：来源端浓缩 vs 原生嫁接（Full / Selection / Graft / Fusion，单次压缩） |
 | `eval_anchor_residual.py` | Anchor-Only：删掉候选路径后还剩多少（Full / Selection / Graft / Fusion / AnchorOnly） |
-| `eval_anchor_fusion.py` | 冻结锚点校准后再试候选：稀疏 Top-4 + 原生维度混合 + 向量范数限幅（Full / Selection / Graft / AnchorOnly / AnchorFusion / AnchorFusionDonor） |
+| `eval_anchor_fusion.py` | 冻结锚点校准后再试候选：稀疏 Top-4 + 原生维度混合（Full / Selection / Graft / AnchorOnly / AnchorFusion / AnchorFusionDonor）；按 checkpoint 的 `fusion_mode` 重建算子，`key-safe` 会实测 key/value 变化 |
+| `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
