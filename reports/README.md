@@ -30,6 +30,7 @@
 | [anchor_fusion/eval_anchor_fusion_hotpotqa.json](anchor_fusion/eval_anchor_fusion_hotpotqa.json) | **实验 3 主结果**：冻结 `AnchorOnly` + 只读 Top-4 候选的分支，158 题六臂。`AnchorFusion` 50 vs `AnchorOnly` 56（10 救 16 伤，p = 0.33）；读**别人**候选的 `Donor` 反而 53（丢弃块证据 40 题上 40.0% vs 32.5%） |
 | [anchor_fusion/training_fusion_top4.json](anchor_fusion/training_fusion_top4.json) | 实验 3 训练记录：384 更新逐更新标量 + 8 次验证；含初始逐位一致、冻结 digest 前后比对、梯度到达检查 |
 | [anchor_fusion/logs/train_fusion_top4.log](anchor_fusion/logs/train_fusion_top4.log) | 实验 3 训练控制台日志 |
+| [anchor_fusion/eval_anchor_fusion_key_safe_projected_hotpotqa.json](anchor_fusion/eval_anchor_fusion_key_safe_projected_hotpotqa.json) | **实验 4**：实验 3 权重 + Key-Safe 投影（冻结 Reader 的 key 子空间，不重训），158 题六臂。key 变化 5.3e-4（原来 1.63e-1）；`AnchorFusion` 54 vs `AnchorOnly` 56（5 救 7 伤，p = 0.77），真候选与无关候选**完全等价**（0 救 0 伤，预测只差 3/158） |
 
 更早的报告（v2 A/B/C、v4 8k/16k、v6/v7、S1d 系列、public retention、定位实验 1/2/3，以及实验
 1B 的全部原始文件）已从仓库移出，数字在 [docs/03-results.md](../docs/03-results.md)。

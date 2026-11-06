@@ -199,11 +199,15 @@ def _verify_fold(layers, hidden, adapter, seed):
         x = x.to(k_proj.weight.device, dtype)
         with adapter_selected(k_proj, adapter):
             expected = k_proj(layer.input_layernorm(x))
+        # `key_map` is ALREADY `W_K diag(gamma)`, so the gamma-scaled normalised
+        # input is `normalised @ A^T`. Multiplying by gamma a second time here was
+        # the first version of this check: it agreed with `k_proj` on the unit test
+        # only because that test's RMSNorm weight was all ones, and it rejected the
+        # real reader. The basis was never wrong; the check was.
         normalised = (x.float()
                       / x.float().square().mean(dim=-1, keepdim=True)
                       .sqrt().clamp_min(1e-6))
-        got = torch.matmul(normalised * gamma.float(),
-                           key_map(layer, adapter).transpose(0, 1))
+        got = torch.matmul(normalised, key_map(layer, adapter).transpose(0, 1))
         error = float((got.float() - expected.float()).norm()
                       / expected.float().norm().clamp_min(1e-12))
         worst = max(worst, error)

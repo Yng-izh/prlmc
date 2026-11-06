@@ -91,10 +91,19 @@ checkpoint `runs/natural_merge_v9/full_v10.pt`，sha256 `a4d1f6e77d899e40d4d411c
 + 范数限幅），第三个方向还是负的。论文主线因此收束到第一层：跨块搬运后的原生槽位如何适配冻结
 Reader。详见 [docs/03-results.md](docs/03-results.md) 第 8 节。
 
+实验 4（**Key-Safe 投影**）把"破坏寻址"这一条单独拎出来验证：在实验 3 的权重上，**不重训**，只把
+残差限制到 Reader 的 key 子空间零空间里并保持槽位模长。实测 key 变化从 **1.63e-1 降到 5.3e-4**
+（小 308 倍，已到 fp16 池的舍入地板），value 仍变 14%。结果：**损伤从 21 题降到 15 题，保护组误伤
+从 9 降到 3，总答对 50 → 54，但仍没超过 56**；而且真候选与无关候选变得**完全等价**（54 vs 54，
+0 救 0 伤，预测只差 3/158，实验 3 是 38/158）。
+
+也就是说：实验 3 里那点内容依赖，绝大部分是**通过寻址通道**传到答案的——而那正是破坏已有知识的
+通道。冻结寻址之后，value 通道几乎传不动内容。详见 [docs/03-results.md](docs/03-results.md) 第 9 节。
+
 反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
 20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
 
-完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–8 节、
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–9 节、
 [reports/exp2_source_compaction/](reports/exp2_source_compaction/)、
 [reports/anchor_only/](reports/anchor_only/) 与
 [reports/anchor_fusion/](reports/anchor_fusion/)。

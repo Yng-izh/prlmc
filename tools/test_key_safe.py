@@ -63,9 +63,11 @@ from methods.prlmc.source_compaction import split_source_anchors    # noqa: E402
 class RMSNorm(torch.nn.Module):
     """`LlamaRMSNorm`, including the fp32 variance and the cast back."""
 
-    def __init__(self, hidden, eps=1e-5):
+    def __init__(self, hidden, eps=1e-5, gamma_std=0.15):
         super().__init__()
-        self.weight = torch.nn.Parameter(torch.ones(hidden))
+        # NOT all ones: a unit gamma hides the whole class of bug where gamma is
+        # applied twice (or not at all), because the two versions then agree.
+        self.weight = torch.nn.Parameter(1.0 + gamma_std * torch.randn(hidden))
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
@@ -197,6 +199,12 @@ def run_checks(args):
             worst = max(worst, float((gram - torch.eye(rank)).abs().max()))
         assert worst < 1e-5, f"Q^T Q is not the identity: {worst:.3e}"
         assert report["verified"], "build_key_bases did not verify its own fold"
+        # Tighter than the build's own 1e-2 refusal: with a non-unit gamma a
+        # double-applied gamma shows up here at O(1), so this is the assertion that
+        # would have caught it before the real reader did.
+        assert report["verification_error"] < 1e-3, (
+            f"the folded map reproduces k_proj only to "
+            f"{report['verification_error']:.3e}")
         return dict(layers=report["layers"], rank=report["rank"], ranks=ranks,
                     adapter=adapter, lora_folded=report["lora_folded"],
                     gram_error=worst,
