@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
-"""Experiment 2, training half: teach the 360 graft slots to carry more than they copy.
+"""Compaction training: teach the 360 graft slots to carry more than they copy.
+
+Two variants, one trainer, so the two runs differ only in the module
+--------------------------------------------------------------------
+    --variant compaction    the experiment-2 module: each anchor attends to the
+                            unselected slots of its own source block
+                            (`methods.prlmc.source_compaction.SourceCompaction`)
+    --variant anchor-only   the same trainer with the candidate path removed: a
+                            low-rank map from the anchor to its own residual
+                            (`methods.prlmc.anchor_residual.AnchorResidual`)
+
+The rank defaults are chosen so the two modules have the SAME parameter count
+(4 x 32 x 4096 + 1 = 2 x 64 x 4096 + 1 = 524,289). Everything else -- data,
+updates, learning rate, loss, bounds, seeds -- is shared code, which is what
+makes "anchor-only vs compaction" a comparison of modules and not of scripts.
 
 What is trained
 ---------------
-Exactly one module (`methods.prlmc.source_compaction.SourceCompaction`, 0.52 M
-parameters at rank 32). Reader, writer and the V10 graft operator are frozen;
-nothing else in the system has a gradient.
+Exactly one module, 0.52 M parameters. Reader, writer and the V10 graft operator
+are frozen; nothing else in the system has a gradient.
 
 What the objective is
 --------------------
@@ -19,6 +32,10 @@ supervised the reader-readout distance and watched it fall 20% while accuracy fe
 3. add the module's residual to the 360 graft slots and measure the CE again;
 4. minimise `CE(compacted) + protect_weight * KL(compacted || graft)`.
 
+Step 3 is the only line the variants disagree on, and the disagreement is one
+call: `compact_anchors(output, source, parts, module)` against
+`compact_anchors(output, parts, module)` -- with or without a window to read.
+
 The KL term is the knowledge protection: it is what stops the module from trading
 a fact the Graft window already answers for one it might add. It is a regulariser,
 not a target -- the CE is what moves.
@@ -31,8 +48,9 @@ uses: `_pool_in_place` writes the candidate window into the reader's pool behind
 custom autograd Function, `active_mask_override` makes the reader attend to exactly
 the 2,304 kept slots, and `differentiable_memory` routes the forward pass to that
 pool. The first backwards are checked, not assumed: update 1 must deliver gradient
-to `out_proj` (the only parameter that can move while the residual is still zero)
-and update 2 must deliver gradient to every projection. If it does not, the run
+to the output projection (`out_proj`, or `up` in the anchor-only variant -- the
+only parameter that can move while the residual is still zero) and update 2 must
+deliver gradient to every projection. If it does not, the run
 stops instead of training a silently detached module.
 
 Why the dropout is zeroed, and why the reader is checkpointed
@@ -103,6 +121,9 @@ from runtime import critical_manifest, load_runtime, reset  # noqa: E402
 from methods.prlmc.probes import (                        # noqa: E402
     _checkpoint_func, _compacted_mask, _pool_in_place, active_mask_override,
     differentiable_memory)
+from methods.prlmc.anchor_residual import (               # noqa: E402
+    SCHEMA as ANCHOR_SCHEMA, AnchorResidual,
+    compact_anchors as compact_anchors_only)
 from methods.prlmc.source_compaction import (             # noqa: E402
     SCHEMA, SourceCompaction, compact_anchors, split_source_anchors)
 from objective import answer_logits                       # noqa: E402
@@ -113,9 +134,26 @@ from train_core_fusion import (                           # noqa: E402
 SLOTS_PER_BLOCK = gr.SLOTS_PER_BLOCK
 WINDOW_SLOTS = WINDOW_BLOCKS * SLOTS_PER_BLOCK
 TARGET_SLOTS = TARGET_BLOCKS * SLOTS_PER_BLOCK
-# `out_proj` is the only parameter with a non-zero gradient while the residual is
-# still exactly zero; q/k/v only start moving after it leaves zero.
-PROJECTIONS = ("q_proj", "k_proj", "v_proj", "out_proj")
+# The output projection is the only parameter with a non-zero gradient while the
+# residual is still exactly zero; the upstream half only starts moving after it
+# leaves zero. Named per variant so the check is the same check.
+PROJECTIONS = dict(compaction=("q_proj", "k_proj", "v_proj", "out_proj"),
+                   **{"anchor-only": ("down", "up")})
+OUTPUT_PROJECTION = dict(compaction="out_proj", **{"anchor-only": "up"})
+# Equal parameter count: 4 x rank x hidden + 1 against 2 x rank x hidden + 1.
+DEFAULT_RANK = dict(compaction=32, **{"anchor-only": 64})
+
+
+def build_module(args, hidden):
+    """The one module this variant trains, its rank, and its checkpoint schema."""
+    rank = int(args.rank) if args.rank else DEFAULT_RANK[args.variant]
+    if args.variant == "anchor-only":
+        module = AnchorResidual(hidden_size=hidden, rank=rank,
+                                max_ratio=args.max_ratio, gate_init=args.gate_init)
+        return module, rank, ANCHOR_SCHEMA
+    module = SourceCompaction(hidden_size=hidden, rank=rank,
+                              max_ratio=args.max_ratio, gate_init=args.gate_init)
+    return module, rank, SCHEMA
 
 
 # ---------------------------------------------------------------------------
@@ -191,8 +229,10 @@ def document_step(model, manager, merge, module, initial, document, args, train)
     qa = dict(prompt_ids=document["query_ids"], answer_ids=document["answer_ids"])
     # Built BEFORE any injection: `source` is a view into the reader's pool and the
     # injection writes into that same pool, so the candidates have to be gathered
-    # first.
-    anchors, info = compact_anchors(output, source, parts, module)
+    # first. The anchor-only variant has no candidates and never reads the window.
+    anchors, info = (compact_anchors_only(output, parts, module)
+                     if args.variant == "anchor-only"
+                     else compact_anchors(output, source, parts, module))
     offsets = parts["anchor_offsets"]
 
     if not train:
@@ -238,6 +278,7 @@ def dry_run(args):
     if not documents:
         raise SystemExit(f"no {args.train_task} document fills a {WINDOW_BLOCKS}-block "
                          f"window")
+    module, rank, _ = build_module(args, 4096)
     print(json.dumps(dict(
         dry_run=True, train_task=args.train_task, counts=counts,
         updates=args.updates, steps_per_doc=args.steps_per_doc,
@@ -247,9 +288,12 @@ def dry_run(args):
                       core_slots=TARGET_BLOCKS * gr.CORE_SLOTS,
                       graft_slots=TARGET_BLOCKS * gr.GRAFT_SLOTS,
                       window_slots=WINDOW_SLOTS, target_slots=TARGET_SLOTS),
-        module=dict(rank=args.rank, max_ratio=args.max_ratio, gate_init=args.gate_init,
-                    hidden=4096, parameters=4 * args.rank * 4096 + 1,
-                    initial_residual="exactly zero (out_proj starts at zero)"),
+        module=dict(variant=args.variant, rank=rank, max_ratio=args.max_ratio,
+                    gate_init=args.gate_init, hidden=4096,
+                    parameters=int(sum(parameter.numel()
+                                       for parameter in module.parameters())),
+                    initial_residual="exactly zero (the output projection starts at "
+                                     "zero)"),
         objective=("answer cross-entropy of the compacted window + "
                    "protect_weight * KL(compacted || graft)"),
         answers_seen=True,
@@ -303,13 +347,12 @@ def train(args):
             gradient_checkpointing_kwargs={"use_reentrant": False})
         model.model.gradient_checkpointing = True
         model.model._gradient_checkpointing_func = _checkpoint_func()
-    module = SourceCompaction(hidden_size=manager.hidden, rank=args.rank,
-                              max_ratio=args.max_ratio,
-                              gate_init=args.gate_init).to(model.memory.device).float()
+    module, rank, schema = build_module(args, manager.hidden)
+    module = module.to(model.memory.device).float()
     optimizer = torch.optim.Adam(module.parameters(), lr=args.lr)
 
     report = dict(
-        schema=SCHEMA + "/training", status="running",
+        schema=schema + "/training", status="running",
         data=dict(dir=args.data_dir, task=args.train_task,
                   sha256=sha(Path(args.data_dir) / (args.train_task + ".jsonl")),
                   counts=counts, train_documents=len(training),
@@ -320,14 +363,20 @@ def train(args):
                     checkpoint=args.checkpoint, checkpoint_sha256=sha(args.checkpoint),
                     checkpoint_code_hash_verified=(saved or {}).get("code_hash_verified"),
                     operator_mode="native"),
-        module=dict(schema=SCHEMA, rank=args.rank, max_ratio=args.max_ratio,
-                    gate_init=args.gate_init, hidden=manager.hidden,
+        module=dict(schema=schema, variant=args.variant, rank=rank,
+                    max_ratio=args.max_ratio, gate_init=args.gate_init,
+                    hidden=manager.hidden,
                     parameters=int(sum(p.numel() for p in module.parameters())),
                     anchors="the 360 graft slots, copied verbatim from the dropped "
                             "blocks by the frozen operator",
-                    candidates="every unselected slot of each anchor's own source block",
-                    initialization="q/k/v orthogonal, out_proj zero: the compacted "
-                                   "window starts bit-identical to the grafted one"),
+                    candidates=("every unselected slot of each anchor's own source block"
+                                if args.variant == "compaction" else
+                                "none: the module takes the anchor alone and has no "
+                                "candidate input at all"),
+                    initialization=(
+                        "the input projections are orthogonal and the output "
+                        "projection is zero: the compacted window starts bit-identical "
+                        "to the grafted one")),
         objective=dict(loss="answer cross-entropy of the compacted window",
                        protection=f"protect_weight * KL(compacted || graft)",
                        protect_weight=args.protect_weight, answers_seen=True),
@@ -352,7 +401,9 @@ def train(args):
                                               frozen, pinned)
         parts = split_source_anchors(telemetry, SLOTS_PER_BLOCK, WINDOW_BLOCKS,
                                      device=output.device)
-        anchors, identity_info = compact_anchors(output, source, parts, module)
+        anchors, identity_info = (compact_anchors_only(output, parts, module)
+                                  if args.variant == "anchor-only"
+                                  else compact_anchors(output, source, parts, module))
         identity_same = bool(torch.equal(
             anchors, output.index_select(1, parts["anchor_offsets"])))
     if not identity_same:
@@ -385,10 +436,12 @@ def train(args):
             gradients = {name: parameter.grad for name, parameter in
                          module.named_parameters() if parameter.grad is not None}
             update += 1
-            # Measured, not assumed: the first update can only reach `out_proj`
-            # (the residual is still exactly zero, so q/k/v sit downstream of a
-            # zero matrix), and update 2 is the first one that must reach all four.
-            required = ("out_proj",) if update == 1 else PROJECTIONS
+            # Measured, not assumed: the first update can only reach the output
+            # projection (the residual is still exactly zero, so the upstream half
+            # sits downstream of a zero matrix), and update 2 is the first one that
+            # must reach every projection.
+            required = ((OUTPUT_PROJECTION[args.variant],) if update == 1
+                        else PROJECTIONS[args.variant])
             missing = [name for name in required
                        if name not in gradients
                        or not torch.isfinite(gradients[name]).all()
@@ -408,8 +461,9 @@ def train(args):
                        protection=float(measured["protection"].detach()),
                        grad_norm=norm, seconds=time.monotonic() - step_started,
                        gate=measured["gate"], delta=measured["relative_delta"],
-                       grad_out_proj=float(gradients["out_proj"].norm())
-                       if "out_proj" in gradients else None,
+                       grad_out_proj=float(
+                           gradients[OUTPUT_PROJECTION[args.variant]].norm())
+                       if OUTPUT_PROJECTION[args.variant] in gradients else None,
                        grad_gate=float(gradients["gate_logit"].norm())
                        if "gate_logit" in gradients else None)
             report["history"].append(row)
@@ -439,10 +493,11 @@ def train(args):
     report["final_gate"] = float(torch.sigmoid(module.gate_logit.detach()))
     report["status"] = "complete"
     payload = dict(
-        schema=SCHEMA + "/checkpoint", state_dict=module.state_dict(),
-        config=dict(hidden_size=manager.hidden, rank=args.rank,
+        schema=schema + "/checkpoint", state_dict=module.state_dict(),
+        config=dict(hidden_size=manager.hidden, rank=rank,
                     max_ratio=args.max_ratio, gate_init=args.gate_init),
-        training=dict(task=args.train_task, updates=args.updates, lr=args.lr,
+        training=dict(variant=args.variant, task=args.train_task,
+                      updates=args.updates, lr=args.lr,
                       seed=args.seed, protect_weight=args.protect_weight,
                       data_sha256=report["data"]["sha256"],
                       checkpoint=args.checkpoint,
@@ -477,7 +532,13 @@ def build_parser():
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--protect-weight", dest="protect_weight", type=float, default=0.1,
                    help="weight of KL(compacted || graft); 0 disables the guard")
-    p.add_argument("--rank", type=int, default=32)
+    p.add_argument("--variant", default="compaction",
+                   choices=("compaction", "anchor-only"),
+                   help="compaction: each anchor reads its block's leftovers; "
+                        "anchor-only: the same trainer with the candidate path removed")
+    p.add_argument("--rank", type=int, default=None,
+                   help="bottleneck rank; defaults to 32 for compaction and 64 for "
+                        "anchor-only so the two modules have the same parameter count")
     p.add_argument("--max-ratio", dest="max_ratio", type=float, default=0.5)
     p.add_argument("--gate-init", dest="gate_init", type=float, default=0.0)
     p.add_argument("--grad-clip", dest="grad_clip", type=float, default=1.0)

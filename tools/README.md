@@ -19,8 +19,9 @@
 | `eval_graft_span.py` | 实验 1A：嫁接来源端的 Span-4 成组选择（Full / Selection / Graft / Span，只改来源侧） |
 | `train_core_fusion.py` | 实验 1B 训练端：只训 0.52 M 的 core 融合模块，目标是 Reader 读出蒸馏（不碰答案） |
 | `eval_learned_fusion.py` | 实验 1B：学习式多对一融合 vs 原生嫁接（Full / Selection / Graft / Fusion / Graft2 / Fusion2） |
-| `train_source_compaction.py` | 实验 2 训练端：只训 0.52 M 的来源端浓缩模块，目标是**真实答案交叉熵** + KL 保护 |
+| `train_source_compaction.py` | 浓缩训练端（`--variant compaction` / `anchor-only`）：只训 0.52 M 模块，目标是**真实答案交叉熵** + KL 保护 |
 | `eval_source_compaction.py` | 实验 2：来源端浓缩 vs 原生嫁接（Full / Selection / Graft / Fusion，单次压缩） |
+| `eval_anchor_residual.py` | Anchor-Only：删掉候选路径后还剩多少（Full / Selection / Graft / Fusion / AnchorOnly） |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
@@ -555,3 +556,65 @@ python tools/probe_compaction_sensitivity.py \
 ```
 
 衰减链：候选 130% → `context` 19% → `raw` 16% → 残差 5.0% → 窗口 1.5% → 答案 0。
+
+## Anchor-Only：把候选路径删掉，还剩多少
+
+反事实消融证明"换掉候选没用"，但没回答"能不能不要候选"。这个实验把整条候选路径删掉：
+
+| 臂 | 压缩方式 | 输出槽 |
+|---|---|---|
+| `Full` | 不压缩，19 块 4,864 槽 | — |
+| `Selection` | 9 个载体块原样 | 2,304 |
+| `Graft` | V10 原生嫁接：1,944 core + 360 逐字复制 | 2,304 |
+| `Fusion` | 同 `Graft`，360 个嫁接槽 = 锚点 + 读本块剩余槽的残差 | 2,304 |
+| `AnchorOnly` | 同 `Graft`，360 个嫁接槽 = 锚点 + **只看锚点自己**的残差 | 2,304 |
+
+模块（`methods/prlmc/anchor_residual.py`）是 `hidden -> rank -> hidden` 的 gelu 瓶颈，
+`forward(anchors)` **只有一个参数**——候选路径不是"读了但没用"，是代码里没有这条路。rank 取 64
+是为了让参数量与实验 2 的模块**逐位相同**：
+
+| | 结构 | 参数量 |
+| --- | --- | --- |
+| `SourceCompaction` | 4 × (32 × 4096) + 1 | 524,289 |
+| `AnchorResidual` | 2 × (64 × 4096) + 1 | 524,289 |
+
+两个 run 走同一个训练脚本，所以数据、384 步、学习率、损失、种子、梯度检查都是同一段代码：
+
+```bash
+# 训练（384 步约 44 min，6.1 s/步，峰值 29.9 GB）
+python tools/train_source_compaction.py --variant anchor-only --smoke \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --out runs/anchor_residual/smoke.pt --report runs/anchor_residual/smoke.json
+
+python tools/train_source_compaction.py --variant anchor-only --updates 384 \
+  --lr 1e-3 --protect-weight 0.1 \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --out runs/anchor_residual/anchor_only_rank64.pt \
+  --report runs/anchor_residual/anchor_only_rank64.json
+
+# 评测（158 题约 52 min，五臂同进程）
+python tools/eval_anchor_residual.py --self-test        # 不需要 GPU
+python tools/eval_anchor_residual.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --compaction runs/source_compaction/compaction_rank32.pt \
+  --anchor runs/anchor_residual/anchor_only_rank64.pt \
+  --verify-against reports/exp2_source_compaction/eval_trained_hotpotqa.json \
+  --cuda-device 0 --out reports/diagnostics/anchor_only_hotpotqa.json
+```
+
+结果：`AnchorOnly` **56/158（35.44%）** vs `Fusion` 57/158（36.08%），6 救 7 伤、净 −1、p = 1.000；
+对 `Graft` 23 救 8 伤（p = 0.011）。详见 [docs/03-results.md](../docs/03-results.md) 第 7 节。
+
+驱动硬校验四件事：
+
+- 四条老臂与实验 2 的报告**逐题一致**（`--verify-against` 额外校验 `Fusion` 臂）；
+- `AnchorOnly` 的 1,944 个 core 槽与 `Graft` 逐位相同，360 个嫁接槽确实变了；
+- 模块自报 `candidate_slots == 0`，否则直接报错（路径没删干净就不许跑）；
+- 两个 checkpoint 的参数量必须相等，否则拒绝比较（否则容量和架构混在一起）。

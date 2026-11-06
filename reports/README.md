@@ -1,11 +1,12 @@
 # 实验报告索引
 
 仓库里只保留**当前版本（V10）**的结果与证据：主表在 [main_table](main_table/)，
-定位实验（1A）在 [diagnostics](diagnostics/)，最新一轮（实验 2 及其反事实消融）在
-[exp2_source_compaction](exp2_source_compaction/)。所有数字的汇总表在
-[docs/03-results.md](../docs/03-results.md)。
+定位实验（1A）在 [diagnostics](diagnostics/)，实验 2 及其反事实消融在
+[exp2_source_compaction](exp2_source_compaction/)，最新一轮（Anchor-Only）在
+[anchor_only](anchor_only/)。所有数字的汇总表在 [docs/03-results.md](../docs/03-results.md)。
 
-实验 2 的**训练版报告同时是反事实消融的 `--verify-against` 参考**，所以和 1A 一样留在仓库里。
+实验 2 的**训练版报告同时是反事实消融和 Anchor-Only 的 `--verify-against` 参考**，所以和 1A 一样
+留在仓库里。
 
 | 文件 | 内容 |
 | --- | --- |
@@ -22,6 +23,9 @@
 | [exp2_source_compaction/logs/train_compaction.log](exp2_source_compaction/logs/train_compaction.log) | 训练控制台日志 |
 | [exp2_source_compaction/eval_counterfactual_hotpotqa.json](exp2_source_compaction/eval_counterfactual_hotpotqa.json) | **实验 2 反事实消融**：候选槽位换成另一篇文档的，158 题五臂。反事实 57 vs 训练版 57（0 救 0 伤，p = 1.00），四臂与训练版报告逐题一致 |
 | [exp2_source_compaction/probe_candidate_sensitivity.json](exp2_source_compaction/probe_candidate_sensitivity.json) | **机制探针**：7 篇真实文档上把候选 → `context` → `raw` → 残差 → 窗口的衰减逐级量出来（130% → 19% → 16% → 5.0% → 1.5%） |
+| [anchor_only/eval_anchor_only_hotpotqa.json](anchor_only/eval_anchor_only_hotpotqa.json) | **Anchor-Only 主结果**：候选路径删掉后的 158 题五臂。`AnchorOnly` 56 vs `Fusion` 57（6 救 7 伤，p = 1.00），对 `Graft` +15（p = 0.011） |
+| [anchor_only/training_anchor_only.json](anchor_only/training_anchor_only.json) | Anchor-Only 训练记录：384 更新逐更新标量 + 8 次验证（峰值 19.3%，收在 17.2%） |
+| [anchor_only/logs/train_anchor_only.log](anchor_only/logs/train_anchor_only.log) | Anchor-Only 训练控制台日志 |
 
 更早的报告（v2 A/B/C、v4 8k/16k、v6/v7、S1d 系列、public retention、定位实验 1/2/3，以及实验
 1B 的全部原始文件）已从仓库移出，数字在 [docs/03-results.md](../docs/03-results.md)。
