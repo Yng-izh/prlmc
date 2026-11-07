@@ -22,6 +22,7 @@
 | `train_source_compaction.py` | 浓缩训练端（`--variant compaction` / `anchor-only` / `anchor-fusion`，后者可加 `--fusion-mode key-safe`）：只训 0.52 M 模块，目标是**真实答案交叉熵** + KL 保护 |
 | `eval_source_compaction.py` | 实验 2：来源端浓缩 vs 原生嫁接（Full / Selection / Graft / Fusion，单次压缩） |
 | `eval_anchor_residual.py` | Anchor-Only：删掉候选路径后还剩多少（Full / Selection / Graft / Fusion / AnchorOnly） |
+| `eval_budget_reallocation.py` | 实验 5：只改 Core/Graft 配额（1944/360 → 1440/864 → 1296/1008），同 2304 容量、同载体、冻结 Reader；每配置跑 Native Graft + 已训练 AnchorOnly（不重训），并按运行时配额校验容量/来源/时间顺序/逐字 core |
 | `eval_anchor_fusion.py` | 冻结锚点校准后再试候选：稀疏 Top-4 + 原生维度混合（Full / Selection / Graft / AnchorOnly / AnchorFusion / AnchorFusionDonor）；按 checkpoint 的 `fusion_mode` 重建算子，`key-safe` 会实测 key/value 变化 |
 | `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
