@@ -107,10 +107,17 @@ Reader。详见 [docs/03-results.md](docs/03-results.md) 第 8 节。
 "用槽位自己的 (k,v) 重建自己"的恒等对照完全相同，说明是 fp16 地板而非换通道引入的偏差。
 详见 [docs/03-results.md](docs/03-results.md) 第 10 节。
 
+实验 6（**容量重分配**）否掉了"我们过度保护了载体块"这个假设：只改 Core/Graft 配额
+（1944/360 → 1440/864 → 1296/1008），窗口、载体、2304 容量、冻结 Reader 全不动，
+`AnchorOnly` 从 **56 → 55 → 49**（净 −1、−7）。而且不是分配不均——无空块，逐块最少槽位
+4 → 25 → 34，反而更均匀；`p_gold` 随配额单调下降，说明**按 `disc_leverage` 补进来的边际槽位是
+在稀释记忆，不是补充**。同一份校准在三个配额下带来的增益是 +15 / +15 / +12，**校准可迁移、容量不可**。
+下一步只剩 Reader 感知的跨层选择。详见 [docs/03-results.md](docs/03-results.md) 第 11 节。
+
 反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
 20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
 
-完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–10 节、
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–11 节、
 [reports/exp2_source_compaction/](reports/exp2_source_compaction/)、
 [reports/anchor_only/](reports/anchor_only/) 与
 [reports/anchor_fusion/](reports/anchor_fusion/)。
