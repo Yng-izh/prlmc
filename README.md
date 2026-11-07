@@ -100,10 +100,17 @@ Reader。详见 [docs/03-results.md](docs/03-results.md) 第 8 节。
 也就是说：实验 3 里那点内容依赖，绝大部分是**通过寻址通道**传到答案的——而那正是破坏已有知识的
 通道。冻结寻址之后，value 通道几乎传不动内容。详见 [docs/03-results.md](docs/03-results.md) 第 9 节。
 
+实验 5（**Key/Value 通道交换**）把这两条通道分开交换，直接量出各自的分量：只换 key 复现了
+**34/38** 条预测变更（89%），只换 value 是 **22/38**（58%）；p_gold 的主效应 key:value ≈ **15:1**，
+而且 p_gold 跟着 key 走、不跟 value 走。所以"内容走寻址"方向对但被高估：**value 通道能写，只是
+推力太小（p_gold +0.0002）；key 通道推得动，但正是破坏已有知识的那条**。构造误差 1.9e-3，与
+"用槽位自己的 (k,v) 重建自己"的恒等对照完全相同，说明是 fp16 地板而非换通道引入的偏差。
+详见 [docs/03-results.md](docs/03-results.md) 第 10 节。
+
 反常识的一条：按"压缩后记忆像不像原始记忆"（读出距离）衡量，实验 2 **差了 74%**，而 1B 是近了
 20% 但准确率更差。两次方向相反、结论一致：**读出距离不是知识可用性的代理**。
 
-完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–9 节、
+完整数字、分组、对照与保留见 [docs/03-results.md](docs/03-results.md) 第 4–10 节、
 [reports/exp2_source_compaction/](reports/exp2_source_compaction/)、
 [reports/anchor_only/](reports/anchor_only/) 与
 [reports/anchor_fusion/](reports/anchor_fusion/)。
