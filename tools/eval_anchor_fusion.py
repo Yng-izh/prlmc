@@ -105,6 +105,7 @@ from methods.prlmc.anchor_fusion import (                 # noqa: E402
     SCHEMA as FUSION_SCHEMA, FrozenAnchorFusion, SparseCandidateFusion,
     compact_window as compact_window_fusion, frozen_stage)
 import methods.prlmc.key_safe_projection as ks              # noqa: E402
+import methods.prlmc.key_value_crossover as crossover       # noqa: E402
 from methods.prlmc.source_compaction import split_source_anchors  # noqa: E402
 
 BLOCK_TOKENS = gr.BLOCK_TOKENS
@@ -113,7 +114,17 @@ FULL, SELECTION, GRAFT = ef.FULL, ef.SELECTION, ef.GRAFT
 ANCHOR_ONLY = "AnchorOnly"
 ANCHOR_FUSION = "AnchorFusion"
 DONOR = "AnchorFusionDonor"
+# Key/Value cross-over arms (`--crossover`). A and D are `AnchorFusion` and
+# `AnchorFusionDonor`; only these two are new.
+KEY_REAL_VALUE_DONOR = "KeyRealValueDonor"
+KEY_DONOR_VALUE_REAL = "KeyDonorValueReal"
+CROSSOVER_ARMS = (KEY_REAL_VALUE_DONOR, KEY_DONOR_VALUE_REAL)
 ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, ANCHOR_FUSION, DONOR)
+
+
+def arm_list(with_crossover):
+    """The arms this run answers, in report order."""
+    return ARMS + CROSSOVER_ARMS if with_crossover else ARMS
 SCHEMA_RESULTS = "anchor_fusion_results/1"
 
 
@@ -258,7 +269,7 @@ def build_donor(manager, merge, prepared, args):
 # one sample
 # ---------------------------------------------------------------------------
 def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
-               prepared, donor, args, position):
+               prepared, donor, args, position, arms=ARMS, projector=None):
     """Write the window once, compress once, then answer all six arms."""
     chunks = [prepared["write_ids"][index:index + BLOCK_TOKENS]
               for index in range(0, len(prepared["write_ids"]), BLOCK_TOKENS)]
@@ -278,6 +289,31 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
     check = es.check_compaction(dict(round1, compaction_info=round1["fusion_info"]))
     fusion_check = check_fusion(round1)
     donor_check = check_donor(round1, donor_arm, donor_info, prepared["id"])
+    # Key/Value cross-over: B keeps A's key and takes D's value, C the other way round.
+    # Both come from the same two windows, so the four arms differ only in which
+    # channel each one takes from which document.
+    crossover_windows, crossover_info = {}, {}
+    if projector is not None:
+        offsets = round1["parts"]["anchor_offsets"]
+        real = round1["fused"].index_select(1, offsets)
+        other = donor_arm.index_select(1, offsets)
+        for arm, key_from, value_from in ((KEY_REAL_VALUE_DONOR, real, other),
+                                          (KEY_DONOR_VALUE_REAL, other, real)):
+            built, built_info = projector(model, key_from, value_from)
+            error = crossover.channel_error(model, built, key_from, value_from)
+            if max(error["key"], error["value"]) > 5e-3:
+                raise ValueError(
+                    f"{arm}: the built slot does not carry the requested channels "
+                    f"(key {error['key']:.2e}, value {error['value']:.2e}); the solver "
+                    f"is wrong and this arm would measure nothing")
+            crossover_windows[arm] = round1["output"].index_copy(1, offsets, built)
+            crossover_info[arm] = dict(built_info, channel_error=error, check=check)
+        if position == 0:
+            # Identity control on the same code path: a slot built from its own
+            # (k, v) must come back to its own (k, v). If it does not, the
+            # construction adds something of its own and B/C decompose nothing.
+            echo, _ = projector(model, real, real)
+            crossover_info["identity"] = crossover.channel_error(model, echo, real, real)
     # Once per run, on the first row: this is the check the whole round exists for,
     # and it needs the reader's own modules rather than a re-derivation.
     preservation = (key_preservation(model, round1, fusion_module)
@@ -288,12 +324,16 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
     # the core alone.
     structure = {SELECTION: None, GRAFT: check, ANCHOR_ONLY: check,
                  ANCHOR_FUSION: fusion_check, DONOR: donor_check}
+    for arm in crossover_windows:
+        structure[arm] = check
 
     selection = ef.selection_window(round1["source"], round1["picked"])
     gaps[SELECTION] = es.readout_gap(model, round1["source"], selection,
                                      query_hidden, ef.TAPS)
-    for arm, window in ((GRAFT, round1["output"]), (ANCHOR_ONLY, round1["anchor_window"]),
-                        (ANCHOR_FUSION, round1["fused"]), (DONOR, donor_arm)):
+    gap_windows = [(GRAFT, round1["output"]), (ANCHOR_ONLY, round1["anchor_window"]),
+                   (ANCHOR_FUSION, round1["fused"]), (DONOR, donor_arm)]
+    gap_windows += list(crossover_windows.items())
+    for arm, window in gap_windows:
         gaps[arm] = es.readout_gap(model, round1["source"], window, query_hidden, ef.TAPS)
         gaps[arm + "/heldout"] = es.readout_gap(model, round1["source"], window,
                                                 query_hidden, ef.HELD_OUT_LAYERS)
@@ -318,18 +358,22 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
             elif arm == DONOR:
                 er.install_output(manager, donor_arm, round1["picked"],
                                   args.window_blocks)
+            elif arm in crossover_windows:
+                er.install_output(manager, crossover_windows[arm], round1["picked"],
+                                  args.window_blocks)
             fingerprints[arm] = gr.active_fingerprint(manager)
             fingerprints[arm + "/slots"] = int(manager.used)
         return run
 
-    arms = {arm: gr.readout(model, tokenizer, prepared["query_ids"], answers,
-                            args.f1_threshold, prepare(arm))
-            for arm in ARMS}
+    answered = {arm: gr.readout(model, tokenizer, prepared["query_ids"], answers,
+                                args.f1_threshold, prepare(arm))
+                for arm in arms}
     gr.restore(model, manager, state)
 
     if int(fingerprints[FULL + "/slots"]) != args.window_blocks * manager.block:
         raise ValueError("the Full arm did not keep the whole window")
-    for arm in (SELECTION, GRAFT, ANCHOR_ONLY, ANCHOR_FUSION, DONOR):
+    for arm in (SELECTION, GRAFT, ANCHOR_ONLY, ANCHOR_FUSION,
+                DONOR) + tuple(crossover_windows):
         if int(fingerprints[arm + "/slots"]) != TARGET_SLOTS:
             raise ValueError(f"arm {arm} does not hold the {TARGET_SLOTS}-slot budget")
     for left, right in ((SELECTION, GRAFT), (GRAFT, ANCHOR_ONLY),
@@ -337,16 +381,24 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fusion_module,
         if fingerprints[left] == fingerprints[right]:
             raise ValueError(f"{left} and {right} read the same pool: the manipulation "
                              f"did not reach the memory")
+    for left, right in ((ANCHOR_FUSION, KEY_REAL_VALUE_DONOR),
+                        (KEY_REAL_VALUE_DONOR, DONOR),
+                        (KEY_DONOR_VALUE_REAL, ANCHOR_FUSION),
+                        (DONOR, KEY_DONOR_VALUE_REAL)):
+        if left in crossover_windows and fingerprints[left] == fingerprints[right]:
+            raise ValueError(f"{left} and {right} read the same pool: the channel swap "
+                             f"did not reach the memory")
 
     provenance = gr.graft_provenance(round1["telemetry"], args.window_blocks)
     if provenance["selected_blocks"] != sorted(round1["picked"]):
         raise ValueError("graft provenance disagrees with the shared carrier set")
-    record = dict(arms=arms, fingerprints=fingerprints, gaps=gaps,
+    record = dict(arms=answered, fingerprints=fingerprints, gaps=gaps,
                   provenance=provenance, structure=structure, multi_round=False,
                   anchor=dict(**round1["anchor_info"], check=check),
                   fusion=dict(**round1["fusion_info"], check=fusion_check),
                   donor=dict(**donor_info, check=donor_check),
                   key_preservation=preservation,
+                  crossover=crossover_info or None,
                   carrier_ages=[int(round1["ages"][block]) for block in round1["picked"]])
     next_donor = dict(id=prepared["id"],
                       slots=round1["source"].index_select(
@@ -367,7 +419,79 @@ def _stats(values):
                 median=round(sorted(values)[len(values) // 2], 6))
 
 
-def fusion_summary(samples, threshold):
+def _prediction_changes(samples, left, right):
+    """How often the PREDICTION changes, whether or not either arm was right."""
+    pairs = [sample for sample in samples
+             if left in sample.get("arms", {}) and right in sample.get("arms", {})]
+    if not pairs:
+        return dict(n=0)
+    changed = sum(1 for sample in pairs
+                  if sample["arms"][left]["prediction"].strip()
+                  != sample["arms"][right]["prediction"].strip())
+    return dict(n=len(pairs), changed=changed,
+                share=round(100.0 * changed / len(pairs), 2))
+
+
+def crossover_summary(samples, threshold):
+    """The decomposition: B - A is the value channel, C - A the key channel.
+
+    Accuracy is the wrong yardstick for this one -- the arms differ on a handful of
+    rows, so no single pair can reach significance. What the design CAN read is how
+    many predictions each channel moves, which is what `prediction_changes` reports,
+    and the `construction` block, which is the check that the swapped channels are
+    really the ones asked for.
+    """
+    graded = [sample for sample in samples
+              if sample.get("status") == "graded" and sample.get("crossover")]
+    if not graded:
+        return dict(enabled=False)
+
+    def errors(arm, channel):
+        return [sample["crossover"][arm]["channel_error"][channel]
+                for sample in graded if arm in sample["crossover"]]
+
+    identity = next((sample["crossover"]["identity"] for sample in graded
+                     if sample["crossover"].get("identity")), None)
+    return dict(
+        enabled=True,
+        definition=("A key real / value real, B key real / value donor, C key donor / "
+                    "value real, D key donor / value donor. B - A isolates the value "
+                    "channel, C - A the key channel, A - D is what they decompose. "
+                    "Accuracy cannot resolve a difference this small; the prediction "
+                    "counts and the channel errors are what this run is for"),
+        arms={arm: gr._arm_summary(graded, arm, threshold) for arm in CROSSOVER_ARMS},
+        pairs={
+            "B_minus_A_value_channel": er.pair_summary(
+                graded, KEY_REAL_VALUE_DONOR, ANCHOR_FUSION, threshold),
+            "C_minus_A_key_channel": er.pair_summary(
+                graded, KEY_DONOR_VALUE_REAL, ANCHOR_FUSION, threshold),
+            "B_minus_D": er.pair_summary(graded, KEY_REAL_VALUE_DONOR, DONOR, threshold),
+            "C_minus_D": er.pair_summary(graded, KEY_DONOR_VALUE_REAL, DONOR, threshold),
+            "A_minus_D_total": er.pair_summary(graded, ANCHOR_FUSION, DONOR, threshold),
+        },
+        prediction_changes={
+            "B_vs_A_value_channel": _prediction_changes(
+                graded, KEY_REAL_VALUE_DONOR, ANCHOR_FUSION),
+            "C_vs_A_key_channel": _prediction_changes(
+                graded, KEY_DONOR_VALUE_REAL, ANCHOR_FUSION),
+            "A_vs_D_total": _prediction_changes(graded, ANCHOR_FUSION, DONOR),
+        },
+        construction=dict(
+            definition=("relative distance between the (k, v) the reader computes for the "
+                        "BUILT slot and the (k, v) that was requested; must be at fp16 "
+                        "level or the arm measures nothing"),
+            B_key_error=_stats(errors(KEY_REAL_VALUE_DONOR, "key")),
+            B_value_error=_stats(errors(KEY_REAL_VALUE_DONOR, "value")),
+            C_key_error=_stats(errors(KEY_DONOR_VALUE_REAL, "key")),
+            C_value_error=_stats(errors(KEY_DONOR_VALUE_REAL, "value")),
+            identity=identity,
+            infeasible=_stats([sample["crossover"][arm]["infeasible"]
+                               for sample in graded for arm in CROSSOVER_ARMS
+                               if arm in sample["crossover"]])),
+    )
+
+
+def fusion_summary(samples, threshold, arms=ARMS):
     """The block the driver exists for: does the branch add knowledge, and is it content?"""
     graded = [sample for sample in samples if sample.get("status") == "graded"]
     located = [sample for sample in graded if sample.get("evidence", {}).get("located")]
@@ -390,7 +514,7 @@ def fusion_summary(samples, threshold):
 
     def group(rows):
         return dict(n=len(rows),
-                    arms={arm: gr._arm_summary(rows, arm, threshold) for arm in ARMS},
+                    arms={arm: gr._arm_summary(rows, arm, threshold) for arm in arms},
                     pairs=comparisons(rows))
 
     dropped_group = group(dropped)
@@ -410,12 +534,12 @@ def fusion_summary(samples, threshold):
                     "on the same block's leftovers, against the same branch reading "
                     "another document's leftovers"),
         n=len(graded),
-        arms={arm: gr._arm_summary(graded, arm, threshold) for arm in ARMS},
+        arms={arm: gr._arm_summary(graded, arm, threshold) for arm in arms},
         pairs=comparisons(graded),
         knowledge_recovery=recovery,
         dropped_evidence_group=dropped_group,
         kept_evidence_group=group(kept),
-        damage={arm: ef._damage(graded, arm, threshold) for arm in ARMS},
+        damage={arm: ef._damage(graded, arm, threshold) for arm in arms},
         residual=dict(
             definition="RMS of the injected residual over RMS of the slot it is added to",
             fusion=_stats([sample["fusion"]["relative_delta"] for sample in graded]),
@@ -445,6 +569,7 @@ def fusion_summary(samples, threshold):
                                    if "norm_preserved" in sample["fusion"]]),
             modes=sorted({sample["fusion"].get("fusion_mode", "plain")
                           for sample in graded})),
+        crossover=crossover_summary(samples, threshold),
         readout=dict(
             definition="mean reader-readout distance from the uncompressed window",
             by_arm={arm: ef._gap_summary(graded, arm)
@@ -570,7 +695,7 @@ def build_protocol(args, task, anchor_config, fusion_config):
         treatment=("the 360 anchors are calibrated by the FROZEN AnchorResidual and then "
                    "adjusted by a trainable branch that reads the top-4 leftovers of "
                    "their own source block at native width"),
-        task=task, data_dir=args.data_dir, arms=list(ARMS),
+        task=task, data_dir=args.data_dir, arms=list(arm_list(args.crossover)),
         window_blocks=args.window_blocks, target_blocks=args.target_blocks,
         block_tokens=BLOCK_TOKENS, slots_per_block=es.BLOCK,
         full_slots=args.window_blocks * es.BLOCK, target_slots=TARGET_SLOTS,
@@ -627,6 +752,33 @@ def build_protocol(args, task, anchor_config, fusion_config):
                   "maps to the k-th dropped block of the donor"),
             why=("a gain that survives the donor swap is not knowledge: it is a generic "
                  "perturbation of the anchors")),
+        crossover=(dict(
+            arms=list(CROSSOVER_ARMS),
+            design=dict(
+                B=f"{KEY_REAL_VALUE_DONOR}: key from the real candidates, value from "
+                  f"another document's",
+                C=f"{KEY_DONOR_VALUE_REAL}: key from another document's, value from the "
+                  f"real candidates"),
+            decomposition=("B - A isolates the value channel, C - A the key channel, "
+                           "A - D is the total they decompose"),
+            construction=("a pool slot reaches the rest of the network only through "
+                          "k = W_K diag(gamma) (h / rms h) and the same with W_V, because "
+                          "the memory positions are truncated out of the residual stream "
+                          "at the end of their layer. Two slots with the same (k, v) are "
+                          "therefore the same slot to the reader, and swapping one channel "
+                          "is well posed: M = [A_K; A_V], s = M+ t + sqrt(D - |M+ t|^2) w "
+                          "with w in null(M), which satisfies M s = t and |s|^2 = D "
+                          "exactly"),
+            target=("measured from the reader's own input_layernorm / k_proj / v_proj on "
+                    "the two source slots, LoRA adapter included, not re-derived from a "
+                    "weight matrix"),
+            checked=("channel_error runs the same real modules on the BUILT slot and "
+                     "compares against the requested (k, v) on every row; the identity "
+                     "path is the control that the construction adds nothing of its own"),
+            read_not_corrected=("accuracy cannot resolve this: A and D differ on a "
+                                "handful of rows, so B and C are read through prediction "
+                                "counts and channel errors, not McNemar"))
+                if args.crossover else None),
         success=("both, not either: AnchorFusion beats AnchorOnly on the rows whose "
                  "evidence the compression dropped, and AnchorFusionDonor does not"),
         operator_mode="native",
@@ -744,7 +896,8 @@ def evaluate(args):
             counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
             donors=dict(first=prepared[1]["id"] if len(prepared) > 1 else None,
                         then="each row donates to the next"),
-            readouts_per_sample=len(ARMS)), indent=2, ensure_ascii=False))
+            readouts_per_sample=len(arm_list(args.crossover))), indent=2,
+            ensure_ascii=False))
         return None
     for flag, value, what in (("--checkpoint", args.checkpoint, "the frozen operator"),
                               ("--anchor", args.anchor, "the frozen AnchorResidual"),
@@ -781,6 +934,14 @@ def evaluate(args):
     # Both halves are frozen here; the split is by ROLE, not by `requires_grad` --
     # the branch was trainable in the run that produced the checkpoint and the anchor
     # never was. Sizes are equal by construction (524,289 each).
+    projector = None
+    if args.crossover:
+        # Built from the frozen reader, once: two channel maps and one joint
+        # pseudo-inverse per layer, ~1.1 GB, a function of the reader and not of the
+        # branch. Not in any checkpoint.
+        projector = crossover.CrossoverProjector.build(model)
+        print(json.dumps({"crossover_solver": projector.report}, indent=2,
+                         ensure_ascii=False), flush=True)
     parameters = dict(
         frozen_anchor=int(sum(p.numel() for p in fusion_module.anchor.parameters())),
         fusion_branch=int(sum(p.numel() for p in fusion_module.fusion.parameters())),
@@ -803,6 +964,7 @@ def evaluate(args):
             fusion=args.fusion, fusion_sha256=sha(args.fusion),
             fusion_state_digest=state_digest(fusion_module),
             fusion_mode=fusion_meta["mode"],
+            crossover=projector.report if projector is not None else None,
             fusion_mode_trained=fusion_meta["trained_mode"],
             fusion_mode_override=fusion_meta["override"],
             key_basis=fusion_meta["key_basis"],
@@ -820,6 +982,7 @@ def evaluate(args):
         full_split=(args.max_samples is None and args.sample_ids is None))
     atomic_json(output, report)
 
+    run_arms = arm_list(args.crossover)
     reference, table = ((None, None) if not args.verify_against
                         else ef.load_reference(args.verify_against))
     started = time.monotonic()
@@ -834,7 +997,8 @@ def evaluate(args):
             reset(manager, initial)
             nv.seed_everything(args.seed)
         result, donor = run_sample(model, tokenizer, manager, merge, anchor_module,
-                                   fusion_module, sample, donor, args, position)
+                                   fusion_module, sample, donor, args, position,
+                                   arms=run_arms, projector=projector)
         record = dict(id=sample["id"], status="graded",
                       available_blocks=sample["available_blocks"],
                       evidence=sample["evidence"],
@@ -856,7 +1020,10 @@ def evaluate(args):
     first = report["samples"][0] if report["samples"] else {}
     if first.get("key_preservation"):
         report["identity"]["key_preservation"] = first["key_preservation"]
-    report["summary"] = fusion_summary(report["samples"], args.f1_threshold)
+    if first.get("crossover") and "identity" in first["crossover"]:
+        report["identity"]["crossover_identity"] = first["crossover"]["identity"]
+    report["summary"] = fusion_summary(report["samples"], args.f1_threshold,
+                                       arm_list(args.crossover))
     if args.verify_against:
         report["verification_against_reference"] = verify_anchor_reference(
             args, reference, table, report["samples"])
@@ -867,7 +1034,7 @@ def evaluate(args):
     print(json.dumps(dict(status="complete", out=str(output),
                           elapsed_seconds=round(report["elapsed_seconds"], 1),
                           arms={arm: report["summary"]["arms"][arm].get("correct")
-                                for arm in ARMS},
+                                for arm in arm_list(args.crossover)},
                           pairs={key: value for key, value in
                                  report["summary"]["pairs"].items()}),
                      indent=1, ensure_ascii=False))
@@ -887,6 +1054,9 @@ def build_parser():
                    help="the trained AnchorResidual checkpoint (the frozen baseline)")
     p.add_argument("--fusion", default=None,
                    help="the trained sparse fusion checkpoint (the new arms)")
+    p.add_argument("--crossover", action="store_true",
+                   help="add the two Key/Value cross-over arms (B: real key + donor "
+                        "value, C: donor key + real value) on top of the six")
     p.add_argument("--fusion-mode", dest="fusion_mode", default="from-checkpoint",
                    choices=("from-checkpoint", "plain", "key-safe"),
                    help="rebuild the branch in this mode instead of the one the "
