@@ -883,6 +883,12 @@ V10 的 `Graft`（41）高 3 题，甚至低于 AnchorOnly 的 56。
 压缩到 2,304 槽的选择机制最好也只是追平不压缩的 4,864 槽（47），净收益为零。继续调权重、
 调保底、加微跨度，都是给同一个相似性信号加分辨率，天花板仍是 47。
 
+### 下线（V12 代码与产物）
+
+桥接路由这条线在 V13 取代它时整体下线：`methods/prlmc/bridge_routing.py`、
+`tools/eval_bridge_routing.py`、`reports/bridge_routing/*` 都已删除，数字只保留在本文。
+需要原始报告看 `git show 1895a52:reports/bridge_routing/`。
+
 ### 第二版：连外部问题也去掉，掉到 41
 
 设计要求"记忆块自己产生检索种子、完全取消外部 16 道问题"。第一版没做到（种子、保底、以及排序
@@ -959,6 +965,10 @@ Reader key 投影上重写）；排序只剩桥接质量。158 题、53.7 分钟
 - **桥接路由 + 动态容量跑了两版，都是负结果**（实验 8）：带外部题 47/158（比同配额高 3 题、
   比基线低 9 题），零外部问题 41/158（比同配额低 3 题、比基线低 15 题，p=0.020）。两版判定
   都是 `stop`。
+- **V13 代码已就位、尚未运行**：窗口回到 V11Evict 的 1,620 + 684，只改校准器——它在改一个
+  槽位时能看到其他块里与它最相关的 4 个槽位（Reader key 余弦、同块屏蔽、稀疏 top-4），
+  把邻居内容作为条件注入有界低秩残差，槽位本身不被平均；残差上限 core 0.15 / graft 0.50、
+  正则权重 2.0 / 0.5，是软约束不是锁 key。设计见 [05-method-v13.md](05-method-v13.md)。
 - **"让记忆块自己产生种子"实测更差**：去掉 16 道外部题后，总答对 47→41、损伤 6→12、
   被删块证据子集 7→3、被删块席位 61%→50%。那 16 道题是整条链路里唯一面向问题的信号；
   记忆自生的显著度与桥接质量都只度量"池内突出/与已保留相似"，不度量"问题需要什么"。
@@ -983,6 +993,7 @@ Reader key 投影上重写）；排序只剩桥接质量。158 题、53.7 分钟
 | `reports/anchor_fusion/training_fusion_top4.json`、`logs/train_fusion_top4.log` | 实验 3 训练记录（384 步 + 8 次验证；冻结 digest 校验、初始逐位一致、梯度检查）与日志 | 在仓库 |
 | `reports/anchor_fusion/eval_anchor_fusion_key_safe_projected_hotpotqa.json` | **实验 4**：实验 3 权重 + Key-Safe 投影（不重训），158 题六臂；四臂与 Anchor-Only 报告逐题一致，含实测 key/value 变化与 32 层逐层数字 | 在仓库 |
 | `reports/anchor_fusion/eval_anchor_fusion_crossover_hotpotqa.json` | **实验 5**：Key/Value 通道交换，158 题八臂（A 真/真、B 真/无关、C 无关/真、D 无关/无关）；含构造误差、恒等对照与逐通道预测变更条数 | 在仓库 |
+| 实验 8（V12）的原始产物 | `reports/bridge_routing/{eval_v12_hotpotqa,eval_v12_probefree}.json` 与两份日志 | **已移出仓库**：`git show 1895a52:reports/bridge_routing/<name>` |
 | `reports/bridge_routing/eval_v12_probefree.json`、`logs/eval_v12_probefree.log` | **实验 8 第二版**：零外部问题（记忆自生显著度 + 桥接排序），158 题六臂；四臂逐题一致，Bridge 41 vs AnchorOnly 56（11 救 26 伤）、vs V11NativeGraft 44（4 救 7 伤），`probe_free=true` | 在仓库 |
 | `reports/bridge_routing/eval_v12_hotpotqa.json`、`logs/eval_v12.log` | **实验 8 第一版**：桥接路由 + 动态容量，158 题六臂；四臂与实验 3 报告逐题一致，Bridge 47 vs AnchorOnly 56（14 救 23 伤）、vs V11NativeGraft 44（5 救 2 伤），含逐题分配诊断与判定 `stop` | 在仓库 |
 | `reports/budget_reallocation/eval_budget_hotpotqa.json` | **实验 6**：只改 Core/Graft 配额（1944/360 → 1440/864 → 1296/1008），158 题八臂；配置 A 四臂与 Anchor-Only 报告逐题一致，含逐丢弃块分配、逐字 core、时间序校验 | 在仓库 |

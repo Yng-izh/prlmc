@@ -27,7 +27,8 @@
 | `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
-| `eval_bridge_routing.py` | 实验 8（V12）：桥接路由 + 动态容量分配，不训练任何参数（Full / Selection / Graft / AnchorOnly / V11NativeGraft / Bridge）；逐题配对、三组子集、分配诊断，并按预定三分支规则机械判定 |
+| `train_cross_block_calibration.py` | 实验 9（V13）训练端：`--cross on` 训跨块条件化校准器（V13），`--cross off` 训同模块去掉条件项（V11Evict 校准器）；CE + 反事实 hinge + 保护 KL + 非对称残差正则 |
+| `eval_cross_block_calibration.py` | 实验 9（V13）：八臂同进程（Full / Selection / Graft / AnchorOnly / V11Evict / V11EvictDonor / V13 / V13Donor），逐题配对、三个子集、损伤、跨块邻居诊断 |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
@@ -623,42 +624,29 @@ python tools/eval_anchor_residual.py \
 - 模块自报 `candidate_slots == 0`，否则直接报错（路径没删干净就不许跑）；
 - 两个 checkpoint 的参数量必须相等，否则拒绝比较（否则容量和架构混在一起）。
 
-## 实验 8（V12）：桥接路由 + 动态容量分配
+## 实验 9（V13）：跨块条件化的潜空间校准
 
-这一轮**不训练任何参数**，也不加载任何 checkpoint（除冻结算子与 AnchorOnly）。窗口由
-`methods/prlmc/bridge_routing.py` 里的两个 router 现场构造，共用一次 Reader 读数：
-
-| 臂 | 窗口 |
-| --- | --- |
-| `V11NativeGraft` | 每载体块效用前 180 逐字 + 684 个被删块槽（V11 的固定配额，去掉校准） |
-| `Bridge` | 每载体块保底 140 + 1,044 个名额由 3,604 个候选全局竞争（效用 + 桥接分数，MMR） |
-
-两个窗口都是**原生搬运**：装进去的每个槽位都是源槽位的逐位拷贝，驱动用 `torch.equal` 校验。
+窗口就是 V11Evict 的结构（1,620 core + 684 graft，2,304 预算，冻结 Reader/Writer），
+换的只有校准器：它在改一个槽位时会看到**其他块里与它最相关的 4 个槽位**（Reader key 余弦、
+同块屏蔽、稀疏 top-4），把邻居的内容作为条件注入有界低秩残差。槽位本身不被平均、不被替换。
 
 ```bash
-# 先看会跑哪些题、几个臂（只读 tokenizer，不占 GPU）
-python tools/eval_bridge_routing.py --dry-run   --data-dir /data/.../LongBench/extracted/data --model-path /dev/shm/s1d_reader_fp16
+# 1) 两个变体各训一次（同一数据、同一 seed、同 384 更新）
+python tools/train_cross_block_calibration.py --cross off --updates 384   --data-dir /data/.../LongBench/extracted/data --train-task musique   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --out runs/cross_block/plain.pt --report runs/cross_block/plain.json
 
-# 正式跑（六臂同进程；前四条臂逐题复现参考报告，否则整轮作废）
-python tools/eval_bridge_routing.py   --data-dir /data/.../LongBench/extracted/data --task hotpotqa   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet'   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json   --cuda-device 0 --out reports/bridge_routing/eval_v12_hotpotqa.json
+python tools/train_cross_block_calibration.py --cross on --updates 384   ... --out runs/cross_block/cross.pt --report runs/cross_block/cross.json
+
+# 2) 评测（八臂同进程；前四臂逐题复现参考报告，否则整轮作废）
+python tools/eval_cross_block_calibration.py   --data-dir /data/.../LongBench/extracted/data --task hotpotqa   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet'   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --v11 runs/cross_block/plain.pt   --v11-evict runs/cross_block/cross.pt   --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json   --cuda-device 0 --out reports/cross_block/eval_v13_hotpotqa.json
 ```
 
-参数都是显式的、落在报告 `protocol` 里：`--protected-per-block 140`（保底）、
-`--seeds-per-block 8`（桥接 seed）、`--core-per-block/--graft-per-block`（臂 B 的固定配额）、
-`--probe-task musique --probe-count 16`（**只给臂 B**）。
+为什么 `V11Evict` 要重训：实验 7 的权重随 V11 代码一起下线删除了。用同一框架、同一数据、
+同一 seed 训 `--cross off`，两个臂之间只剩"条件项"这一个变量，比跨轮比较更干净，
+历史 61/158 只作外部参照。
 
-臂 C 是**零外部问题**的：保底与种子来自 `memory_salience`（记忆向量 + Reader 的 key 投影，
-`reader_utility.reading(..., probes=None)`），排序只用记忆槽之间的桥接质量。报告里
-`protocol.external_questions`、每题的 `probe_free`、以及 `allocation.settings.probe_free`
-都记录这一点——臂 B 含 16 道外部题，所以两臂不能拿"同选槽口径"比较。
+非对称软约束：残差上限 `0.15 × rms`（core）/ `0.50 × rms`（graft），训练残差正则权重
+`2.0` / `0.5`。不是锁 key——实验 4 证明硬锁会让新内容失效。
 
-四条硬校验：每条臂恰好 2,304 槽；全局时间序且源位置唯一；每个槽位逐位等于它声称的来源槽；
-臂 C 的保底恰好 9 × 140 且每个 protected 槽来自自己的载体块、`admitted_from_dropped +
-admitted_from_carriers == 1,044`。报告还会给出分配诊断（每个被删块实际进多少、有多少载体槽
-被反抢回来、桥接分数与效用的相关系数、`admitted` 与 `rejected` 的平均桥接分数）。
-
-判定线三条，写进 `summary.decision`：`Bridge − V11NativeGraft ≥ +5` 且损伤不超过基线 →
-路由站得住；救回多于改错但净收益不到 5 → 先改保底值；持平或更差 → 停。
-
-注意：本轮没有 donor 对照臂，所以正结果只能归因到"保底 + 全局竞争 + 桥接项"这一整包
-（报告 `protocol.known_limits` 里也写着）。
+三条判定线必须同时成立：`V13 ≥ V11Evict + 5`（跨块交互本身有价值）、
+`V13 ≥ V13Donor + 5`（收益依赖真实内容）、损伤不超过基线。
+驱动还会记录每行的跨块邻居块分布：上下文若只来自同块，那是 bug。
