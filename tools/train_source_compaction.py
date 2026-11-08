@@ -279,7 +279,11 @@ def installed(model, manager, output, anchors=None, anchor_offsets=None):
     """
     base = manager.model.memory
     start = int(manager.total) - (int(manager.used) - WINDOW_SLOTS + TARGET_SLOTS)
-    saved = base[:, start:start + TARGET_SLOTS, :].clone().cpu()
+    # `.to("cpu")` copies device -> host directly; `.clone().cpu()` first allocates a
+    # second full window on the DEVICE (576 MiB at 2,304 slots, per forward) and then
+    # copies it across. The saved values are identical either way, and the copy has to
+    # be materialised before the in-place write below, so nothing else changes.
+    saved = base[:, start:start + TARGET_SLOTS, :].to("cpu")
     mask = _compacted_mask(manager, int(manager.used) - WINDOW_SLOTS + TARGET_SLOTS,
                            base.device)
     try:

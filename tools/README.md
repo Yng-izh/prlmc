@@ -27,6 +27,8 @@
 | `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
+| `train_joint_consolidation.py` | 实验 6（V11）训练端：Reader 效用选槽 + 同块同质归并 + 全池残差校准，联合训练 0.52 M 模块；答案 CE + 反事实 hinge + 保护 KL + 残差正则 |
+| `eval_joint_consolidation.py` | 实验 6（V11）：完整联合架构 vs 同容量基线 vs 反事实无关 Graft vs 等容量普通淘汰（Full / Selection / Graft / AnchorOnly / V11 / V11Donor / V11Evict），按证据来源分组并逐题配对 |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
@@ -621,3 +623,41 @@ python tools/eval_anchor_residual.py \
 - `AnchorOnly` 的 1,944 个 core 槽与 `Graft` 逐位相同，360 个嫁接槽确实变了；
 - 模块自报 `candidate_slots == 0`，否则直接报错（路径没删干净就不许跑）；
 - 两个 checkpoint 的参数量必须相等，否则拒绝比较（否则容量和架构混在一起）。
+
+## 实验 6（V11）：联合架构
+
+三个模块一次性实现，因为它们各自的容量是互相依赖的：被删块的 684 个槽位只有靠载体块让出
+684 个槽位才存在。训练端只训 `FullPoolResidual`（Graft 半边继承 AnchorOnly，Core 半边零初始化），
+选槽与归并都是无参数的索引操作。
+
+```bash
+# 训练（384 更新；--grad-accum 8 即方案里的 effective batch 8，代价 8 倍）
+python tools/train_joint_consolidation.py --updates 384 \
+  --data-dir /data/.../LongBench/extracted/data --train-task musique \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --anchor runs/anchor_residual/anchor_only_rank64.pt \
+  --out runs/joint_consolidation/v11_merge.pt \
+  --report runs/joint_consolidation/v11_merge.json
+
+# 对照组 D 用同一训练脚本、只换 --policy evict
+python tools/train_joint_consolidation.py --policy evict --updates 384 \
+  ... --out runs/joint_consolidation/v11_evict.pt \
+  --report runs/joint_consolidation/v11_evict.json
+
+# 评测（七臂同进程，B 先跑，C 复用 B 权重，D 用它自己的权重）
+python tools/eval_joint_consolidation.py \
+  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
+  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
+  --model-path /dev/shm/s1d_reader_fp16 \
+  --checkpoint runs/natural_merge_v9/full_v10.pt \
+  --anchor runs/anchor_residual/anchor_only_rank64.pt \
+  --v11 runs/joint_consolidation/v11_merge.pt \
+  --v11-evict runs/joint_consolidation/v11_evict.pt \
+  --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json \
+  --cuda-device 0 --out reports/joint_consolidation/eval_v11_hotpotqa.json
+```
+
+窗口构造由 checkpoint 记录的 `geometry`（配额、阈值、Reader 效用层、探针问题）驱动，
+评测端按同一份记录重建，因此 B/C/D 的窗口与训练时逐位一致。三条判定线：V11 > AnchorOnly（净收益）、
+V11 > V11Donor（收益可归因于真实被删块内容）、V11 > V11Evict（归并本身有价值）。
