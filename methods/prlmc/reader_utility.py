@@ -55,6 +55,14 @@ read and reused for every row. No test question and no reference answer enters
 this module, so the score cannot fit the evaluation set. `--utility-probe-text`
 substitutes a single fixed sentence for the bank.
 
+Two questions, one set of projections
+------------------------------------
+`reading` answers "which slots does the question reach". Round 7 adds `affinity`,
+which answers "which slots do the KEPT slots reach" -- the same weights, the same
+rotary geometry, with a memory slot in the query position instead of the question.
+That substitution is a proxy (the deployed read path never queries with a memory
+slot) and the module that uses it has to prove the proxy is worth capacity.
+
 MMR
 ---
 Ranking 2,560 candidates by utility alone returns 684 slots that all score well on
@@ -242,6 +250,73 @@ class ReaderScorer:
         key = F.normalize(torch.cat(key_parts, dim=-1), dim=-1)
         value = F.normalize(torch.cat(value_parts, dim=-1), dim=-1)
         return SlotReading(self.layers, key, value, utility, self.head_dim), per_layer
+
+    @torch.no_grad()
+    def affinity(self, slots, positions, queries, query_positions, query_chunk=32):
+        """Attention mass the given native QUERY slots place on each candidate slot.
+
+        `reading` asks what the question's hidden states reach. This asks the other
+        question the window needs answered: from the point of view of slots that are
+        already kept, which slots elsewhere in the window belong with them? Both
+        sides go through the reader's own projections at the SOURCE positions they
+        occupy, so this is a real QK product under the reader's own rotary geometry.
+
+        It is a PROXY, and deliberately a weak one: the reader never projects a
+        memory slot into a query -- in the deployed read path `q` comes from the
+        question only. A memory slot acting as a query is a way to ask "which
+        candidates would this kept slot look at", not a measurement of what the
+        reader will do with them. Whether the proxy is worth its capacity is exactly
+        what the arm that uses it has to prove.
+
+        Pooling: per query seed, per layer, the softmax runs over the candidate pool,
+        and the MAXIMUM over that seed's query-group/head pairs is kept before the
+        seeds are averaged. Mean-pooling over heads was tried first and is unusable at
+        this pool size -- 8 kv heads x 4 query groups over ~3.6k candidates averages
+        to noise around 1/N.
+
+        Returns `(mass [N], per_layer)`; `mass` is not normalised, its scale is
+        "attention share averaged over seeds", and callers min-max it before use.
+        """
+        n_slots = int(slots.shape[1])
+        n_queries = int(queries.shape[1])
+        if positions.numel() != n_slots:
+            raise ValueError(f"{positions.numel()} positions for {n_slots} candidates")
+        if query_positions.numel() != n_queries:
+            raise ValueError(f"{query_positions.numel()} positions for {n_queries} "
+                             f"queries")
+        if n_slots == 0 or n_queries == 0:
+            raise ValueError("affinity needs at least one candidate and one query")
+        mass = torch.zeros(n_slots, device=self.device, dtype=torch.float32)
+        per_layer = []
+        scale = math.sqrt(self.head_dim)
+        for index in self.layers:
+            entry = self.maps[index]
+            stored = slots[index].to(self.device)
+            normed = entry["norm"](stored.float())
+            keys = F.linear(normed, entry["k"]).view(n_slots, self.kv_heads, self.head_dim)
+            cos_k, sin_k = self._cos_sin(entry, positions.to(self.device))
+            keys = _rope(keys, cos_k, sin_k)
+            asked = queries[index].to(self.device)
+            asked_normed = entry["norm"](asked.float())
+            q = F.linear(asked_normed, entry["q"]).view(n_queries, self.heads,
+                                                        self.head_dim)
+            cos_q, sin_q = self._cos_sin(entry, query_positions.to(self.device))
+            q = _rope(q, cos_q, sin_q).view(n_queries, self.kv_heads, self.groups,
+                                            self.head_dim)
+            layer_mass = torch.zeros(n_slots, device=self.device, dtype=torch.float32)
+            for start in range(0, n_queries, query_chunk):
+                logits = torch.einsum("mkqd,nkd->mnkq", q[start:start + query_chunk],
+                                      keys) / scale
+                attention = torch.softmax(logits, dim=1)
+                layer_mass += attention.amax(dim=(2, 3)).sum(dim=0)
+                del logits, attention
+            layer_mass /= float(n_queries)
+            mass += layer_mass
+            per_layer.append(dict(layer=index, mass_mean=float(layer_mass.mean()),
+                                  mass_max=float(layer_mass.max()),
+                                  mass_std=float(layer_mass.std())))
+            del keys, q, normed, asked_normed
+        return mass, per_layer
 
 
 @torch.no_grad()

@@ -27,8 +27,7 @@
 | `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
-| `train_joint_consolidation.py` | 实验 6（V11）训练端：Reader 效用选槽 + 同块同质归并 + 全池残差校准，联合训练 0.52 M 模块；答案 CE + 反事实 hinge + 保护 KL + 残差正则 |
-| `eval_joint_consolidation.py` | 实验 6（V11）：完整联合架构 vs 同容量基线 vs 反事实无关 Graft vs 等容量普通淘汰（Full / Selection / Graft / AnchorOnly / V11 / V11Donor / V11Evict），按证据来源分组并逐题配对 |
+| `eval_bridge_routing.py` | 实验 8（V12）：桥接路由 + 动态容量分配，不训练任何参数（Full / Selection / Graft / AnchorOnly / V11NativeGraft / Bridge）；逐题配对、三组子集、分配诊断，并按预定三分支规则机械判定 |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
@@ -624,40 +623,38 @@ python tools/eval_anchor_residual.py \
 - 模块自报 `candidate_slots == 0`，否则直接报错（路径没删干净就不许跑）；
 - 两个 checkpoint 的参数量必须相等，否则拒绝比较（否则容量和架构混在一起）。
 
-## 实验 6（V11）：联合架构
+## 实验 8（V12）：桥接路由 + 动态容量分配
 
-三个模块一次性实现，因为它们各自的容量是互相依赖的：被删块的 684 个槽位只有靠载体块让出
-684 个槽位才存在。训练端只训 `FullPoolResidual`（Graft 半边继承 AnchorOnly，Core 半边零初始化），
-选槽与归并都是无参数的索引操作。
+这一轮**不训练任何参数**，也不加载任何 checkpoint（除冻结算子与 AnchorOnly）。窗口由
+`methods/prlmc/bridge_routing.py` 里的两个 router 现场构造，共用一次 Reader 读数：
+
+| 臂 | 窗口 |
+| --- | --- |
+| `V11NativeGraft` | 每载体块效用前 180 逐字 + 684 个被删块槽（V11 的固定配额，去掉校准） |
+| `Bridge` | 每载体块保底 140 + 1,044 个名额由 3,604 个候选全局竞争（效用 + 桥接分数，MMR） |
+
+两个窗口都是**原生搬运**：装进去的每个槽位都是源槽位的逐位拷贝，驱动用 `torch.equal` 校验。
 
 ```bash
-# 训练（384 更新；--grad-accum 8 即方案里的 effective batch 8，代价 8 倍）
-python tools/train_joint_consolidation.py --updates 384 \
-  --data-dir /data/.../LongBench/extracted/data --train-task musique \
-  --model-path /dev/shm/s1d_reader_fp16 \
-  --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --anchor runs/anchor_residual/anchor_only_rank64.pt \
-  --out runs/joint_consolidation/v11_merge.pt \
-  --report runs/joint_consolidation/v11_merge.json
+# 先看会跑哪些题、几个臂（只读 tokenizer，不占 GPU）
+python tools/eval_bridge_routing.py --dry-run   --data-dir /data/.../LongBench/extracted/data --model-path /dev/shm/s1d_reader_fp16
 
-# 对照组 D 用同一训练脚本、只换 --policy evict
-python tools/train_joint_consolidation.py --policy evict --updates 384 \
-  ... --out runs/joint_consolidation/v11_evict.pt \
-  --report runs/joint_consolidation/v11_evict.json
-
-# 评测（七臂同进程，B 先跑，C 复用 B 权重，D 用它自己的权重）
-python tools/eval_joint_consolidation.py \
-  --data-dir /data/.../LongBench/extracted/data --task hotpotqa \
-  --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet' \
-  --model-path /dev/shm/s1d_reader_fp16 \
-  --checkpoint runs/natural_merge_v9/full_v10.pt \
-  --anchor runs/anchor_residual/anchor_only_rank64.pt \
-  --v11 runs/joint_consolidation/v11_merge.pt \
-  --v11-evict runs/joint_consolidation/v11_evict.pt \
-  --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json \
-  --cuda-device 0 --out reports/joint_consolidation/eval_v11_hotpotqa.json
+# 正式跑（六臂同进程；前四条臂逐题复现参考报告，否则整轮作废）
+python tools/eval_bridge_routing.py   --data-dir /data/.../LongBench/extracted/data --task hotpotqa   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet'   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json   --cuda-device 0 --out reports/bridge_routing/eval_v12_hotpotqa.json
 ```
 
-窗口构造由 checkpoint 记录的 `geometry`（配额、阈值、Reader 效用层、探针问题）驱动，
-评测端按同一份记录重建，因此 B/C/D 的窗口与训练时逐位一致。三条判定线：V11 > AnchorOnly（净收益）、
-V11 > V11Donor（收益可归因于真实被删块内容）、V11 > V11Evict（归并本身有价值）。
+参数都是显式的、落在报告 `protocol` 里：`--protected-per-block 140`（保底）、
+`--seeds-per-block 8`（桥接 seed）、`--bridge-weight 0.5`（效用与桥接的凸混合权重，
+置 0 即"同分配、不桥接"）、`--core-per-block/--graft-per-block`（臂 B 的固定配额）、
+`--probe-task musique --probe-count 16`（Reader 效用与桥接分数共用的固定探针库）。
+
+四条硬校验：每条臂恰好 2,304 槽；全局时间序且源位置唯一；每个槽位逐位等于它声称的来源槽；
+臂 C 的保底恰好 9 × 140 且每个 protected 槽来自自己的载体块、`admitted_from_dropped +
+admitted_from_carriers == 1,044`。报告还会给出分配诊断（每个被删块实际进多少、有多少载体槽
+被反抢回来、桥接分数与效用的相关系数、`admitted` 与 `rejected` 的平均桥接分数）。
+
+判定线三条，写进 `summary.decision`：`Bridge − V11NativeGraft ≥ +5` 且损伤不超过基线 →
+路由站得住；救回多于改错但净收益不到 5 → 先改保底值；持平或更差 → 停。
+
+注意：本轮没有 donor 对照臂，所以正结果只能归因到"保底 + 全局竞争 + 桥接项"这一整包
+（报告 `protocol.known_limits` 里也写着）。
