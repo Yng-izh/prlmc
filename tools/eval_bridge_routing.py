@@ -357,9 +357,9 @@ def _decide(total, damage, baseline_damage):
     a net gain of fewer than five questions is not distinguishable from noise at
     n = 158 -- the same bar the last four rounds used.
     """
-    vs_fixed = total["versus_fixed"]
-    vs_anchor = total["versus_anchor_only"]
-    if vs_fixed["net"] >= 5 and damage["lost"] <= baseline_damage:
+    vs_fixed = total["versus_fixed"][BRIDGE]
+    vs_anchor = total["versus_anchor_only"][BRIDGE]
+    if vs_fixed["net"] >= 5 and damage.get("lost", 0) <= baseline_damage:
         return dict(branch="proceed",
                     why="beats the existing transport by >= 5 questions without costing "
                         "more protected questions than the baseline does: the routing "
@@ -392,7 +392,9 @@ def bridge_compare(samples, threshold):
 
     total = block(graded)
     damage = {arm: ef._damage(graded, arm, threshold) for arm in present}
-    baseline_damage = int(damage[ANCHOR_ONLY]["lost"])
+    # A short run (`--max-samples`) can contain no row the uncompressed window
+    # answers, and `ef._damage` then returns `dict(n=0)` with no `lost` key.
+    baseline_damage = int(damage[ANCHOR_ONLY].get("lost", 0))
     thresholds = dict(
         total=dict(target=62, baseline=_count(graded, ANCHOR_ONLY, threshold),
                    achieved=_count(graded, BRIDGE, threshold)),
@@ -405,7 +407,8 @@ def bridge_compare(samples, threshold):
                            baseline=_count(kept, ANCHOR_ONLY, threshold),
                            achieved=_count(kept, BRIDGE, threshold)),
         damage=dict(target=baseline_damage, full_rows=int(damage[FULL]["n"]),
-                    baseline_lost=baseline_damage, achieved=int(damage[BRIDGE]["lost"])),
+                    baseline_lost=baseline_damage,
+                    achieved=int(damage[BRIDGE].get("lost", 0))),
         rescue_over_damage=dict(
             rescued=int(total["versus_anchor_only"][BRIDGE]["rescued"]),
             harmed=int(total["versus_anchor_only"][BRIDGE]["harmed"]),
