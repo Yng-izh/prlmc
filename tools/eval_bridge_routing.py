@@ -89,8 +89,7 @@ from methods.prlmc.anchor_residual import (               # noqa: E402
     SCHEMA as ANCHOR_SCHEMA, AnchorResidual,
     compact_window as compact_window_anchor)
 from methods.prlmc.bridge_routing import (                # noqa: E402
-    DEFAULT_BRIDGE_WEIGHT, DEFAULT_SEEDS_PER_BLOCK, SCHEMA as ROUTER_SCHEMA,
-    BridgeRouter, FixedQuotaRouter)
+    DEFAULT_SEEDS_PER_BLOCK, SCHEMA as ROUTER_SCHEMA, BridgeRouter, FixedQuotaRouter)
 from methods.prlmc.reader_utility import ReaderScorer, UTILITY_LAYERS  # noqa: E402
 from methods.prlmc.source_compaction import split_source_anchors  # noqa: E402
 from train_core_fusion import load_documents              # noqa: E402
@@ -215,8 +214,10 @@ def check_window(window, meta, telemetry, source, name):
         empty_dropped_blocks=int(telemetry["empty_dropped_blocks"]),
         min_per_dropped_block=int(telemetry["min_per_dropped_block"]),
         max_per_dropped_block=int(telemetry["max_per_dropped_block"]),
-        bridge_available=bool(telemetry["bridge_available"]),
-        bridge_utility_correlation=telemetry.get("bridge_utility_correlation"),
+        bridge_available=bool(telemetry.get("bridge_available",
+                                           telemetry.get("probe_free", False))),
+        probe_free=bool(telemetry.get("probe_free", False)),
+        bridge_salience_correlation=telemetry.get("bridge_salience_correlation"),
         bridge_admitted_mean=telemetry.get("bridge_admitted_mean"),
         bridge_rejected_mean=telemetry.get("bridge_rejected_mean"),
         check=True)
@@ -269,17 +270,19 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, fixed, bridge, p
                         core_slots=int(output.shape[1]) - int(parts["anchor_offsets"].numel()),
                         graft_slots=int(parts["anchor_offsets"].numel()),
                         relative_delta=float(anchor_info["relative_delta"]))
-        # Arms B and C: two windows from ONE reader reading of the same source.
+        # Arms B and C. Arm B is V11's selection and keeps its 16-question probe
+        # bank; arm C is probe-free by construction, so it takes the reader's keys and
+        # values WITHOUT the question side (`probes=None` inside the router).
         reading = fixed.read(source)
-        for name, router in ((V11_NATIVE, fixed), (BRIDGE, bridge)):
+        for name, router, shared in ((V11_NATIVE, fixed, reading), (BRIDGE, bridge, None)):
             window, meta, info = router.build(source, picked, manager.block,
-                                              reading=reading)
+                                              reading=shared)
             built[name] = dict(check=check_window(window, meta, info, source, name),
                                telemetry=dict(policy=info["policy"],
                                               routing=info["routing"],
                                               protected_per_block=info["protected_per_block"],
                                               contested_total=info["contested_total"],
-                                              bridge_weight=info["bridge_weight"],
+                                              probe_free=bool(info.get("probe_free", False)),
                                               seeds_total=info["seeds_total"],
                                               seeds_per_block=info["seeds_per_block"],
                                               mmr_penalty=info["mmr_penalty"],
@@ -444,8 +447,8 @@ def bridge_compare(samples, threshold):
                     [row["max_per_dropped_block"] for row in bridge_rows]),
                 admitted_per_carrier_block=_stats(
                     [min(row["admitted_per_carrier_block"]) for row in bridge_rows]),
-                bridge_utility_correlation=_stats(
-                    [row["bridge_utility_correlation"] for row in bridge_rows]),
+                bridge_salience_correlation=_stats(
+                    [row["bridge_salience_correlation"] for row in bridge_rows]),
                 bridge_admitted_mean=_stats(
                     [row["bridge_admitted_mean"] for row in bridge_rows]),
                 bridge_rejected_mean=_stats(
@@ -463,7 +466,7 @@ def bridge_compare(samples, threshold):
             settings=dict(
                 fixed_policy=routers[V11_NATIVE][0]["policy"],
                 bridge_policy=routers[BRIDGE][0]["policy"],
-                bridge_weight=routers[BRIDGE][0]["bridge_weight"],
+                probe_free=routers[BRIDGE][0]["probe_free"],
                 seeds_per_block=routers[BRIDGE][0]["seeds_per_block"],
                 mmr_penalty=routers[BRIDGE][0]["mmr_penalty"],
                 novelty_weight=routers[BRIDGE][0]["novelty_weight"],
@@ -480,9 +483,19 @@ def build_protocol(args, task, anchor_config, fixed_config, bridge_config):
                    "quota, without costing the carriers' answers?",
         treatment=("arm C replaces arm B's fixed 180 + 76 per-block split with a "
                    "140-slot floor per carrier and one global competition for the "
-                   "remaining 1,044 slots, ranked by reader utility PLUS a cross-block "
-                   "bridging mass computed from the frozen reader's own Q/K projections "
-                   "(memory slots as proxy queries), de-duplicated with MMR"),
+                   "remaining 1,044 slots. Every decision it makes is generated by the "
+                   "memory pool itself: the floor and the bridging seeds come from "
+                   "`memory_salience` (V10's leverage factorised over the written "
+                   "vectors and the reader's own key projections), and the ranking is "
+                   "the cross-block bridging mass alone, with memory slots as proxy "
+                   "queries and MMR de-duplication. No external question enters arm C."),
+        external_questions=dict(
+            arm_A="none (frozen AnchorResidual over V11's 1,944/360 window)",
+            arm_B="16 fixed musique questions: arm B IS V11's reader-utility selection",
+            arm_C="none: floor, seeds and ranking are all self-generated from the pool",
+            note="A and B are therefore not directly comparable to C on selection basis; "
+                 "the only shared conditions are the carriers, the 2,304 budget, the "
+                 "native transport and the reader"),
         task=task, data_dir=args.data_dir, arms=list(ARMS),
         window_blocks=args.window_blocks, target_blocks=args.target_blocks,
         block_tokens=BLOCK_TOKENS, slots_per_block=SLOTS_PER_BLOCK,
@@ -497,7 +510,7 @@ def build_protocol(args, task, anchor_config, fixed_config, bridge_config):
                               "slots, reader-utility ranking, no trained parameters"),
         bridge=dict(arm=BRIDGE, config=bridge_config,
                     definition="140 protected per carrier + 1,044 contested globally, "
-                               "reader utility + cross-block bridging mass, MMR"),
+                               "ranked by cross-block bridging mass, memory only"),
         unchanged_conditions=dict(
             data="the same 158 HotpotQA rows",
             reader="frozen MemoryLLM-8B, frozen writer",
@@ -583,7 +596,7 @@ def evaluate(args):
         print(json.dumps(dict(
             dry_run=True, out=args.out, arms=list(ARMS),
             counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
-            readouts_per_sample=len(ARMS), bridge_weight=args.bridge_weight,
+            readouts_per_sample=len(ARMS),
             probes=dict(task=args.probe_task, count=args.probe_count,
                         text=args.probe_text),
             protected_per_block=args.protected_per_block,
@@ -615,9 +628,8 @@ def evaluate(args):
                              graft_per_block=args.graft_per_block,
                              mmr_penalty=args.mmr_penalty,
                              novelty_weight=args.novelty_weight)
-    bridge = BridgeRouter(scorer, probes, protected_per_block=args.protected_per_block,
+    bridge = BridgeRouter(scorer, protected_per_block=args.protected_per_block,
                           seeds_per_block=args.seeds_per_block,
-                          bridge_weight=args.bridge_weight,
                           mmr_penalty=args.mmr_penalty,
                           novelty_weight=args.novelty_weight)
     fixed_config = dict(core_per_block=args.core_per_block,
@@ -626,7 +638,7 @@ def evaluate(args):
                         novelty_weight=args.novelty_weight)
     bridge_config = dict(protected_per_block=args.protected_per_block,
                          seeds_per_block=args.seeds_per_block,
-                         bridge_weight=args.bridge_weight,
+                         probe_free=True, external_questions=0,
                          mmr_penalty=args.mmr_penalty,
                          novelty_weight=args.novelty_weight,
                          utility_layers=list(layers),
@@ -717,10 +729,6 @@ def build_parser():
     p.add_argument("--seeds-per-block", dest="seeds_per_block", type=int,
                    default=DEFAULT_SEEDS_PER_BLOCK,
                    help="bridging query seeds drawn from each carrier's best slots")
-    p.add_argument("--bridge-weight", dest="bridge_weight", type=float,
-                   default=DEFAULT_BRIDGE_WEIGHT,
-                   help="convex weight of the bridging term; 0 reproduces arm B's "
-                        "ranking at arm C's allocation")
     p.add_argument("--core-per-block", dest="core_per_block", type=int, default=180,
                    help="arm B's fixed core quota (V11's 180)")
     p.add_argument("--graft-per-block", dest="graft_per_block", type=int, default=76,
@@ -730,8 +738,8 @@ def build_parser():
     p.add_argument("--utility-layers", dest="utility_layers", type=int, nargs="+",
                    default=list(UTILITY_LAYERS))
     p.add_argument("--probe-task", dest="probe_task", default="musique",
-                   help="training task the fixed query bank is drawn from; must not be "
-                        "the evaluation task")
+                   help="training task the fixed query bank is drawn from; used by arm B "
+                        "ONLY -- arm C reads no question at all")
     p.add_argument("--probe-count", dest="probe_count", type=int, default=16)
     p.add_argument("--probe-text", dest="probe_text", default=None,
                    help="substitute one fixed sentence for the query bank")

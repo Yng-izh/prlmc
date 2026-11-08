@@ -644,9 +644,13 @@ python tools/eval_bridge_routing.py   --data-dir /data/.../LongBench/extracted/d
 ```
 
 参数都是显式的、落在报告 `protocol` 里：`--protected-per-block 140`（保底）、
-`--seeds-per-block 8`（桥接 seed）、`--bridge-weight 0.5`（效用与桥接的凸混合权重，
-置 0 即"同分配、不桥接"）、`--core-per-block/--graft-per-block`（臂 B 的固定配额）、
-`--probe-task musique --probe-count 16`（Reader 效用与桥接分数共用的固定探针库）。
+`--seeds-per-block 8`（桥接 seed）、`--core-per-block/--graft-per-block`（臂 B 的固定配额）、
+`--probe-task musique --probe-count 16`（**只给臂 B**）。
+
+臂 C 是**零外部问题**的：保底与种子来自 `memory_salience`（记忆向量 + Reader 的 key 投影，
+`reader_utility.reading(..., probes=None)`），排序只用记忆槽之间的桥接质量。报告里
+`protocol.external_questions`、每题的 `probe_free`、以及 `allocation.settings.probe_free`
+都记录这一点——臂 B 含 16 道外部题，所以两臂不能拿"同选槽口径"比较。
 
 四条硬校验：每条臂恰好 2,304 槽；全局时间序且源位置唯一；每个槽位逐位等于它声称的来源槽；
 臂 C 的保底恰好 9 × 140 且每个 protected 槽来自自己的载体块、`admitted_from_dropped +

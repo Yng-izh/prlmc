@@ -116,6 +116,10 @@ class SlotReading:
 
     def summary(self):
         u = self.utility
+        if u is None:
+            return dict(slots=int(self.key.shape[0]), layers=list(self.layers),
+                        utility=None, key_dim=int(self.key.shape[-1]),
+                        value_dim=int(self.value.shape[-1]))
         return dict(slots=int(u.numel()), layers=list(self.layers),
                     utility_mean=float(u.mean()), utility_std=float(u.std()),
                     utility_min=float(u.min()), utility_max=float(u.max()),
@@ -197,19 +201,27 @@ class ReaderScorer:
         return states
 
     @torch.no_grad()
-    def reading(self, slots, positions, probes, query_offset=None):
+    def reading(self, slots, positions, probes=None, query_offset=None):
         """`slots` `[all_layers, N, D]` -> `SlotReading` at the utility layers.
 
         `positions` is the source position of each slot (`[N]`); `query_offset` is
         where the question sits relative to the slots (default: after all of them),
         which is the causal geometry the reader actually has.
+
+        `probes=None` skips the question side entirely: the key and value
+        representations are still built with the reader's own projections and rotary
+        embedding, but nothing is scored against a question and `utility` comes back
+        as None. That path exists so a selector can use the reader's read path while
+        keeping every external question out of the decision.
         """
         n_slots = int(slots.shape[1])
         if positions.numel() != n_slots:
             raise ValueError(f"{positions.numel()} positions for {n_slots} slots")
+        probes = list(probes or [])
         offset = int(n_slots if query_offset is None else query_offset)
         key_parts, value_parts = [], []
-        utility = torch.zeros(n_slots, device=self.device, dtype=torch.float32)
+        utility = (torch.zeros(n_slots, device=self.device, dtype=torch.float32)
+                   if probes else None)
         per_layer = []
         for index in self.layers:
             entry = self.maps[index]
@@ -236,16 +248,19 @@ class ReaderScorer:
                 attention = torch.softmax(logits, dim=1).mean(dim=0)
                 layer_utility += (attention * value_norm.unsqueeze(-1)).sum(dim=(1, 2))
                 del logits, attention, q
-            utility += layer_utility
+            if probes:
+                utility += layer_utility
             # Per layer, unit-normalised, then the layers are concatenated and the
             # concatenation re-normalised: equal say per layer.
             key_parts.append(F.normalize(keys.reshape(n_slots, -1).float(), dim=-1))
             value_parts.append(F.normalize(values.reshape(n_slots, -1).float(), dim=-1))
-            per_layer.append(dict(layer=index,
-                                  utility_mean=float(layer_utility.mean()),
-                                  utility_max=float(layer_utility.max()),
-                                  key_rms=float(keys.float().pow(2).mean().sqrt()),
-                                  value_rms=float(values.float().pow(2).mean().sqrt())))
+            record = dict(layer=index,
+                          key_rms=float(keys.float().pow(2).mean().sqrt()),
+                          value_rms=float(values.float().pow(2).mean().sqrt()))
+            if probes:
+                record.update(utility_mean=float(layer_utility.mean()),
+                              utility_max=float(layer_utility.max()))
+            per_layer.append(record)
             del keys, values, normed
         key = F.normalize(torch.cat(key_parts, dim=-1), dim=-1)
         value = F.normalize(torch.cat(value_parts, dim=-1), dim=-1)

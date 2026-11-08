@@ -54,6 +54,7 @@ ask for them.
 import math
 
 import torch
+import torch.nn.functional as F
 
 from methods.prlmc.reader_utility import SCHEMA as UTILITY_SCHEMA, mmr_select
 
@@ -64,7 +65,6 @@ DEFAULT_GRAFT_PER_BLOCK = 76
 # Arm C: 140 protected per carrier (1,260) and 1,044 contested. 2,304 - 1,260.
 DEFAULT_PROTECTED_PER_BLOCK = 140
 DEFAULT_SEEDS_PER_BLOCK = 8
-DEFAULT_BRIDGE_WEIGHT = 0.5
 DEFAULT_MMR_PENALTY = 0.5
 DEFAULT_NOVELTY_WEIGHT = 0.5
 
@@ -97,15 +97,64 @@ def _correlation(left, right):
     return round(float((a * b).sum()) / denominator, 4)
 
 
+def memory_salience(source, block_size, key):
+    """`disc_leverage`, re-expressed over the written pool: nothing from outside enters.
+
+    V10 ranks its graft candidates with
+
+        ||route|| * (0.6 + dispersion) * (0.5 + relevance_to_kept) * novelty
+
+    (`manifold_graft.py`), a score of a slot against the pool itself. Here the route
+    representation is the reader's own multi-layer key of the slot (`SlotReading.key`,
+    unit rows, one row per window position) and the reference set is the OTHER carrier
+    blocks, so the same four factors answer the question this router needs:
+
+        norm         mean L2 length of the slot across the reader's utility layers
+        dispersion   1 - cos(slot, its own block's centroid): how unlike the block's
+                     average the slot is
+        relevance    max cos to another carrier block's centroid, clamped to
+                     [0.2, 0.82] exactly as V10 clamps it
+        novelty      1 - 5 * max(0, raw_relevance - 0.85), floored at 0.1
+
+    No question of any kind enters: `key` comes from `ReaderScorer.reading(..., probes=
+    None)`, which builds keys and values from the stored vectors alone.
+    """
+    n_slots = int(source.shape[1])
+    block = int(block_size)
+    if n_slots % block:
+        raise ValueError(f"{n_slots} slots do not fill {block}-slot blocks")
+    blocks = n_slots // block
+    unit = key.float()
+    if int(unit.shape[0]) != n_slots:
+        raise ValueError("one key row per slot")
+    norm = source.float().norm(dim=-1).mean(dim=0)
+    centroids = torch.cat([
+        F.normalize(unit[index * block:(index + 1) * block].mean(dim=0, keepdim=True),
+                    dim=-1)
+        for index in range(blocks)], dim=0)
+    similarity = unit @ centroids.t()
+    salience = torch.empty(n_slots, dtype=torch.float32, device=unit.device)
+    for index in range(blocks):
+        lo, hi = index * block, (index + 1) * block
+        own = similarity[lo:hi, index].clamp(-1.0, 1.0)
+        others = similarity[lo:hi].clone()
+        others[:, index] = -2.0
+        raw = others.max(dim=-1).values
+        relevance = raw.clamp(0.2, 0.82)
+        novelty = (1.0 - (raw - 0.85).clamp_min(0.0) * 5.0).clamp_min(0.1)
+        salience[lo:hi] = norm[lo:hi] * (0.6 + (1.0 - own)) * (0.5 + relevance) * novelty
+    return salience
+
+
 class Router:
     """Shared machinery: one reading, one novelty discount, one assembler."""
 
-    def __init__(self, scorer, probes, mmr_penalty=DEFAULT_MMR_PENALTY,
+    def __init__(self, scorer, probes=None, mmr_penalty=DEFAULT_MMR_PENALTY,
                  novelty_weight=DEFAULT_NOVELTY_WEIGHT):
         self.scorer = scorer
-        self.probes = list(probes)
-        if not self.probes:
-            raise ValueError("the reader-utility score needs at least one probe")
+        # `probes=None` is the probe-free path: the router may use the reader's key
+        # and value projections but never a question. `BridgeRouter` runs this way.
+        self.probes = list(probes) if probes else None
         self.mmr_penalty = float(mmr_penalty)
         self.novelty_weight = float(novelty_weight)
 
@@ -288,72 +337,69 @@ class FixedQuotaRouter(Router):
 class BridgeRouter(Router):
     """Arm C: 140 protected per carrier, and 1,044 contested by the whole window.
 
-    Three decisions, and only the first is new machinery:
+    NOTHING OUTSIDE THE POOL DECIDES ANYTHING HERE. The first cut of this router
+    seeded the bridging queries with the slots that scored highest against a bank of
+    16 fixed musique questions, which put an external question back into the one arm
+    that exists to remove it. All three decisions are now self-generated:
 
-    1. **Protected.** Each carrier block keeps its top `protected_per_block` slots by
-       reader utility, verbatim. The carriers are what the frozen reader was already
-       answering from (AnchorOnly 56/158 is nine whole carrier blocks), so they get a
-       floor rather than a fixed quota -- 140 is a floor, not a share.
-    2. **Contested.** The remaining `1,044 = 9 x (256 - 140)` slots are filled by
-       EVERY unselected carrier slot AND every dropped-block slot, ranked together.
-       This is where the capacity becomes dynamic: a carrier that is mostly redundant
-       can lose most of its 116 released slots to a dropped block that holds the
-       answer, and the split between the ten dropped blocks is whatever the ranking
-       says it is.
-    3. **Ranking.** `(1 - w) * reader utility + w * bridging mass`, discounted for
-       duplication, de-duplicated with MMR. The bridging term is the reader's own Q/K
-       product between a candidate and the carrier's most readable slots (`ReaderScorer
-       .affinity`). It is a proxy -- the deployed read path never queries with a memory
-       slot -- so the arm is built to answer one question: does it put more of the
-       evidence that only lives in a dropped block back into the window, without
-       costing the questions the carriers already answer?
+    1. **Floor.** Each carrier block keeps its top `protected_per_block` slots by
+       `memory_salience` -- a function of the written vectors and the reader's own
+       key projections only.
+    2. **Seeds.** The bridging queries are the carrier's top `seeds_per_block` slots by
+       the same score. They are therefore part of the protected set, which is the point:
+       the question the bridging mass answers is "what does what I am keeping point at".
+    3. **Contested.** The remaining `9 x (256 - 140) = 1,044` slots are filled by every
+       unselected carrier slot AND every dropped-block slot, ranked together by the
+       bridging mass alone, discounted for duplication and de-duplicated with MMR.
+
+    The bridging mass is still a proxy -- the deployed read path never queries with a
+    memory slot -- and it is now a proxy with no question in it, which is the version
+    the design asked for.
     """
 
-    def __init__(self, scorer, probes, protected_per_block=DEFAULT_PROTECTED_PER_BLOCK,
+    def __init__(self, scorer, protected_per_block=DEFAULT_PROTECTED_PER_BLOCK,
                  seeds_per_block=DEFAULT_SEEDS_PER_BLOCK,
-                 bridge_weight=DEFAULT_BRIDGE_WEIGHT, mmr_penalty=DEFAULT_MMR_PENALTY,
+                 mmr_penalty=DEFAULT_MMR_PENALTY,
                  novelty_weight=DEFAULT_NOVELTY_WEIGHT):
-        super().__init__(scorer, probes, mmr_penalty, novelty_weight)
+        super().__init__(scorer, None, mmr_penalty, novelty_weight)
         if int(protected_per_block) <= 0:
             raise ValueError("the protected quota must be positive")
         if int(seeds_per_block) <= 0:
             raise ValueError("the bridge needs at least one seed per carrier")
-        if not 0.0 <= float(bridge_weight) <= 1.0:
-            raise ValueError("the bridging weight is a convex mix weight, in [0, 1]")
         self.protected_per_block = int(protected_per_block)
         self.seeds_per_block = int(seeds_per_block)
-        self.bridge_weight = float(bridge_weight)
 
     def build(self, source, carrier_blocks, block_size=256, reading=None):
         reading = self.read(source) if reading is None else reading
         slots, per_layer = reading
+        if slots.utility is not None:
+            raise ValueError("the bridge router must run on a probe-free reading")
         device = source.device
         blocks, carriers, dropped = self._split(source, carrier_blocks, block_size)
         if self.protected_per_block > int(block_size):
             raise ValueError(f"a {self.protected_per_block}-slot floor does not fit a "
                              f"{block_size}-slot block")
+        salience = memory_salience(source, block_size, slots.key)
 
         # -- 1. the floor, and the seeds that do the asking -------------------
         protected_slots, protected_origin, per_block = [], [], []
         released, seeds = [], []
         for carrier in carriers:
             positions = self._offsets([carrier], block_size, device)[0]
-            local = slots.utility.index_select(0, positions)
+            local = salience.index_select(0, positions)
             ranked = torch.argsort(local, descending=True)
             keep, _ = torch.sort(ranked[: self.protected_per_block])
             chosen = positions.index_select(0, keep)
             protected_slots.append(source.index_select(1, chosen))
             protected_origin.append(chosen)
-            # The seeds ARE part of the protected set: they are the carrier's most
-            # readable slots, which is what the floor keeps anyway. Asking "what does
-            # what I keep point at" is the question this score is a proxy for, and it
-            # costs no capacity to reuse them as queries.
             seeds.append(positions.index_select(0, ranked[: self.seeds_per_block]))
             keep_mask = torch.zeros(int(block_size), dtype=torch.bool, device=device)
             keep_mask[keep] = True
             released.append(positions[~keep_mask])
             per_block.append(dict(block=carrier, protected=int(chosen.numel()),
-                                  released=int((~keep_mask).sum())))
+                                  released=int((~keep_mask).sum()),
+                                  salience_mean=float(local.mean()),
+                                  salience_max=float(local.max())))
         protected_slots = torch.cat(protected_slots, dim=1)
         protected_origin = torch.cat(protected_origin, dim=0)
         seeds = torch.cat(seeds, dim=0)
@@ -366,14 +412,15 @@ class BridgeRouter(Router):
             raise ValueError(f"{wanted} contested slots from {candidates.numel()} "
                              f"candidates")
 
-        # -- 3. the ranking ---------------------------------------------------
+        # -- 3. the ranking: bridging mass only, discounted for duplication ----
         bridge, bridge_per_layer = self.scorer.affinity(
             source.index_select(1, candidates), candidates,
             source.index_select(1, seeds), seeds)
-        candidate_utility = slots.utility.index_select(0, candidates)
+        candidate_salience = salience.index_select(0, candidates)
         novelty = 1.0 - _max_cosine(slots.key.index_select(0, candidates),
                                     slots.key.index_select(0, protected_origin))
-        score = self._score(candidate_utility, novelty, bridge, self.bridge_weight)
+        weight = float(self.novelty_weight)
+        score = _normalise(bridge) * (1.0 - weight + weight * novelty)
         picked = mmr_select(score, slots.key.index_select(0, candidates), wanted,
                             penalty=self.mmr_penalty)
         picked, _ = torch.sort(picked)
@@ -392,7 +439,7 @@ class BridgeRouter(Router):
                                device=device),
                     torch.zeros(int(admitted_origin.numel()), dtype=torch.bool,
                                 device=device)]),
-                utility=slots.utility.index_select(
+                utility=salience.index_select(
                     0, torch.cat([protected_origin, admitted_origin], dim=0)),
                 bridge=torch.cat([
                     torch.full((int(protected_origin.numel()),), float("nan"),
@@ -405,8 +452,9 @@ class BridgeRouter(Router):
             (meta["source_block"][~meta["protected"]] == block).sum()) for block in carriers]
         admitted_from_dropped = int((meta["slot_type"] == 1).sum())
         telemetry = dict(
-            schema=SCHEMA, policy="bridge", routing="protected floor + global "
-                    "competition, reader utility + cross-block bridging mass",
+            schema=SCHEMA, policy="bridge",
+            routing="protected floor + global competition, ranked by cross-block "
+                    "bridging mass (probe-free: salience floor, memory-only seeds)",
             carrier_blocks=carriers, dropped_blocks=dropped,
             protected_per_block=self.protected_per_block,
             protected_total=int(protected_origin.numel()),
@@ -421,17 +469,21 @@ class BridgeRouter(Router):
             empty_dropped_blocks=int(sum(1 for count in per_dropped if count == 0)),
             min_per_dropped_block=int(min(per_dropped)) if per_dropped else 0,
             max_per_dropped_block=int(max(per_dropped)) if per_dropped else 0,
-            bridge_available=True, bridge_weight=self.bridge_weight,
+            probe_free=True, external_questions=0,
             seeds_per_block=self.seeds_per_block, seeds_total=int(seeds.numel()),
+            salience_mean=float(salience.mean()), salience_max=float(salience.max()),
+            salience_protected_share=round(100.0 * float(
+                salience.index_select(0, protected_origin).sum()
+                / salience.sum().clamp_min(1e-12)), 2),
             bridge_candidate_mean=float(bridge.mean()),
             bridge_candidate_std=float(bridge.std()),
             bridge_admitted_mean=float(bridge.index_select(0, picked).mean()),
             bridge_rejected_mean=self._rejected_mean(bridge, picked),
-            bridge_utility_correlation=_correlation(bridge, candidate_utility),
+            bridge_salience_correlation=_correlation(bridge, candidate_salience),
             bridge_per_layer=bridge_per_layer,
             mmr_penalty=self.mmr_penalty, novelty_weight=self.novelty_weight,
             novelty_mean=float(novelty.mean()), novelty_min=float(novelty.min()),
-            utility_mean=float(slots.utility.mean()), utility_per_layer=per_layer,
+            read_per_layer=per_layer,
             per_block=per_block)
         return window, meta, telemetry
 
