@@ -1,6 +1,0 @@
-# Runtime requirements for the V10 pipeline (frozen MemoryLLM reader + merge operator).
-# Verified with python 3.10, torch 2.5.1+cu124, transformers 4.46.3.
-torch==2.5.1
-transformers==4.46.3
-numpy
-pyyaml

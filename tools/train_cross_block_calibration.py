@@ -6,7 +6,7 @@ separately each one has an obvious way to look like a failure and together they 
 where the capacity actually comes from:
 
     module 1  reader-utility slot selection   `methods/prlmc/reader_utility.py`
-    module 2  same-block homogeneous folding  `methods/prlmc/homogeneous_merge.py`
+    module 2  (retired) same-block folding -- deleted in V12, measured at -4 questions
     module 3  full-pool residual calibration  `FullPoolResidual` in `anchor_residual.py`
 
     carriers 9 x 256 -> 1,620 core (folded)   dropped 2,560 -> 684 graft (selected)
@@ -193,11 +193,10 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
         chunk = window[start:stop]
         if torch.is_grad_enabled() and chunk.requires_grad:
             calibrated, penalty, magnitude = torch.utils.checkpoint.checkpoint(
-                chunk_step, chunk, cond, None if context is None else context[start:stop],
+                chunk_step, chunk, cond, context,
                 use_reentrant=False)
         else:
-            calibrated, penalty, magnitude = chunk_step(
-                chunk, cond, None if context is None else context[start:stop])
+            calibrated, penalty, magnitude = chunk_step(chunk, cond, context)
         calibrated_all[start:stop] = calibrated
         regulariser = regulariser + penalty
         delta_sq += float(magnitude)
@@ -340,7 +339,6 @@ def critical_manifest():
         joint=sha(ROOT / "methods/prlmc/evict_window.py"),
         calibration=sha(ROOT / "methods/prlmc/cross_block_calibration.py"),
         utility=sha(ROOT / "methods/prlmc/reader_utility.py"),
-        merge=sha(ROOT / "methods/prlmc/homogeneous_merge.py"),
         residual=sha(ROOT / "methods/prlmc/anchor_residual.py"),
         trainer=sha(__file__))
 
@@ -474,8 +472,19 @@ def train(args):
     reference.load_state_dict(module.state_dict(), strict=True)
     reference = reference.to(model.memory.device).eval().requires_grad_(False)
 
-    optimizer = torch.optim.AdamW([p for p in module.parameters() if p.requires_grad],
-                                  lr=args.lr, weight_decay=args.weight_decay)
+    # `cross_proj` starts at exactly zero, so at `--lr` it only ever reaches a scale
+    # that is lost inside the residual it is supposed to steer: the first V13 run
+    # trained it to norm 1.25 while the residual moved 0.5% against the plain
+    # calibration, and not one of the 158 answers changed. It is therefore given its
+    # own, larger step so the mechanism gets a fair test instead of a silent zero.
+    cross_proj = ([module.cross_proj.weight]
+                  if getattr(module, "use_cross", False) else [])
+    shared = [p for name, p in module.named_parameters()
+              if p.requires_grad and not name.startswith("cross_proj")]
+    groups = [dict(params=shared, lr=args.lr)]
+    if cross_proj:
+        groups.append(dict(params=cross_proj, lr=args.cross_lr))
+    optimizer = torch.optim.AdamW(groups, weight_decay=args.weight_decay)
     trainable = int(sum(p.numel() for p in module.parameters() if p.requires_grad))
     report = dict(
         schema=FULL_POOL_SCHEMA + "/training", status="running",
@@ -501,7 +510,8 @@ def train(args):
                    note="a fixed bank encoded before the first test row is read; no "
                         "test question and no reference answer enters the score"),
         objective=objective_report(args),
-        optimizer=dict(name="AdamW", lr=args.lr, weight_decay=args.weight_decay,
+        optimizer=dict(name="AdamW", lr=args.lr, cross_lr=args.cross_lr,
+                       weight_decay=args.weight_decay,
                        grad_clip=args.grad_clip, updates=args.updates,
                        grad_accum=args.grad_accum),
         critical_manifest=critical_manifest(), history=[], validation=[],
@@ -642,7 +652,13 @@ def train(args):
     payload = dict(
         schema=FULL_POOL_SCHEMA + "/checkpoint",
         config=dict(hidden_size=manager.hidden, rank=rank, max_ratio=args.max_ratio,
-                    gate_init=args.gate_init, cond_size=3, cond_rank=args.cond_rank),
+                    gate_init=args.gate_init, cond_size=3, cond_rank=args.cond_rank,
+                    # recorded so the checkpoint can be rebuilt: without these the
+                    # loader defaults to use_cross=True and a --cross off checkpoint
+                    # cannot be loaded at all
+                    use_cross=(args.cross == "on"), k_neighbors=args.k_neighbors,
+                    kv_dim=args.kv_dim, max_ratio_core=args.max_ratio_core,
+                    core_weight=args.core_weight, graft_weight=args.graft_weight),
         geometry=dict(cross=(args.cross == "on"), core_per_block=args.core_per_block,
                       graft_per_block=args.graft_per_block,
                       key_threshold=args.key_threshold,
@@ -716,6 +732,9 @@ def build_parser():
                         "V11Evict's calibration")
     p.add_argument("--max-ratio-core", dest="max_ratio_core", type=float, default=0.15,
                    help="residual ceiling for carrier slots (protect them)")
+    p.add_argument("--cross-lr", dest="cross_lr", type=float, default=1e-4,
+                   help="learning rate for `cross_proj` alone, the zero-initialised "
+                        "projection that carries the cross-block context")
     p.add_argument("--k-neighbors", dest="k_neighbors", type=int, default=4,
                    help="sparse cross-block neighbours per slot")
     p.add_argument("--kv-dim", dest="kv_dim", type=int, default=5120,

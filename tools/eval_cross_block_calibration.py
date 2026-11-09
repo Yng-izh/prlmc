@@ -142,7 +142,13 @@ def load_v11(path, hidden):
                              f"from it")
     if int(geometry["core_per_block"]) + int(geometry["graft_per_block"]) != SLOTS_PER_BLOCK:
         raise ValueError(f"{path}: the recorded quota does not fill a block")
-    module = FullPoolResidual(**dict(payload["config"]))
+    config = dict(payload["config"])
+    if "use_cross" not in config:
+        # This round's checkpoints were written before the field was recorded. The state
+        # dict says it unambiguously: only a cross-block module carries `cross_proj`.
+        config["use_cross"] = any(str(key).startswith("cross_proj")
+                                  for key in payload["state_dict"])
+    module = FullPoolResidual(**config)
     module.load_state_dict(payload["state_dict"], strict=True)
     return module.eval().requires_grad_(False), geometry, dict(payload["config"]), payload
 
@@ -255,7 +261,12 @@ def check_calibration(calibrated, window, meta, info, name):
     return dict(core_relative_delta=info["core_relative_delta"],
                 graft_relative_delta=info["graft_relative_delta"],
                 relative_delta=info["relative_delta"],
-                folded_slots=info["folded_slots"], gate=info["gate"], check=True)
+                folded_slots=info["folded_slots"], gate=info["gate"],
+                # Without these three the report cannot tell a mechanism that was
+                # trained and did nothing from one that was never applied.
+                use_cross=info.get("use_cross"),
+                cross_proj_norm=info.get("cross_proj_norm"),
+                cross_context=info.get("cross_context"), check=True)
 
 
 def check_anchor(output, parts, anchor_window, name):
@@ -727,9 +738,9 @@ def evaluate(args):
             data_sha256=sha(Path(args.data_dir) / (args.task + ".jsonl")),
             supporting_facts_glob=args.supporting_facts_glob,
             entrypoint_sha256=sha(__file__),
-            joint_module_sha256=sha(ROOT / "methods/prlmc/joint_consolidation.py"),
+            window_module_sha256=sha(ROOT / "methods/prlmc/evict_window.py"),
+            calibration_module_sha256=sha(ROOT / "methods/prlmc/cross_block_calibration.py"),
             utility_module_sha256=sha(ROOT / "methods/prlmc/reader_utility.py"),
-            merge_module_sha256=sha(ROOT / "methods/prlmc/homogeneous_merge.py"),
             residual_module_sha256=sha(ROOT / "methods/prlmc/anchor_residual.py"),
             reader_frozen=True, training_performed=False),
         excluded=excluded, samples=[], training_performed=False,

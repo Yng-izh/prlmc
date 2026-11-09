@@ -53,6 +53,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from methods.prlmc.core_fusion import apply_delta
+
 SCHEMA = "cross_block_residual/1"
 DEFAULT_KV_DIM = 5 * 8 * 128  # 5 utility layers x 8 kv heads x 128
 
@@ -177,6 +179,25 @@ class CrossBlockResidual(nn.Module):
                     max_ratio_core=self.max_ratio_core, core_weight=self.core_weight,
                     graft_weight=self.graft_weight)
 
+    def anchor_view(self):
+        """`AnchorResidual` carrying this module's graft parameters.
+
+        At initialisation the cross projection is zero and the film is zero, so the
+        graft half has to reproduce AnchorOnly exactly; the trainer checks that by
+        rebuilding the plain anchor from these parameters and applying it to the same
+        slots. Without this view the check cannot distinguish "the module loaded" from
+        "the module stayed at zero".
+        """
+        from methods.prlmc.anchor_residual import AnchorResidual
+
+        anchor = AnchorResidual(hidden_size=self.hidden_size, rank=self.rank,
+                               max_ratio=self.max_ratio, gate_init=0.0)
+        with torch.no_grad():
+            anchor.down.copy_(self.down.detach())
+            anchor.up.copy_(self.up_graft.detach())
+            anchor.gate_logit.copy_(self.gate_logit.detach())
+        return anchor
+
     # -- initialisation from the finished AnchorOnly run --------------------
     @torch.no_grad()
     def load_anchor_only(self, state_dict, config=None):
@@ -242,7 +263,13 @@ class CrossBlockResidual(nn.Module):
 
 
 def _apply(chunk, delta):
-    return chunk + delta.to(chunk.dtype)
+    """RMS-preserving update -- `core_fusion.apply_delta`, the one V11 used.
+
+    A plain `chunk + delta` moves the slot's RMS by up to the residual ceiling
+    (15% / 50%), and the frozen reader expects the native norm range: the first
+    evaluation run failed its own RMS check at 4.55e-2 for exactly this reason.
+    """
+    return apply_delta(chunk, delta.to(chunk.dtype))
 
 
 @torch.no_grad()
