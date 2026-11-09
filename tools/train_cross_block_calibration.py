@@ -91,6 +91,7 @@ from methods.prlmc.cross_block_calibration import (       # noqa: E402
     SCHEMA as CALIB_SCHEMA, CrossBlockResidual, conditions)
 from methods.prlmc.evict_window import (                  # noqa: E402
     SCHEMA as JOINT_SCHEMA, QUOTA, JointConsolidation)
+from methods.prlmc import hierarchical_relation as hr     # noqa: E402
 
 # V13 keeps the V11 driver shape: the calibration module changed, the window did not.
 FULL_POOL_SCHEMA = CALIB_SCHEMA
@@ -111,6 +112,11 @@ TARGET_SLOTS = TARGET_BLOCKS * SLOTS_PER_BLOCK
 STAGE1 = ("up_graft", "up_core", "gate_logit", "type_gate_logit", "cond_up")
 STAGE2 = ("down", "up_graft", "up_core", "gate_logit", "type_gate_logit",
           "cond_up", "cond_down")
+# V15 only: the modulation matrices must move on update 1 (they are the only route into
+# the relation branch) and the five per-layer projections from update 2 on. A zero
+# gradient there is a wiring fault, not a result.
+V15_STAGE1 = ("mod_scale.weight", "mod_shift.weight")
+V15_STAGE2 = tuple(f"cross_proj.{index}.weight" for index in range(hr.KV_LAYERS))
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +137,16 @@ def load_anchor_state(path, hidden):
 def build_module(args, hidden, anchor_state, anchor_config):
     """The one trainable module: graft half from AnchorOnly, core half at zero."""
     rank = int(args.rank or anchor_config.get("rank"))
+    if args.architecture == "v15":
+        module = hr.HierarchicalRelationResidual(
+            hidden_size=hidden, rank=rank, max_ratio=args.max_ratio,
+            gate_init=args.gate_init, cond_rank=args.cond_rank,
+            k_neighbors=args.k_neighbors, shallow_cutoff=args.shallow_cutoff,
+            tau_init=args.sink_tau, sink_percentile=args.sink_percentile,
+            max_ratio_core=args.max_ratio_core, core_weight=args.core_weight,
+            graft_weight=args.graft_weight)
+        module.load_anchor_only(anchor_state, anchor_config)
+        return module, rank
     module = FullPoolResidual(hidden_size=hidden, rank=rank,
                               max_ratio=args.max_ratio, gate_init=args.gate_init,
                               cond_rank=args.cond_rank,
@@ -162,6 +178,16 @@ def build_probes(args, tokenizer, documents):
 # ---------------------------------------------------------------------------
 # one document
 # ---------------------------------------------------------------------------
+def context_of(module, window, meta, return_report=False):
+    """The module's own relation rule. V13 owns `neighbours`, V15 owns `relations`;
+    the loop must not know which one it is talking to."""
+    if hasattr(module, "relations"):
+        return module.relations(window, meta, return_report=return_report)
+    if getattr(module, "use_cross", False):
+        return module.neighbours(window, meta, return_report=return_report)
+    return (None, None) if return_report else None
+
+
 def calibrate_with_reg(window, meta, module, layer_chunk=4):
     """Module 3 with the residual regulariser kept inside the graph.
 
@@ -174,10 +200,10 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
     [layers, slots, hidden] tensor to float32 twice over.
     """
     cond = conditions(meta, window.shape[1])
-    # The module owns its neighbour rule: V13 (topk) and V14 (complement) differ in
-    # nothing else, so this call site must not hard-code k or the mode.
-    context = (module.neighbours(window, meta)
-               if getattr(module, "use_cross", False) else None)
+    # The module owns its relation rule: V13 (topk) and V14 (complement) differ in
+    # nothing else, so this call site must not hard-code k or the mode. The report is
+    # kept because the sink mass is the only evidence that V15's gate is doing anything.
+    context, relation_report = context_of(module, window, meta, return_report=True)
     # Preallocated and filled slice by slice. `torch.cat(pieces)` needs the whole
     # 32-layer output twice alive at once (the list and the concatenation), which at
     # 2,304 slots is 576 MiB of pure transient; writing into a buffer that already
@@ -186,8 +212,10 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
     regulariser = torch.zeros((), device=window.device)
     delta_sq = slot_sq = 0.0
 
-    def chunk_step(chunk, conditioning, ctx):
-        delta = module(chunk, conditioning, ctx)
+    def chunk_step(chunk, conditioning, ctx, layer_ids):
+        delta = (module(chunk, conditioning, ctx, layer_ids)
+                 if getattr(module, "uses_layers", False)
+                 else module(chunk, conditioning, ctx))
         calibrated = apply_delta(chunk, delta.to(chunk.dtype))
         rms = chunk.float().square().mean(dim=-1, keepdim=True).clamp_min(1e-12).sqrt()
         # Asymmetric, still soft: the carriers pay twice the penalty the graft slots do,
@@ -201,12 +229,13 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
     for start in range(0, window.shape[0], layer_chunk):
         stop = min(start + layer_chunk, window.shape[0])
         chunk = window[start:stop]
+        layer_ids = torch.arange(start, stop, device=window.device)
         if torch.is_grad_enabled() and chunk.requires_grad:
             calibrated, penalty, magnitude = torch.utils.checkpoint.checkpoint(
-                chunk_step, chunk, cond, context,
+                chunk_step, chunk, cond, context, layer_ids,
                 use_reentrant=False)
         else:
-            calibrated, penalty, magnitude = chunk_step(chunk, cond, context)
+            calibrated, penalty, magnitude = chunk_step(chunk, cond, context, layer_ids)
         calibrated_all[start:stop] = calibrated
         regulariser = regulariser + penalty
         delta_sq += float(magnitude)
@@ -218,6 +247,8 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
                 folded_slots=int((meta["cluster_size"] > 1).sum()),
                 relative_delta=(delta_sq / max(slot_sq, 1e-24)) ** 0.5,
                 gate=float(torch.sigmoid(module.gate_logit.detach().float())))
+    if relation_report is not None:
+        info["relation"] = relation_report
     return calibrated_all, regulariser, info
 
 
@@ -312,9 +343,12 @@ def document_step(model, manager, merge, scorer, joint, module, reference, initi
                           reference_payload["logprob"].exp().to(device),
                           reduction="batchmean")
     loss = (ce + args.protect_weight * protection + args.reg_weight * regulariser)
+    relation = info.get("relation") or {}
     record = dict(ce=ce, protection=protection, regulariser=regulariser, loss=loss,
                   relative_delta=info["relative_delta"],
                   folded_slots=info["folded_slots"], module_gate=info["gate"],
+                  relation_mass=relation.get("retained_mass_mean"),
+                  relation_sink=relation.get("sink_mass_mean"),
                   **evidence)
     if train and args.cf_weight > 0 and evidence["qualifies"] and donor_graft is not None:
         graft_offsets = torch.nonzero(meta["slot_type"] == 1, as_tuple=False).flatten()
@@ -354,6 +388,32 @@ def critical_manifest():
 
 
 def module_report(args, rank, hidden, anchor_path, anchor_config):
+    if args.architecture == "v15":
+        return dict(
+            schema=hr.SCHEMA, hidden=hidden, rank=rank, architecture="v15",
+            max_ratio=args.max_ratio, max_ratio_core=args.max_ratio_core,
+            shallow_cutoff=args.shallow_cutoff, k_neighbors=args.k_neighbors,
+            tau_init=args.sink_tau, sink_percentile=args.sink_percentile,
+            conditions=["delta_position", "log_cluster_size", "is_graft"],
+            relation=dict(
+                per_layer="five independent top-4 relations, one per utility layer",
+                sink="per-layer sink logit from the training similarity spread, dropped "
+                     "after the softmax so the retained mass can be < 1",
+                feature="sum_j w_ij v_j - m_i v_i, the neighbours minus the slot",
+                modulation="b * (1 + tanh(W_s c)) + tanh(W_h c) on an RMS-normalised "
+                           "sum of five per-layer projections",
+                protection=f"memory layers 0..{max(0, args.shallow_cutoff - 1)} keep the "
+                           f"self branch only"),
+            initialisation=dict(
+                graft_half="copied from the AnchorOnly checkpoint",
+                core_half="zero, so every carrier slot is bit-identical at update 0",
+                modulation="zero, so the relation branch is exactly off at update 0",
+                projections="orthogonal and NOT zero: V13's zero init left the cross "
+                            "channel without a gradient and needed a 30x step to escape",
+                anchor_checkpoint=anchor_path, anchor_sha256=sha(anchor_path),
+                anchor_rank=anchor_config.get("rank"),
+                anchor_max_ratio=anchor_config.get("max_ratio")),
+            applies_to="all 2,304 slots: 1,620 core and 684 graft, memory layers 10..31")
     return dict(
         schema=FULL_POOL_SCHEMA, hidden=hidden, rank=rank, max_ratio=args.max_ratio,
         cond_rank=args.cond_rank,
@@ -425,6 +485,13 @@ def train(args):
                              f"{args.k_same} + {args.k_cross} != {args.k_neighbors}")
     elif args.cross == "on" and (int(args.k_same), int(args.k_cross)) != (2, 2):
         raise SystemExit("--k-same/--k-cross only apply to --neighbor-mode complement")
+    if args.architecture == "v15":
+        if args.cross != "on":
+            raise SystemExit("--architecture v15 is the cross-block mechanism: pass "
+                             "--cross on")
+        if args.neighbor_mode != "topk":
+            raise SystemExit("--neighbor-mode only applies to V13; V15 builds five "
+                             "per-layer top-k relations of its own")
     if args.cross == "off" and args.neighbor_mode != "topk":
         raise SystemExit("--cross off has no neighbour rule at all: pass "
                          "--neighbor-mode topk")
@@ -498,7 +565,7 @@ def train(args):
     module = module.to(model.memory.device).float()
     # Mirrors the trained module exactly, including `--cross off`: a reference built
     # with different constructor args cannot take the state dict under strict=True.
-    reference = FullPoolResidual(**module.config())
+    reference = type(module)(**module.config())
     reference.load_state_dict(module.state_dict(), strict=True)
     reference = reference.to(model.memory.device).eval().requires_grad_(False)
 
@@ -507,13 +574,18 @@ def train(args):
     # trained it to norm 1.25 while the residual moved 0.5% against the plain
     # calibration, and not one of the 158 answers changed. It is therefore given its
     # own, larger step so the mechanism gets a fair test instead of a silent zero.
-    cross_proj = ([module.cross_proj.weight]
-                  if getattr(module, "use_cross", False) else [])
+    # The cross/relation channel is zero- or small-started and cannot reach a useful
+    # scale at the shared learning rate (V13 needed 30x). V15 gives the five per-layer
+    # projections and the two modulation matrices their own, larger step.
+    relation_names = ("cross_proj", "mod_scale", "mod_shift", "cross_norm")
+    cross_proj = [p for name, p in module.named_parameters()
+                  if p.requires_grad and name.startswith(relation_names)]
     shared = [p for name, p in module.named_parameters()
-              if p.requires_grad and not name.startswith("cross_proj")]
+              if p.requires_grad and not name.startswith(relation_names)]
     groups = [dict(params=shared, lr=args.lr)]
     if cross_proj:
-        groups.append(dict(params=cross_proj, lr=args.cross_lr))
+        relation_lr = (args.relation_lr if args.architecture == "v15" else args.cross_lr)
+        groups.append(dict(params=cross_proj, lr=relation_lr))
     optimizer = torch.optim.AdamW(groups, weight_decay=args.weight_decay)
     trainable = int(sum(p.numel() for p in module.parameters() if p.requires_grad))
     report = dict(
@@ -541,6 +613,8 @@ def train(args):
                         "test question and no reference answer enters the score"),
         objective=objective_report(args),
         optimizer=dict(name="AdamW", lr=args.lr, cross_lr=args.cross_lr,
+                       relation_lr=(args.relation_lr if args.architecture == "v15"
+                                    else args.cross_lr),
                        weight_decay=args.weight_decay,
                        grad_clip=args.grad_clip, updates=args.updates,
                        grad_accum=args.grad_accum),
@@ -588,6 +662,44 @@ def train(args):
                     graft_slots=info["graft_slots"], folded_slots=info["folded_slots"],
                     merge=telemetry["merge"], probe_passed=True)
     report["identity_check"] = identity
+
+    # ---- V15: the sink threshold comes from the data, not from a constant ----
+    # A fixed 0.35 would put the gate somewhere nobody checked; the threshold is placed at
+    # a per-layer percentile of that layer's own top-k similarity spread, measured on
+    # training documents only, and the retained mass is re-measured afterwards so the run
+    # records whether the gate is actually closed for weak neighbourhoods.
+    if args.architecture == "v15":
+        per_document = []
+        with torch.no_grad():
+            for source_document in training[: max(1, int(args.sink_documents))]:
+                reset(manager, initial)
+                write_blocks(manager, merge, chunks_of(source_document))
+                sink_source, _, sink_picked = gr.select_carriers(manager, WINDOW_BLOCKS,
+                                                                 TARGET_BLOCKS)
+                sink_window, sink_meta, _ = joint.build(sink_source, sink_picked,
+                                                        manager.block)
+                _, sink_report = module.relations(sink_window, sink_meta,
+                                                  return_report=True)
+                key = f"similarity_p{int(args.sink_percentile)}"
+                per_document.append([sink_report["per_layer"][f"utility_layer_{layer}"][key]
+                                     for layer in range(module.kv_layers)])
+                del sink_window, sink_source
+        thresholds = [float(np.mean([row[layer] for row in per_document]))
+                      for layer in range(module.kv_layers)]
+        module.init_sink(thresholds)
+        with torch.no_grad():
+            _, after = module.relations(window, meta, return_report=True)
+        report["sink_init"] = dict(
+            percentile=args.sink_percentile, documents=len(per_document),
+            tau=[float(x) for x in module.tau.reshape(-1)],
+            thresholds=thresholds,
+            retained_mass_after=[after["per_layer"][f"utility_layer_{layer}"]
+                                 ["retained_mass"] for layer in range(module.kv_layers)],
+            sink_mass_after=[after["per_layer"][f"utility_layer_{layer}"]
+                             ["sink_mass"] for layer in range(module.kv_layers)],
+            note="a retained mass near 1 everywhere would mean the gate is decorative")
+        print(json.dumps({"sink_init": report["sink_init"]}), flush=True)
+        reset(manager, initial)
     print(json.dumps({"identity_check": identity}, ensure_ascii=False), flush=True)
 
     cache = dict(full={}, reference={}, reference_order=[])
@@ -619,6 +731,8 @@ def train(args):
         gradients = {name: parameter.grad for name, parameter in
                      module.named_parameters() if parameter.grad is not None}
         required = STAGE1 if update == 1 else STAGE2
+        if args.architecture == "v15":
+            required = (STAGE1 + V15_STAGE1) if update == 1 else (STAGE2 + V15_STAGE2)
         missing = [name for name in required
                    if name not in gradients or not torch.isfinite(gradients[name]).all()
                    or float(gradients[name].abs().max()) == 0.0]
@@ -638,6 +752,12 @@ def train(args):
                    grad_up_core=float(gradients["up_core"].norm()),
                    grad_cond_down=(float(gradients["cond_down"].norm())
                                    if "cond_down" in gradients else None),
+                   grad_relation=(float(sum(
+                       gradients[name].norm() for name in V15_STAGE2 + V15_STAGE1
+                       if name in gradients))
+                       if args.architecture == "v15" else None),
+                   relation_mass=measured.get("relation_mass"),
+                   relation_sink=measured.get("relation_sink"),
                    seconds=time.monotonic() - started)
         if "counterfactual" in measured:
             row["counterfactual"] = measured["counterfactual"]
@@ -680,8 +800,10 @@ def train(args):
     report["peak_allocated_bytes"] = int(torch.cuda.max_memory_allocated())
     report["status"] = "complete"
     payload = dict(
-        schema=FULL_POOL_SCHEMA + "/checkpoint",
-        config=dict(hidden_size=manager.hidden, rank=rank, max_ratio=args.max_ratio,
+        schema=(hr.SCHEMA if args.architecture == "v15" else FULL_POOL_SCHEMA)
+        + "/checkpoint",
+        config=(module.config() if args.architecture == "v15" else
+                dict(hidden_size=manager.hidden, rank=rank, max_ratio=args.max_ratio,
                     gate_init=args.gate_init, cond_size=3, cond_rank=args.cond_rank,
                     # recorded so the checkpoint can be rebuilt: without these the
                     # loader defaults to use_cross=True and a --cross off checkpoint
@@ -690,8 +812,11 @@ def train(args):
                     neighbor_mode=args.neighbor_mode, k_same=args.k_same,
                     k_cross=args.k_cross,
                     kv_dim=args.kv_dim, max_ratio_core=args.max_ratio_core,
-                    core_weight=args.core_weight, graft_weight=args.graft_weight),
+                    core_weight=args.core_weight, graft_weight=args.graft_weight)),
         geometry=dict(cross=(args.cross == "on"), neighbor_mode=args.neighbor_mode,
+                      architecture=args.architecture,
+                      shallow_cutoff=(args.shallow_cutoff
+                                      if args.architecture == "v15" else None),
                       core_per_block=args.core_per_block,
                       graft_per_block=args.graft_per_block,
                       key_threshold=args.key_threshold,
@@ -778,6 +903,24 @@ def build_parser():
                         "query's own core/graft kind plus k_cross from the other side, "
                         "with equal per-group weight mass. Nothing else differs between "
                         "the two arms")
+    p.add_argument("--architecture", default="v13", choices=("v13", "v15"),
+                   help="v13 = one kind-blind top-k context added into the bottleneck; "
+                        "v15 = five per-layer sink-gated relations delivered as a FiLM "
+                        "modulation")
+    p.add_argument("--relation-lr", dest="relation_lr", type=float, default=5e-4,
+                   help="learning rate for V15's five per-layer projections and its two "
+                        "modulation matrices")
+    p.add_argument("--shallow-cutoff", dest="shallow_cutoff", type=int,
+                   default=hr.SHALLOW_CUTOFF,
+                   help="memory layers below this index keep the self branch only")
+    p.add_argument("--sink-percentile", dest="sink_percentile", type=float,
+                   default=hr.SINK_PERCENTILE,
+                   help="per-layer percentile of the top-k similarity used to place the "
+                        "sink logit")
+    p.add_argument("--sink-tau", dest="sink_tau", type=float, default=hr.DEFAULT_TAU,
+                   help="softmax temperature on the per-layer similarities")
+    p.add_argument("--sink-documents", dest="sink_documents", type=int, default=3,
+                   help="training documents whose similarity spread sets the sink")
     p.add_argument("--k-same", dest="k_same", type=int, default=2,
                    help="complement mode: neighbours of the query's own kind")
     p.add_argument("--k-cross", dest="k_cross", type=int, default=2,
