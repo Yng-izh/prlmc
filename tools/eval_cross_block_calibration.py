@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Experiment 9 (V13): cross-block conditioned calibration, on V11Evict's structure.
+"""Experiment 10 (V14): does the SOURCE of the neighbours buy anything?
 
     Full              19 blocks, uncompressed                     reference ceiling
     Selection         9 carrier blocks, verbatim                  capacity baseline
@@ -7,23 +7,36 @@
     AnchorOnly        the frozen AnchorResidual at 360 anchors     the 56/158 baseline
     V11Evict          V11Evict's window + the SAME module trained with --cross off
     V11EvictDonor     V11Evict, graft slots taken from ANOTHER document
-    V13               V11Evict's window + the cross-block conditioned module
+    V13               the cross-block conditioned module, k = 4 kind-blind neighbours
     V13Donor          V13, graft slots taken from ANOTHER document
+    V14               the SAME window as V13, 4 neighbours = 2 of the query's own
+                      core/graft kind + 2 from the other side
+    V14Donor          V14, graft slots taken from ANOTHER document
 
-The three questions, in the order they have to be answered
----------------------------------------------------------
-1. `V13 > V11Evict` -- does conditioning the residual on cross-block neighbours buy
-   anything beyond what a plain full-pool calibration already buys? Both arms run the
-   same window, the same budget, the same loss and the same number of updates; the only
-   difference is the context term in the calibrator.
-2. `V13 > V13Donor` -- is the gain attributable to the CONTENT of the graft slots? Same
-   window geometry, same module, same cross-block machinery; only whose dropped blocks
-   they came from changes. Every earlier mechanism in this project passed (1) and failed
-   (2), so (2) is not optional. `V11Evict > V11EvictDonor` is reported for the same
-   reason: it is the arm that already passed this test once.
-3. Damage on the rows the uncompressed window already answers -- a mechanism that buys
-   questions by losing others is a redistribution, not a gain. The two ceilings of the
-   calibrator (0.15 x rms on carriers, 0.50 x rms on graft) exist for this.
+V13 and V14 read the IDENTICAL window: `built["D"]`'s window is calibrated twice, by two
+modules -- same 2,304 slots, same 1,620 / 684 split, same graft content, same rank,
+ceilings, regulariser, loss, updates, cross learning rate and initialisation. The only
+thing that differs is which slots each context row is built from, so `V14 - V13` measures
+the neighbour rule and nothing else.
+
+The questions, in the order they have to be answered
+----------------------------------------------------
+1. `V14 > V13` -- is the complement side worth anything over the kind-blind top-k that
+   already reaches 67/158? The plan's bar is +4 to +5 questions net; below that the
+   change is noise and the neighbour source was not the bottleneck.
+2. `V14 > V13Donor` and `V14 > V14Donor` -- the gain still has to come from the CONTENT of
+   the graft slots. Every mechanism in this project that passed (1) and failed (2) moved
+   answers without carrying knowledge. `V13 > V11Evict` and `V11Evict > V11EvictDonor`
+   are reported unchanged, so this run re-answers the earlier tests too.
+3. Damage on the rows the uncompressed window already answers must not grow: a mechanism
+   that buys questions by losing others is a redistribution, not a gain.
+
+The composition V13 never reported is now recorded per row, for every cross arm:
+`neighbour_type_cross_fraction` (share of the selected neighbours from the other side of
+the core/graft divide), `core_to_graft_neighbour_fraction`,
+`graft_to_core_neighbour_fraction`, and `cross_weight_mass_mean` (how much of the context
+weight the complement side actually received -- a complement arm whose cross mass sits
+near zero has silently degenerated into "top-2 of my own kind").
 
 Two notes on what this driver cannot do
 ---------------------------------------
@@ -41,7 +54,11 @@ What is checked before a number is read
   every slot a verbatim copy of the source position it claims;
 * the calibration must move both halves, and a `--v11-evict` checkpoint must really be
   cross-block conditioned (`--v11` must really not be);
+* `--v14` must be a complement-mode checkpoint and `--v11-evict` a top-k one, with the
+  same neighbour count, or the two arms would not differ in the neighbour source alone;
 * the donor arm's window must differ from the true one;
+* V14's calibrated window must differ from V13's: a complement rule that changes no slot
+  changed nothing, and must not be reported as "no gain";
 * the cross-block context must be built from OTHER blocks -- the neighbour spread is
   recorded per row, and a context with only same-block neighbours is a bug, not a result.
 
@@ -57,9 +74,10 @@ Usage
         --checkpoint runs/natural_merge_v9/full_v10.pt \
         --anchor runs/anchor_residual/anchor_only_rank64.pt \
         --v11 runs/cross_block/plain.pt \
-        --v11-evict runs/cross_block/cross.pt \
+        --v11-evict runs/cross_block/cross_lr.pt \
+        --v14 runs/cross_block/complement.pt \
         --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json \
-        --cuda-device 0 --out reports/cross_block/eval_v13_hotpotqa.json
+        --cuda-device 0 --out reports/cross_block/eval_v14_hotpotqa.json
 """
 import argparse
 import json
@@ -106,7 +124,13 @@ V11 = "V11Evict"
 V11_DONOR = "V11EvictDonor"
 V11_EVICT = "V13"
 V11_EVICT_DONOR = "V13Donor"
-ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, V11, V11_DONOR, V11_EVICT, V11_EVICT_DONOR)
+# V14: the same window, the same modules, the same training budget -- only the neighbour
+# rule differs (2 of the query's own kind + 2 from the other side of the core/graft
+# divide, instead of the 4 most similar cross-block slots whatever kind they are).
+V14 = "V14"
+V14_DONOR = "V14Donor"
+ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, V11, V11_DONOR, V11_EVICT, V11_EVICT_DONOR,
+        V14, V14_DONOR)
 # The baseline quota, which is what the reference report's arms were built at.
 BASELINE_QUOTA = dict(core_per_block=216, graft_per_block=40)
 CORE_TOTAL = 9 * 180
@@ -265,6 +289,8 @@ def check_calibration(calibrated, window, meta, info, name):
                 # Without these three the report cannot tell a mechanism that was
                 # trained and did nothing from one that was never applied.
                 use_cross=info.get("use_cross"),
+                neighbor_mode=info.get("neighbor_mode"),
+                k_neighbors=info.get("k_neighbors"),
                 cross_proj_norm=info.get("cross_proj_norm"),
                 cross_context=info.get("cross_context"), check=True)
 
@@ -301,7 +327,7 @@ def _chunks(prepared, window_blocks):
 
 
 def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
-               prepared, donor_graft, donor_graft_evict, donor_id, args):
+               prepared, donor_graft, donor_graft_evict, donor_id, args, v14=None):
     """One write; the baseline window and both V11 windows; then every arm's answer."""
     chunks = _chunks(prepared, args.window_blocks)
     answers = prepared["answers"]
@@ -392,6 +418,31 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
             windows[V11_EVICT] = built["D"]["calibrated"]
         if "E" in built:
             windows[V11_EVICT_DONOR] = built["E"]["calibrated"]
+        # Arms F and G: the SAME windows as D and E, calibrated by the complement-mode
+        # module. Both modules see the identical slot vectors, so the difference between
+        # V13 and V14 is the neighbour rule and nothing else -- not the window, not the
+        # graft content, not the number of parameters that moved.
+        if v14 is not None:
+            if "D" not in built:
+                raise ValueError("--v14 needs the cross-block window it has to share")
+            v14_calibrated, v14_info = calibrate(built["D"]["window"], built["D"]["meta"],
+                                                 v14["module"])
+            built["F"] = dict(window=built["D"]["window"], calibrated=v14_calibrated,
+                              check=built["D"]["check"],
+                              calibration=check_calibration(
+                                  v14_calibrated, built["D"]["window"],
+                                  built["D"]["meta"], v14_info, V14))
+            windows[V14] = built["F"]["calibrated"]
+            if "E" in built:
+                v14_donor, v14_donor_info = calibrate(built["E"]["window"],
+                                                      built["D"]["meta"], v14["module"])
+                built["G"] = dict(window=built["E"]["window"],
+                                  calibrated=v14_donor,
+                                  check=built["D"]["check"],
+                                  calibration=check_calibration(
+                                      v14_donor, built["E"]["window"], built["D"]["meta"],
+                                      v14_donor_info, V14_DONOR))
+                windows[V14_DONOR] = built["G"]["calibrated"]
         next_donor = built["B"]["window"].index_select(1, graft_offsets).detach().clone()
     gr.restore(model, manager, state)
 
@@ -417,8 +468,9 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
         if arm in (FULL, SELECTION):
             continue
         if arm not in windows:
-            if arm == V11_DONOR:
-                # A single-row run has no donor; the arm is simply not answered.
+            if arm in (V11_DONOR, V14, V14_DONOR):
+                # A run without the donor document (or without --v14) has no such arm;
+                # it is simply not answered, and `arms_present` records that.
                 continue
             raise ValueError(f"{arm} produced no window this run")
         if int(fingerprints[arm + "/slots"]) != TARGET_SLOTS:
@@ -441,6 +493,15 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
     if V11_EVICT in windows and fingerprints[V11] == fingerprints[V11_EVICT]:
         raise ValueError("the eviction control reads the same pool as V11: the fold "
                          "moved nothing")
+    if V14 in windows and fingerprints[V14] == fingerprints[V11_EVICT]:
+        raise ValueError("V14 reads the same pool as V13: the complement neighbour rule "
+                         "changed not one slot, so this run cannot speak about it")
+    if len(prepared) > 1 and V14 in windows and V14_DONOR not in windows:
+        raise ValueError("V14's donor arm was not built: the complement arm's content "
+                         "causality cannot be answered by V13's donor")
+    if V14_DONOR in windows and fingerprints[V14] == fingerprints[V14_DONOR]:
+        raise ValueError("V14's donor arm reads the same pool as V14: the swap did not "
+                         "reach the memory")
 
     record = dict(
         arms=answered, fingerprints=fingerprints, baseline=baseline,
@@ -452,6 +513,10 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                     calibration=built["D"]["calibration"]) if "D" in built else None),
         evict_donor=(dict(calibration=built["E"]["calibration"], source_id=donor_id)
                      if "E" in built else None),
+        v14=(dict(window_check=built["F"]["check"],
+                  calibration=built["F"]["calibration"]) if "F" in built else None),
+        v14_donor=(dict(calibration=built["G"]["calibration"], source_id=donor_id)
+                   if "G" in built else None),
         dropped_blocks=[int(block) for block in parts["dropped_blocks"]],
         selected_blocks=[int(block) for block in telemetry["selected_blocks"]],
         carrier_ages=[int(ages[block]) for block in picked])
@@ -481,13 +546,39 @@ def _count(rows, arm, threshold):
     return int(sum(1 for row in rows if gr._correct(row, arm, threshold)))
 
 
+def _neighbour_composition(samples, key):
+    """Per-row neighbour diagnostics of one arm's calibration record, aggregated.
+
+    This is the block V13 never had: without it, "the top-4 neighbours are all carriers"
+    is a hypothesis about the mechanism, not a measurement. `cross_weight_mass_mean` is
+    the one that catches a complement arm which selected two of each kind but let the
+    own-kind side keep all the weight.
+    """
+    reports = [(sample.get(key) or {}).get("calibration") or {} for sample in samples]
+    reports = [row.get("cross_context") for row in reports]
+    reports = [report for report in reports if report]
+    if not reports:
+        return None
+    fields = ("mode", "k", "neighbour_similarity_mean", "neighbour_block_spread_mean",
+              "context_rms", "neighbour_graft_fraction", "neighbour_type_cross_fraction",
+              "core_to_graft_neighbour_fraction", "graft_to_core_neighbour_fraction",
+              "cross_weight_mass_mean", "own_kind_weight_mass_mean")
+    summary = {field: _stats([report[field] for report in reports if field in report])
+               for field in fields if field not in ("mode", "k")}
+    summary["mode"] = sorted({str(report.get("mode")) for report in reports})
+    summary["k"] = sorted({int(report.get("k")) for report in reports if "k" in report})
+    summary["n"] = len(reports)
+    return summary
+
+
 def joint_compare(samples, threshold):
     graded = [sample for sample in samples if sample.get("status") == "graded"]
     located = [sample for sample in graded if sample.get("evidence", {}).get("located")]
     dropped = [sample for sample in located if _evidence_in_dropped(sample)]
     kept = [sample for sample in located if not _evidence_in_dropped(sample)]
     present = [arm for arm in ARMS if arm in graded[0]["arms"]]
-    controls = [arm for arm in (V11_DONOR, V11_EVICT, V11_EVICT_DONOR, GRAFT)
+    controls = [arm for arm in (V11_DONOR, V11_EVICT, V11_EVICT_DONOR, V14, V14_DONOR,
+                                GRAFT)
                 if arm in present]
 
     def block(rows):
@@ -500,18 +591,35 @@ def joint_compare(samples, threshold):
                         for arm in controls if arm in (V11_DONOR, V11_EVICT)},
             versus_v11evict={V11_EVICT_DONOR: er.pair_summary(
                 rows, V11_EVICT_DONOR, V11_EVICT, threshold)}
-            if V11_EVICT_DONOR in present else {})
+            if V11_EVICT_DONOR in present else {},
+            # The one comparison this round exists for: the same window, the same
+            # modules' training budget, only the neighbour source differs.
+            versus_v13=({V14: er.pair_summary(rows, V14, V11_EVICT, threshold)}
+                        if V14 in present else {}),
+            versus_v14={V14_DONOR: er.pair_summary(rows, V14_DONOR, V14, threshold)}
+            if V14_DONOR in present else {})
 
     merge_rows = [sample["v11"] for sample in graded]
     thresholds = dict(
         total=dict(target=62, baseline=_count(graded, ANCHOR_ONLY, threshold),
-                   achieved=_count(graded, V11, threshold)),
+                   achieved=_count(graded, V11, threshold),
+                   # `achieved` above keeps the V11 driver's meaning (the plain
+                   # calibration); the treatment counts live here so a V13/V14 run does
+                   # not silently report 61 as its own result.
+                   achieved_by_arm={arm: _count(graded, arm, threshold)
+                                    for arm in (V11, V11_EVICT, V14) if arm in present}),
         dropped_evidence=dict(target=19, n=len(dropped),
                               baseline=_count(dropped, ANCHOR_ONLY, threshold),
-                              achieved=_count(dropped, V11, threshold)),
+                              achieved=_count(dropped, V11, threshold),
+                              achieved_by_arm={arm: _count(dropped, arm, threshold)
+                                               for arm in (V11, V11_EVICT, V14)
+                                               if arm in present}),
         kept_evidence=dict(target=12, n=len(kept),
                            baseline=_count(kept, ANCHOR_ONLY, threshold),
-                           achieved=_count(kept, V11, threshold)),
+                           achieved=_count(kept, V11, threshold),
+                           achieved_by_arm={arm: _count(kept, arm, threshold)
+                                            for arm in (V11, V11_EVICT, V14)
+                                            if arm in present}),
         content_causality=dict(
             target=5,
             achieved=er.pair_summary(graded, V11, V11_DONOR, threshold).get("net")
@@ -524,18 +632,36 @@ def joint_compare(samples, threshold):
             target=5,
             achieved=er.pair_summary(graded, V11_EVICT, V11_EVICT_DONOR,
                                      threshold).get("net")
-            if V11_EVICT_DONOR in present else None))
+            if V11_EVICT_DONOR in present else None),
+        # V14's own three bars, stated before the run: complement over top-k, content
+        # causality, and a donor that must not win.
+        complement_over_topk=dict(
+            target=4,
+            achieved=er.pair_summary(graded, V14, V11_EVICT, threshold).get("net")
+            if V14 in present else None),
+        v14_content_causality=dict(
+            target=5,
+            achieved=er.pair_summary(graded, V14, V14_DONOR, threshold).get("net")
+            if V14_DONOR in present else None))
+
     return dict(
         definition=("the same 19-block window, the same nine carriers, the same 2,304 "
-                    "slots, the same 158 rows; the V11 arms move the selection rule, the "
-                    "fold and the calibration, and each control moves exactly one of "
-                    "them back"),
+                    "slots, the same 158 rows; each arm moves one variable: the "
+                    "selection rule, the capacity split, the calibration, the neighbour "
+                    "source, or whose content the graft slots hold"),
         arms_present=present,
         n=len(graded),
         arms={arm: gr._arm_summary(graded, arm, threshold) for arm in present},
         total=block(graded), dropped_evidence_group=block(dropped),
         kept_evidence_group=block(kept),
         damage={arm: ef._damage(graded, arm, threshold) for arm in present},
+        neighbour_composition=dict(
+            topk=_neighbour_composition(graded, "evict"),
+            complement=_neighbour_composition(graded, "v14"),
+            note="topk is V13's kind-blind top-4; complement is V14's 2 + 2. "
+                 "neighbour_type_cross_fraction is the share of selected neighbours "
+                 "from the other side of the core/graft divide, and cross_weight_mass "
+                 "is the share of context weight they received"),
         thresholds=thresholds,
         merge_health=dict(
             merged_pairs=_stats([row["merged_pairs"] for row in merge_rows]),
@@ -557,18 +683,21 @@ def joint_compare(samples, threshold):
 # ---------------------------------------------------------------------------
 # driver
 # ---------------------------------------------------------------------------
-def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry):
+def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
+                   v14_geometry=None):
     return dict(
-        experiment="9 (V13): does conditioning the calibration residual on sparse "
-                   "CROSS-BLOCK neighbours buy anything over a plain full-pool "
-                   "calibration, and is that gain carried by the real graft content?",
-        treatment=("the calibrator sees, for every slot, the k = 4 slots from OTHER "
-                   "blocks it is most associated with (reader key cosine, same-block "
-                   "masked), aggregated into a context vector that is injected into the "
-                   "residual bottleneck by a zero-initialised projection. The slot itself "
-                   "is never blended: the same bounded low-rank map moves it, with a "
-                   "tighter ceiling on carrier slots (0.15 x rms) than on graft slots "
-                   "(0.50 x rms)"),
+        experiment="10 (V14): does the SOURCE of the cross-block neighbours buy anything? "
+                   "Same window, same budget, same training as V13; only the rule that "
+                   "picks the 4 neighbours changes -- kind-blind top-k versus 2 of the "
+                   "query's own core/graft kind + 2 from the other side.",
+        treatment=("every slot is calibrated against a sparse set of OTHER blocks' slots: "
+                   "V13 takes the k = 4 most associated by reader-key cosine; V14 takes "
+                   "k_same = 2 of the query's own kind and k_cross = 2 from the other "
+                   "side of the core/graft divide, softmaxed per group with equal group "
+                   "mass. The context vector is injected into the residual bottleneck by "
+                   "a zero-initialised projection; the slot itself is never blended, and "
+                   "the same bounded low-rank map moves it, with a tighter ceiling on "
+                   "carrier slots (0.15 x rms) than on graft slots (0.50 x rms)"),
         task=task, data_dir=args.data_dir, arms=list(ARMS),
         window_blocks=args.window_blocks, target_blocks=args.target_blocks,
         block_tokens=BLOCK_TOKENS, slots_per_block=SLOTS_PER_BLOCK,
@@ -589,6 +718,15 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry):
                                         "from the previous row's document: the only "
                                         "thing that changes is whose content the "
                                         "calibrator is conditioned on"),
+            complement=dict(arm=V14, path=args.v14,
+                            sha256=sha(args.v14) if args.v14 else None,
+                            geometry=v14_geometry,
+                            definition="V13's window calibrated by the complement-mode "
+                                       "module: identical slots, identical graft "
+                                       "content, only the neighbour source differs"),
+            complement_donor=dict(arm=V14_DONOR,
+                                  definition="V14 on the donor window: the complement "
+                                             "arm's own content-causality control"),
             evict=dict(arm=V11_EVICT, path=args.v11_evict,
                        sha256=sha(args.v11_evict) if args.v11_evict else None,
                        geometry=evict_geometry,
@@ -612,12 +750,18 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry):
             calibration="both halves must move, and the RMS restore must hold",
             cross_block="the context must be built from other blocks: the neighbour "
                         "block spread is recorded per row",
-            donor="the donor arm's window must differ from the true one"),
+            donor="the donor arm's window must differ from the true one",
+            neighbour_source="--v14 must be complement mode and --v11-evict top-k mode "
+                             "with the same k, so the two arms differ in the neighbour "
+                             "source alone; V14's calibrated window must differ from "
+                             "V13's"),
         thresholds=dict(
             total="V11 >= 62/158 against 56", dropped_evidence="V11 >= 19/40 against 15",
             kept_evidence="V11 >= 12/34 against 13",
             damage="correct rows lost by Full <= 13",
-            content_causality="V11 - V11Donor >= 5 questions"),
+            content_causality="V11 - V11Donor >= 5 questions",
+            complement_over_topk="V14 - V13 >= 4 questions net",
+            v14_content_causality="V14 - V14Donor >= 5 questions"),
         screening_caveat=gr.SCREENING_CAVEAT, f1_threshold=args.f1_threshold,
         seed=args.seed, query=gr.QUERY_SUFFIX,
         scoring="official HotpotQA QA F1, F1 >= threshold is correct",
@@ -676,7 +820,8 @@ def evaluate(args):
             dry_run=True, out=args.out,
             counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
             arms=list(ARMS), readouts_per_sample=len(ARMS),
-            v11=args.v11, v11_evict=args.v11_evict), indent=2, ensure_ascii=False))
+            v11=args.v11, v11_evict=args.v11_evict, v14=args.v14), indent=2,
+            ensure_ascii=False))
         return None
     for flag, value, what in (("--checkpoint", args.checkpoint, "the frozen operator"),
                               ("--anchor", args.anchor, "the AnchorOnly module"),
@@ -719,13 +864,41 @@ def evaluate(args):
                          config=evict_config,
                          joint=joint_for(evict_geometry, scorer, probe_cache,
                                          manager.hidden))
+    v14 = None
+    if args.v14:
+        if v11_evict is None:
+            raise ValueError("--v14 needs --v11-evict: the top-k arm is the baseline the "
+                             "complement arm is measured against")
+        v14_module, v14_geometry, v14_config, _ = load_v11(args.v14, manager.hidden)
+        v14_module = v14_module.to(model.memory.device).float()
+        if not v14_geometry.get("cross"):
+            raise ValueError("--v14 is not a cross-block conditioned checkpoint")
+        if v14_module.neighbor_mode != "complement":
+            raise ValueError(f"--v14 carries neighbour mode "
+                             f"{v14_module.neighbor_mode!r}: a top-k checkpoint cannot "
+                             f"test the complement rule")
+        if v11_evict["module"].neighbor_mode != "topk":
+            raise ValueError("--v11-evict carries neighbour mode "
+                             f"{v11_evict['module'].neighbor_mode!r}: V13 and V14 must "
+                             f"differ in the neighbour rule, so the reference arm has to "
+                             f"be the kind-blind top-k one")
+        if int(v14_module.k_neighbors) != int(v11_evict["module"].k_neighbors):
+            raise ValueError(f"the two arms read {v14_module.k_neighbors} and "
+                             f"{v11_evict['module'].k_neighbors} neighbours: the "
+                             f"comparison has to hold k fixed")
+        for field in ("core_per_block", "graft_per_block", "utility_layers"):
+            if v14_geometry.get(field) != v11_evict["geometry"].get(field):
+                raise ValueError(f"--v14 and --v11-evict record different {field}: they "
+                                 f"cannot share one window")
+        v14 = dict(module=v14_module, geometry=v14_geometry, config=v14_config)
 
     rows, prepared, excluded = gr.prepare_rows(args, tokenizer, facts)
     report = dict(
         schema=SCHEMA_RESULTS, status="running",
         counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
         protocol=build_protocol(args, args.task, anchor_config, v11_geometry,
-                                v11_evict["geometry"] if v11_evict else None),
+                                v11_evict["geometry"] if v11_evict else None,
+                                v14["geometry"] if v14 else None),
         identity=dict(
             model_path=args.model_path, checkpoint=args.checkpoint,
             checkpoint_sha256=sha(args.checkpoint),
@@ -734,6 +907,8 @@ def evaluate(args):
             v11=args.v11, v11_sha256=sha(args.v11),
             v11_evict=args.v11_evict,
             v11_evict_sha256=sha(args.v11_evict) if args.v11_evict else None,
+            v14=args.v14,
+            v14_sha256=sha(args.v14) if args.v14 else None,
             data_dir=args.data_dir,
             data_sha256=sha(Path(args.data_dir) / (args.task + ".jsonl")),
             supporting_facts_glob=args.supporting_facts_glob,
@@ -785,7 +960,7 @@ def evaluate(args):
         reset(manager, initial)
         result, carried = run_sample(model, tokenizer, manager, merge, anchor_module,
                                      v11, v11_evict, sample, donor_graft,
-                                     donor_graft_evict, donor_id, args)
+                                     donor_graft_evict, donor_id, args, v14)
         # `donor_id` is the row whose graft slots this sample read; `carried["id"]` is
         # this sample. Comparing the carried id with the sample id compared a row with
         # itself and fired on every row.
@@ -820,7 +995,10 @@ def evaluate(args):
         arms={arm: round(report["summary"]["arms"][arm]["accuracy"], 2) for arm in ARMS},
         net={name: value.get("net") for name, value in
              dict(**report["summary"]["total"]["versus_anchor_only"],
-                  **report["summary"]["total"]["versus_v11"]).items()},
+                  **report["summary"]["total"]["versus_v11"],
+                  **report["summary"]["total"]["versus_v11evict"],
+                  **report["summary"]["total"]["versus_v13"],
+                  **report["summary"]["total"]["versus_v14"]).items()},
         thresholds=report["summary"]["thresholds"]),
         indent=1, ensure_ascii=False))
     return report
@@ -842,7 +1020,11 @@ def build_parser():
                         "--cross off): the V11Evict arm to beat")
     p.add_argument("--v11-evict", dest="v11_evict", default=None,
                    help="the cross-block conditioned checkpoint (trained with --cross "
-                        "on): the V13 arm")
+                        "on --neighbor-mode topk): the V13 arm")
+    p.add_argument("--v14", default=None,
+                   help="the complement-mode checkpoint (trained with --cross on "
+                        "--neighbor-mode complement --k-same 2 --k-cross 2): the V14 arm, "
+                        "which calibrates the SAME window as --v11-evict")
     p.add_argument("--out", default=None)
     p.add_argument("--cuda-device", default="0")
     p.add_argument("--window-blocks", dest="window_blocks", type=int,

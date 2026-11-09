@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Round 6: train the V11 joint architecture once, against the AnchorOnly baseline.
 
+V14 note: the module trained here is `cross_block_calibration.CrossBlockResidual`, and
+its neighbour rule is selected by `--neighbor-mode`. `topk` reproduces V13 exactly;
+`complement` (V14) asks every slot for `--k-same` neighbours of its own core/graft kind
+plus `--k-cross` from the other side, with equal per-group weight mass. Nothing else in
+this file differs between the two arms, so a V13-vs-V14 comparison moves one variable.
+
 The three mechanisms this project has arrived at are trained together, because
 separately each one has an obvious way to look like a failure and together they are
 where the capacity actually comes from:
@@ -82,8 +88,7 @@ from runtime import load_runtime, reset, tensor_digest    # noqa: E402
 from methods.prlmc.anchor_residual import SCHEMA as ANCHOR_SCHEMA   # noqa: E402
 from methods.prlmc.core_fusion import apply_delta         # noqa: E402
 from methods.prlmc.cross_block_calibration import (       # noqa: E402
-    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, conditions,
-    cross_block_context)
+    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, conditions)
 from methods.prlmc.evict_window import (                  # noqa: E402
     SCHEMA as JOINT_SCHEMA, QUOTA, JointConsolidation)
 
@@ -130,7 +135,10 @@ def build_module(args, hidden, anchor_state, anchor_config):
                               max_ratio=args.max_ratio, gate_init=args.gate_init,
                               cond_rank=args.cond_rank,
                               use_cross=(args.cross == "on"),
-                              k_neighbors=args.k_neighbors, kv_dim=args.kv_dim,
+                              k_neighbors=args.k_neighbors,
+                              neighbor_mode=args.neighbor_mode,
+                              k_same=args.k_same, k_cross=args.k_cross,
+                              kv_dim=args.kv_dim,
                               max_ratio_core=args.max_ratio_core,
                               core_weight=args.core_weight,
                               graft_weight=args.graft_weight)
@@ -166,7 +174,9 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
     [layers, slots, hidden] tensor to float32 twice over.
     """
     cond = conditions(meta, window.shape[1])
-    context = (cross_block_context(window, meta, module.k_neighbors)
+    # The module owns its neighbour rule: V13 (topk) and V14 (complement) differ in
+    # nothing else, so this call site must not hard-code k or the mode.
+    context = (module.neighbours(window, meta)
                if getattr(module, "use_cross", False) else None)
     # Preallocated and filled slice by slice. `torch.cat(pieces)` needs the whole
     # 32-layer output twice alive at once (the list and the concatenation), which at
@@ -350,6 +360,15 @@ def module_report(args, rank, hidden, anchor_path, anchor_config):
         trainable_parameters=int(4 * rank * hidden + 2 * rank * args.cond_rank
                                  + 3 * args.cond_rank + 3),
         conditions=["delta_position", "log_cluster_size", "is_graft"],
+        neighbour=dict(mode=args.neighbor_mode, k=args.k_neighbors,
+                       k_same=(args.k_same if args.neighbor_mode == "complement" else None),
+                       k_cross=(args.k_cross if args.neighbor_mode == "complement"
+                                else None),
+                       use_cross=(args.cross == "on"),
+                       note="topk asks for the k most associated cross-block slots, "
+                            "kind-blind (V13); complement asks for k_same of the "
+                            "query's own core/graft kind and k_cross from the other "
+                            "side, with equal per-group weight mass (V14)"),
         initialisation=dict(
             graft_half="copied from the AnchorOnly checkpoint, so the measured "
                        "calibration is the starting point rather than a target",
@@ -398,6 +417,17 @@ def train(args):
                               ("--anchor", args.anchor, "the AnchorOnly checkpoint")):
         if not value or not Path(value).is_file():
             raise SystemExit(f"this run needs {what}: pass {flag}")
+    # V13 and V14 may differ in the neighbour rule and nothing else, so the rule is
+    # validated here rather than discovered at the end of a seven-hour run.
+    if args.neighbor_mode == "complement":
+        if int(args.k_same) + int(args.k_cross) != int(args.k_neighbors):
+            raise SystemExit(f"--neighbor-mode complement reads k = k_same + k_cross: "
+                             f"{args.k_same} + {args.k_cross} != {args.k_neighbors}")
+    elif args.cross == "on" and (int(args.k_same), int(args.k_cross)) != (2, 2):
+        raise SystemExit("--k-same/--k-cross only apply to --neighbor-mode complement")
+    if args.cross == "off" and args.neighbor_mode != "topk":
+        raise SystemExit("--cross off has no neighbour rule at all: pass "
+                         "--neighbor-mode topk")
     if Path(args.out).exists():
         raise SystemExit(f"{args.out} exists; refuse overwrite")
     from transformers import AutoTokenizer
@@ -657,9 +687,12 @@ def train(args):
                     # loader defaults to use_cross=True and a --cross off checkpoint
                     # cannot be loaded at all
                     use_cross=(args.cross == "on"), k_neighbors=args.k_neighbors,
+                    neighbor_mode=args.neighbor_mode, k_same=args.k_same,
+                    k_cross=args.k_cross,
                     kv_dim=args.kv_dim, max_ratio_core=args.max_ratio_core,
                     core_weight=args.core_weight, graft_weight=args.graft_weight),
-        geometry=dict(cross=(args.cross == "on"), core_per_block=args.core_per_block,
+        geometry=dict(cross=(args.cross == "on"), neighbor_mode=args.neighbor_mode,
+                      core_per_block=args.core_per_block,
                       graft_per_block=args.graft_per_block,
                       key_threshold=args.key_threshold,
                       value_threshold=args.value_threshold,
@@ -736,7 +769,20 @@ def build_parser():
                    help="learning rate for `cross_proj` alone, the zero-initialised "
                         "projection that carries the cross-block context")
     p.add_argument("--k-neighbors", dest="k_neighbors", type=int, default=4,
-                   help="sparse cross-block neighbours per slot")
+                   help="sparse cross-block neighbours per slot (k_same + k_cross in "
+                        "complement mode)")
+    p.add_argument("--neighbor-mode", dest="neighbor_mode", default="topk",
+                   choices=("topk", "complement"),
+                   help="'topk' (V13) asks for the k most associated cross-block slots, "
+                        "kind-blind; 'complement' (V14) asks for k_same slots of the "
+                        "query's own core/graft kind plus k_cross from the other side, "
+                        "with equal per-group weight mass. Nothing else differs between "
+                        "the two arms")
+    p.add_argument("--k-same", dest="k_same", type=int, default=2,
+                   help="complement mode: neighbours of the query's own kind")
+    p.add_argument("--k-cross", dest="k_cross", type=int, default=2,
+                   help="complement mode: neighbours from the other side of the "
+                        "core/graft divide")
     p.add_argument("--kv-dim", dest="kv_dim", type=int, default=5120,
                    help="width of the reader key/value representation the context lives "
                         "in: utility_layers x kv_heads x head_dim")

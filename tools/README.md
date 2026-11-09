@@ -27,8 +27,8 @@
 | `test_key_safe.py` | Key-Safe 合并的数学检查（CPU，18 项）：正交基、零空间、保范、初始逐位一致、实测 key/value 变化、LoRA 折叠与错误折叠拒绝 |
 | `randomize_compaction.py` | 实验 2 的随机对照：同结构、同残差幅度、不训练，用来排除"随便扰动就有用" |
 | `eval_counterfactual_candidates.py` | 实验 2 反事实消融：候选槽位换成另一篇文档的，不重训，五臂同进程（Full / Selection / Graft / Fusion / Counterfactual） |
-| `train_cross_block_calibration.py` | 实验 9（V13）训练端：`--cross on` 训跨块条件化校准器（V13），`--cross off` 训同模块去掉条件项（V11Evict 校准器）；CE + 反事实 hinge + 保护 KL + 非对称残差正则 |
-| `eval_cross_block_calibration.py` | 实验 9（V13）：八臂同进程（Full / Selection / Graft / AnchorOnly / V11Evict / V11EvictDonor / V13 / V13Donor），逐题配对、三个子集、损伤、跨块邻居诊断 |
+| `train_cross_block_calibration.py` | 实验 9/10（V13/V14）训练端：`--cross on` 训跨块条件化校准器（V13），`--neighbor-mode complement` 换互补邻居（V14），`--cross off` 训同模块去掉条件项（V11Evict 校准器）；CE + 反事实 hinge + 保护 KL + 非对称残差正则 |
+| `eval_cross_block_calibration.py` | 实验 9/10（V13/V14）：十臂同进程（Full / Selection / Graft / AnchorOnly / V11Evict / V11EvictDonor / V13 / V13Donor / V14 / V14Donor），逐题配对、三个子集、损伤、跨块邻居诊断（含 core↔graft 来源比例） |
 | `probe_compaction_sensitivity.py` | 实验 2 机制探针：把候选 → context → raw → 残差 → 窗口的衰减逐级量出来（不跑 reader 生成） |
 
 `v9_geometry_50block.py` 的文件名是历史遗留：`methods/prlmc/consolidate.py` 被 checkpoint 哈希锁定，
@@ -650,3 +650,29 @@ python tools/eval_cross_block_calibration.py   --data-dir /data/.../LongBench/ex
 三条判定线必须同时成立：`V13 ≥ V11Evict + 5`（跨块交互本身有价值）、
 `V13 ≥ V13Donor + 5`（收益依赖真实内容）、损伤不超过基线。
 驱动还会记录每行的跨块邻居块分布：上下文若只来自同块，那是 bug。
+
+## 实验 10（V14）：互补关系感知的跨块校准
+
+窗口、预算、容量分配、校准器结构、损失、更新数、cross 学习率全部与 V13 逐项相同，
+只改**邻居从哪来**：`topk` 是全部跨块里 Key 余弦 top-4（不看槽位类型，V13），
+`complement` 是同类 Top-2 + 异类 Top-2（跨 core/graft 两侧各 2），每组单独 softmax、
+组权重等分，异类那侧不会因为相似度天然更低而被饿成 0。
+
+```bash
+# 训练（与 V13 的 cross_lr 配置同超参，只多邻居规则）
+python tools/train_cross_block_calibration.py --cross on --cross-lr 3e-3 --neighbor-mode complement --k-same 2 --k-cross 2 --updates 384   --data-dir /data/.../LongBench/extracted/data --train-task musique   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --out runs/cross_block/complement.pt --report runs/cross_block/complement.json
+
+# 评测（十臂同进程；V13 与 V14 校准同一个窗口，只差邻居规则）
+python tools/eval_cross_block_calibration.py   --data-dir /data/.../LongBench/extracted/data --task hotpotqa   --supporting-facts-glob '/data/.../hotpot_qa/distractor/validation-*.parquet'   --model-path /dev/shm/s1d_reader_fp16   --checkpoint runs/natural_merge_v9/full_v10.pt   --anchor runs/anchor_residual/anchor_only_rank64.pt   --v11 runs/cross_block/plain.pt   --v11-evict runs/cross_block/cross_lr.pt   --v14 runs/cross_block/complement.pt   --verify-against reports/anchor_fusion/eval_anchor_fusion_hotpotqa.json   --cuda-device 0 --out reports/cross_block/eval_v14.json
+```
+
+驱动硬校验：`--v14` 必须是 `complement` 模式、`--v11-evict` 必须是 `topk` 模式且两边 `k` 相同、
+两个 checkpoint 的配额与效用层一致（共用同一个窗口），V14 校准后的窗口必须与 V13 不同
+（一样就说明规则没生效，不许当"没涨点"），V14 的 donor 臂必须存在。
+
+新增诊断（V13 缺的那一项）：`neighbour_type_cross_fraction`、
+`core_to_graft_neighbour_fraction`、`graft_to_core_neighbour_fraction`、
+`cross_weight_mass_mean`（异类邻居实际拿到的权重份额，用来识别"选了异类但权重被同类吃掉"）。
+
+判定线：`V14 − V13 ≥ +4`、`V14 − V14Donor ≥ +5`、损伤不明显高于 V13 的 12。设计见
+[docs/05-method-v14.md](../docs/05-method-v14.md)。

@@ -1,4 +1,4 @@
-"""V13: cross-block conditioned calibration of every slot in the 2,304-slot window.
+"""V13/V14: cross-block conditioned calibration of every slot in the 2,304-slot window.
 
 What is new relative to V11Evict
 --------------------------------
@@ -40,6 +40,35 @@ and the trainer's residual regulariser weights the two halves differently
 (`core_weight = 2.0`, `graft_weight = 0.5`). Both are soft: a core slot can still move
 up to 15% of its own RMS, which is more than the 0 change a hard key lock allowed.
 
+V14: where the neighbours come from
+-----------------------------------
+V13 asks every slot for its k most associated cross-block slots and does not care what
+kind they are. That is a gap, and it is measurable: the report records, per row,
+`neighbour_type_cross_fraction` -- the share of the selected neighbours whose core/graft
+kind differs from the query's. The 684 graft slots are the only slots that carry content
+the carriers lost, so a carrier whose top-4 neighbours are all carriers is calibrated
+against retained knowledge only, and the new knowledge it has to be read alongside never
+reaches its context.
+
+`mode="complement"` therefore builds the neighbour set from BOTH sides of that divide:
+
+    k_same  = 2 slots of the query's own kind
+    k_cross = 2 slots from the other side (a carrier sees graft slots, graft sees carriers)
+    same-block is still masked, and the total is still k = 4
+
+The four weights are one softmax PER GROUP, with the group masses split evenly
+(k_same/k and k_cross/k). Even splitting is deliberate rather than a detail: a single
+softmax over the four would let the own-kind similarities, which are systematically the
+higher ones, starve the complement side towards zero weight, and the arm would silently
+degenerate into "top-2 of my own kind". `cross_weight_mass_mean` in the context report
+says whether that happened. Whether the complement side then BUYS anything is the arm's
+question, not this file's: V14 must beat V13 (67/158) by a margin worth the change, and
+must still lose to its own donor arm.
+
+Nothing else changes between V13 and V14 -- same window, same budget, same 1,620 / 684
+split, same rank, ceilings, regulariser, loss, updates and cross learning rate. The only
+variable is which slots the context is built from.
+
 What is NOT claimed here
 ------------------------
 The sparse association is a proxy for "these two slots belong to the same fact". It is
@@ -57,6 +86,9 @@ from methods.prlmc.core_fusion import apply_delta
 
 SCHEMA = "cross_block_residual/1"
 DEFAULT_KV_DIM = 5 * 8 * 128  # 5 utility layers x 8 kv heads x 128
+# "topk"       V13: the k most associated cross-block slots, kind-blind
+# "complement" V14: k_same of the query's own kind + k_cross from the other kind
+NEIGHBOUR_MODES = ("topk", "complement")
 
 
 def conditions(meta, window_slots):
@@ -75,18 +107,51 @@ def conditions(meta, window_slots):
     ], dim=-1).to(torch.float32)
 
 
+def _neighbour_groups(mode, k, k_same, k_cross, slots):
+    """`[(kind, how many)]` and the per-group weight masses; `kind` is None for topk."""
+    if mode not in NEIGHBOUR_MODES:
+        raise ValueError(f"unknown neighbour mode {mode!r}: expected one of "
+                         f"{NEIGHBOUR_MODES}")
+    if mode == "topk":
+        wanted = [(None, int(k))]
+    else:
+        if int(k_same) < 0 or int(k_cross) < 0:
+            raise ValueError("k_same and k_cross must not be negative")
+        if int(k_same) + int(k_cross) != int(k):
+            raise ValueError(f"complement neighbours read k = k_same + k_cross, but "
+                             f"{k_same} + {k_cross} != {k}")
+        wanted = [("same", int(k_same)), ("cross", int(k_cross))]
+    wanted = [(kind, count) for kind, count in wanted if count > 0]
+    if not wanted:
+        raise ValueError("the neighbour set is empty: k must be positive")
+    limited = [(kind, min(count, slots - 1)) for kind, count in wanted]
+    if any(count <= 0 for _, count in limited):
+        raise ValueError("the window is too short for a cross-block neighbour set")
+    total = sum(count for _, count in limited)
+    return limited, [count / total for _, count in limited]
+
+
 @torch.no_grad()
-def cross_block_context(window, meta, k=4, chunk=256, return_report=False):
+def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
+                        mode="topk", k_same=2, k_cross=2):
     """Sparse cross-block neighbours of every slot, `[slots, key_dim]` float32.
 
     Keys and values come from the reader's own projections on the window it will read
     (`ReaderScorer.reading(..., probes=None)`), so the association is measured in the
     space the reader uses, at the positions the slots will actually occupy.
 
+    `mode="topk"` (V13): the k most associated slots from other blocks, whatever kind
+    they are. `mode="complement"` (V14): k_same slots of the query's own core/graft kind
+    plus k_cross from the other side, so every slot is calibrated against both retained
+    knowledge and the new knowledge it has to be read alongside. Each group is softmaxed
+    separately and the group masses are equal, so the complement side cannot be starved
+    by the systematically higher own-kind similarities.
+
     Nothing is averaged into the slot: the returned context is an extra input to the
     residual. Same-block neighbours are masked, so every context row is built from
     other blocks by construction -- that mask is what makes this cross-block at all.
     """
+    groups, masses = _neighbour_groups(mode, k, k_same, k_cross, int(window.shape[1]))
     scorer = meta.get("scorer")
     if scorer is None:
         raise ValueError("the metadata carries no reader scorer: the cross-block context "
@@ -95,31 +160,67 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False):
     reading, _ = scorer.reading(window, torch.arange(slots, device=window.device), None)
     key, value = reading.key.float(), reading.value.float()
     block = meta["source_block"]
-    keep = min(int(k), slots - 1)
+    kind = (meta["slot_type"] > 0.5).to(torch.bool)  # True carries new content (graft)
     rows, used_similarity, distinct = [], [], []
+    similarity_out, weight_cross, graft_neighbour, query_graft = [], [], [], []
     for start in range(0, slots, chunk):
         stop = min(start + chunk, slots)
         similarity = key[start:stop] @ key.t()
         same = block[start:stop].unsqueeze(1) == block.unsqueeze(0)
         similarity = similarity.masked_fill(same, -2.0)
-        best = similarity.topk(keep, dim=-1)
-        weights = torch.softmax(best.values, dim=-1)
-        gathered = value.index_select(0, best.indices.reshape(-1)).reshape(
-            stop - start, keep, -1)
+        same_kind = kind[start:stop].unsqueeze(1) == kind.unsqueeze(0)
+        picks, scales = [], []
+        for (name, count), mass in zip(groups, masses):
+            masked = similarity
+            if name == "same":
+                masked = similarity.masked_fill(~same_kind, -2.0)
+            elif name == "cross":
+                masked = similarity.masked_fill(same_kind, -2.0)
+            best = masked.topk(count, dim=-1)
+            picks.append(best.indices)
+            scales.append(torch.softmax(best.values, dim=-1) * mass)
+            used_similarity.append(best.values.mean(dim=-1))
+        index = torch.cat(picks, dim=-1)                # [rows, K]
+        weights = torch.cat(scales, dim=-1)             # [rows, K], one softmax per group
+        gathered = value.index_select(0, index.reshape(-1)).reshape(
+            stop - start, index.shape[-1], -1)
         rows.append((gathered * weights.unsqueeze(-1)).sum(dim=1))
-        used_similarity.append(best.values.mean(dim=-1))
-        distinct.append((block.index_select(0, best.indices.reshape(-1))
-                         .reshape(stop - start, keep).float().std(dim=-1)))
-        del similarity, same, best, gathered
+        distinct.append(block.index_select(0, index.reshape(-1))
+                        .reshape(stop - start, index.shape[-1]).float().std(dim=-1))
+        # Composition of the neighbour set, which is the number V13 never reported:
+        # how much of the context comes from the other side of the core/graft divide.
+        neighbour_graft = kind.index_select(0, index.reshape(-1)).reshape(index.shape)
+        graft_neighbour.append(neighbour_graft.float().mean(dim=-1))
+        query_graft.append(kind[start:stop])
+        cross = (neighbour_graft != kind[start:stop].unsqueeze(1)).float()
+        similarity_out.append(cross.mean(dim=-1))
+        weight_cross.append((weights * cross).sum(dim=-1))
+        del similarity, same, same_kind, picks, scales, masked, index, weights, gathered
     context = torch.cat(rows, dim=0)
     if not return_report:
         return context
-    similarity_all = torch.cat(used_similarity, dim=0)
-    report = dict(k=keep, key_dim=int(key.shape[-1]),
-                  neighbour_similarity_mean=float(similarity_all.mean()),
-                  neighbour_similarity_min=float(similarity_all.min()),
+    used = torch.cat(used_similarity, dim=0)
+    cross_each = torch.cat(similarity_out, dim=0)
+    cross_mass = torch.cat(weight_cross, dim=0)
+    graft_neighbour = torch.cat(graft_neighbour, dim=0)
+    is_graft = torch.cat(query_graft, dim=0)
+
+    def _mean(values):
+        return float(values.mean()) if int(values.numel()) else None
+
+    report = dict(mode=mode, k=sum(count for _, count in groups), key_dim=int(key.shape[-1]),
+                  k_same=groups[0][1] if mode == "complement" else None,
+                  k_cross=groups[-1][1] if mode == "complement" else None,
+                  neighbour_similarity_mean=_mean(used),
+                  neighbour_similarity_min=float(used.min()),
                   neighbour_block_spread_mean=float(torch.cat(distinct, dim=0).mean()),
-                  context_rms=float(context.square().mean().sqrt()))
+                  context_rms=float(context.square().mean().sqrt()),
+                  neighbour_graft_fraction=_mean(graft_neighbour),
+                  neighbour_type_cross_fraction=_mean(cross_each),
+                  core_to_graft_neighbour_fraction=_mean(cross_each[~is_graft]),
+                  graft_to_core_neighbour_fraction=_mean(cross_each[is_graft]),
+                  cross_weight_mass_mean=_mean(cross_mass),
+                  own_kind_weight_mass_mean=_mean(1.0 - cross_mass))
     return context, report
 
 
@@ -137,6 +238,7 @@ class CrossBlockResidual(nn.Module):
 
     def __init__(self, hidden_size=4096, rank=64, max_ratio=0.5, gate_init=0.0,
                  cond_size=3, cond_rank=32, use_cross=True, k_neighbors=4,
+                 neighbor_mode="topk", k_same=2, k_cross=2,
                  kv_dim=DEFAULT_KV_DIM, max_ratio_core=0.15, core_weight=2.0,
                  graft_weight=0.5):
         super().__init__()
@@ -144,6 +246,12 @@ class CrossBlockResidual(nn.Module):
             raise ValueError("rank and hidden_size must be positive")
         if max_ratio_core > max_ratio:
             raise ValueError("the core ceiling must not exceed the graft ceiling")
+        if neighbor_mode not in NEIGHBOUR_MODES:
+            raise ValueError(f"unknown neighbour mode {neighbor_mode!r}: expected one of "
+                             f"{NEIGHBOUR_MODES}")
+        if neighbor_mode == "complement" and int(k_same) + int(k_cross) != int(k_neighbors):
+            raise ValueError(f"complement neighbours read k = k_same + k_cross, but "
+                             f"{k_same} + {k_cross} != {k_neighbors}")
         self.hidden_size = int(hidden_size)
         self.rank = int(rank)
         self.max_ratio = float(max_ratio)
@@ -152,6 +260,9 @@ class CrossBlockResidual(nn.Module):
         self.cond_rank = int(cond_rank)
         self.use_cross = bool(use_cross)
         self.k_neighbors = int(k_neighbors)
+        self.neighbor_mode = str(neighbor_mode)
+        self.k_same = int(k_same)
+        self.k_cross = int(k_cross)
         self.kv_dim = int(kv_dim)
         self.core_weight = float(core_weight)
         self.graft_weight = float(graft_weight)
@@ -175,9 +286,25 @@ class CrossBlockResidual(nn.Module):
         return dict(hidden_size=self.hidden_size, rank=self.rank,
                     max_ratio=self.max_ratio, cond_size=self.cond_size,
                     cond_rank=self.cond_rank, use_cross=self.use_cross,
-                    k_neighbors=self.k_neighbors, kv_dim=self.kv_dim,
+                    k_neighbors=self.k_neighbors, neighbor_mode=self.neighbor_mode,
+                    k_same=self.k_same, k_cross=self.k_cross, kv_dim=self.kv_dim,
                     max_ratio_core=self.max_ratio_core, core_weight=self.core_weight,
                     graft_weight=self.graft_weight)
+
+    def neighbours(self, window, meta, return_report=False):
+        """This module's own neighbour rule -- the one place that knows it.
+
+        Callers must not build the context themselves: a V13 checkpoint and a V14
+        checkpoint differ in nothing but this rule, so a call site that hard-codes
+        `k_neighbors` or the mode would silently evaluate the wrong arm.
+        """
+        if not self.use_cross:
+            if return_report:
+                return None, None
+            return None
+        return cross_block_context(
+            window, meta, k=self.k_neighbors, return_report=return_report,
+            mode=self.neighbor_mode, k_same=self.k_same, k_cross=self.k_cross)
 
     def anchor_view(self):
         """`AnchorResidual` carrying this module's graft parameters.
@@ -281,8 +408,7 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
     """
     cond = conditions(meta, window.shape[1])
     if module.use_cross and context is None:
-        context, context_report = cross_block_context(window, meta, module.k_neighbors,
-                                                      return_report=True)
+        context, context_report = module.neighbours(window, meta, return_report=True)
     else:
         context_report = None
     pieces = []
@@ -312,6 +438,8 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
         core_relative_delta=(per_type[0][0] / max(per_type[0][1], 1e-24)) ** 0.5,
         graft_relative_delta=(per_type[1][0] / max(per_type[1][1], 1e-24)) ** 0.5,
         use_cross=bool(module.use_cross),
+        neighbor_mode=(module.neighbor_mode if module.use_cross else None),
+        k_neighbors=(module.k_neighbors if module.use_cross else None),
         cross_proj_norm=float(module.cross_proj.weight.detach().float().norm())
         if module.use_cross else None,
         gate=float(torch.sigmoid(module.gate_logit.detach().float())))
