@@ -13,6 +13,11 @@
                       core/graft kind + 2 from the other side
     V14Donor          V14, graft slots taken from ANOTHER document
 
+    V13Permuted<seed> inference-time attribution arm (one per `--v13-permute-seeds`
+                      seed): V13's own window, weights and self-calibration branch, with
+                      the precomputed cross-block context rows shuffled inside
+                      (source_block, slot_type). No retraining, no re-selection.
+
 V13 and V14 read the IDENTICAL window: `built["D"]`'s window is calibrated twice, by two
 modules -- same 2,304 slots, same 1,620 / 684 split, same graft content, same rank,
 ceilings, regulariser, loss, updates, cross learning rate and initialisation. The only
@@ -30,6 +35,15 @@ The questions, in the order they have to be answered
    are reported unchanged, so this run re-answers the earlier tests too.
 3. Damage on the rows the uncompressed window already answers must not grow: a mechanism
    that buys questions by losing others is a redistribution, not a gain.
+
+The permutation arms answer a different question: does V13's gain depend on WHICH slot
+receives WHICH neighbour context, or would any context of the same provenance do? The
+context is permuted AFTER it is computed, inside (source_block, slot_type) groups, so the
+marginal distribution -- neighbour count, similarity range, block spread, context RMS --
+is preserved and only the pairing is destroyed. Recorded for them: total correct, how many
+of the rows V13 newly rescued over the plain calibration come back wrong, the damage on
+Full's 47 protected rows, and the fraction of slots whose context actually moved (a
+permutation that moved nothing is refused, not reported as "no effect").
 
 The composition V13 never reported is now recorded per row, for every cross arm:
 `neighbour_type_cross_fraction` (share of the selected neighbours from the other side of
@@ -102,7 +116,7 @@ from methods.prlmc.anchor_residual import (               # noqa: E402
     SCHEMA as ANCHOR_SCHEMA, AnchorResidual,
     compact_window as compact_window_anchor)
 from methods.prlmc.cross_block_calibration import (       # noqa: E402
-    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, calibrate)
+    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, calibrate, permute_context)
 from methods.prlmc.evict_window import (                  # noqa: E402
     SCHEMA as JOINT_SCHEMA, JointConsolidation)
 
@@ -131,6 +145,24 @@ V14 = "V14"
 V14_DONOR = "V14Donor"
 ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, V11, V11_DONOR, V11_EVICT, V11_EVICT_DONOR,
         V14, V14_DONOR)
+# Inference-time attribution arms for V13's cross-block correspondence: same window, same
+# module, same self-calibration branch, context rows shuffled inside (source_block,
+# slot_type). They are named after their seed and appended to `ARMS` at run time.
+PERMUTE_PREFIX = "V13Permuted"
+
+
+def permute_arm(seed):
+    return f"{PERMUTE_PREFIX}{int(seed)}"
+
+
+def parse_seeds(raw):
+    """`--v13-permute-seeds 0,1,2` -> [0, 1, 2]; empty means the arms are not built."""
+    if not raw:
+        return []
+    seeds = [int(part) for part in str(raw).replace(" ", "").split(",") if part != ""]
+    if len(set(seeds)) != len(seeds):
+        raise ValueError(f"--v13-permute-seeds repeats a seed: {raw}")
+    return seeds
 # The baseline quota, which is what the reference report's arms were built at.
 BASELINE_QUOTA = dict(core_per_block=216, graft_per_block=40)
 CORE_TOTAL = 9 * 180
@@ -418,6 +450,35 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
             windows[V11_EVICT] = built["D"]["calibrated"]
         if "E" in built:
             windows[V11_EVICT_DONOR] = built["E"]["calibrated"]
+        # Permutation arms: the SAME window, the SAME trained module and the SAME
+        # self-calibration branch as arm D; only the mapping slot -> context row is
+        # shuffled, inside (source_block, slot_type) groups so the batch a slot draws
+        # from is untouched. Nothing is retrained and nothing is re-selected.
+        permuted_arms = {}
+        seeds = list(getattr(args, "permute_seeds", []) or [])
+        if seeds:
+            if "D" not in built or v11_evict is None:
+                raise ValueError("the permutation arms need the V13 window and module")
+            base_context, _ = v11_evict["module"].neighbours(built["D"]["window"],
+                                                             built["D"]["meta"],
+                                                             return_report=True)
+            for seed in seeds:
+                arm = permute_arm(seed)
+                moved, move_info = permute_context(base_context, built["D"]["meta"], seed)
+                if torch.equal(moved, base_context):
+                    raise ValueError(f"{arm}: the permutation left every context row in "
+                                     f"place, so this arm is arm D under another name")
+                arm_window, arm_info = calibrate(built["D"]["window"], built["D"]["meta"],
+                                                 v11_evict["module"], context=moved)
+                built[arm] = dict(window=built["D"]["window"], calibrated=arm_window,
+                                  check=built["D"]["check"],
+                                  calibration=check_calibration(
+                                      arm_window, built["D"]["window"], built["D"]["meta"],
+                                      arm_info, arm))
+                permuted_arms[arm] = move_info["moved_fraction"]
+                windows[arm] = built[arm]["calibrated"]
+                del moved, arm_window
+            del base_context
         # Arms F and G: the SAME windows as D and E, calibrated by the complement-mode
         # module. Both modules see the identical slot vectors, so the difference between
         # V13 and V14 is the neighbour rule and nothing else -- not the window, not the
@@ -457,9 +518,12 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
             fingerprints[arm + "/slots"] = int(manager.used)
         return run
 
+    # The permutation arms are named after their seed and are not in ARMS; every arm that
+    # has a window must still be read out, or the arm silently disappears from the table.
+    ordered = list(ARMS) + [arm for arm in windows if arm not in ARMS]
     answered = {arm: gr.readout(model, tokenizer, prepared["query_ids"], answers,
                                 args.f1_threshold, prepare(arm))
-                for arm in ARMS if arm in windows or arm in (FULL, SELECTION)}
+                for arm in ordered if arm in windows or arm in (FULL, SELECTION)}
     gr.restore(model, manager, state)
 
     if int(fingerprints[FULL + "/slots"]) != args.window_blocks * manager.block:
@@ -468,7 +532,7 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
         if arm in (FULL, SELECTION):
             continue
         if arm not in windows:
-            if arm in (V11_DONOR, V14, V14_DONOR):
+            if arm in (V11_DONOR, V14, V14_DONOR) or arm.startswith(PERMUTE_PREFIX):
                 # A run without the donor document (or without --v14) has no such arm;
                 # it is simply not answered, and `arms_present` records that.
                 continue
@@ -502,6 +566,12 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
     if V14_DONOR in windows and fingerprints[V14] == fingerprints[V14_DONOR]:
         raise ValueError("V14's donor arm reads the same pool as V14: the swap did not "
                          "reach the memory")
+    for arm in permuted_arms:
+        if fingerprints[V11_EVICT] == fingerprints[arm]:
+            raise ValueError(f"{arm} reads the same pool as V13: the permutation changed "
+                             f"no answer, which is not the same as it changing no slot")
+        if int(fingerprints[arm + "/slots"]) != TARGET_SLOTS:
+            raise ValueError(f"{arm} does not hold the {TARGET_SLOTS}-slot budget")
 
     record = dict(
         arms=answered, fingerprints=fingerprints, baseline=baseline,
@@ -517,6 +587,9 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                   calibration=built["F"]["calibration"]) if "F" in built else None),
         v14_donor=(dict(calibration=built["G"]["calibration"], source_id=donor_id)
                    if "G" in built else None),
+        permutation={arm: dict(calibration=built[arm]["calibration"],
+                               moved_fraction=moved)
+                     for arm, moved in permuted_arms.items()} or None,
         dropped_blocks=[int(block) for block in parts["dropped_blocks"]],
         selected_blocks=[int(block) for block in telemetry["selected_blocks"]],
         carrier_ages=[int(ages[block]) for block in picked])
@@ -571,14 +644,84 @@ def _neighbour_composition(samples, key):
     return summary
 
 
+def permutation_report(graded, threshold, seeds):
+    """The three numbers the permutation test exists to produce, per seed.
+
+    `rescued_by_v13`  rows V13 answers and the plain calibration does not;
+    `then_lost`       of those, the rows the permuted arm answers WRONG -- the direct
+                      question "does V13's gain survive when the pairing is destroyed";
+    `damage`          rows Full answers that the permuted arm does not, which is where a
+                      redistribution would show up.
+    """
+    paired = [sample for sample in graded
+              if V11 in sample.get("arms", {}) and V11_EVICT in sample.get("arms", {})]
+
+    def correct(sample, arm):
+        return gr._correct(sample, arm, threshold)
+
+    rescued = [sample for sample in paired if correct(sample, V11_EVICT)
+               and not correct(sample, V11)]
+    arms = {}
+    for seed in seeds:
+        arm = permute_arm(seed)
+        rows = [sample for sample in paired if arm in sample.get("arms", {})]
+        if not rows:
+            continue
+        moved = [sample["permutation"][arm]["moved_fraction"] for sample in rows
+                 if sample.get("permutation") and arm in sample["permutation"]]
+        arms[arm] = dict(
+            seed=int(seed),
+            correct=int(sum(1 for sample in rows if correct(sample, arm))),
+            accuracy=round(100.0 * sum(1 for sample in rows if correct(sample, arm))
+                           / len(rows), 2),
+            versus_v13=er.pair_summary(rows, arm, V11_EVICT, threshold),
+            versus_plain=er.pair_summary(rows, arm, V11, threshold),
+            rescued_by_v13=len(rescued),
+            rescued_by_v13_then_lost=int(sum(1 for sample in rescued
+                                             if not correct(sample, arm))),
+            changed_answers=int(sum(1 for sample in rows
+                                    if sample["arms"][arm]["prediction"]
+                                    != sample["arms"][V11_EVICT]["prediction"])),
+            damage=ef._damage(rows, arm, threshold),
+            context_moved_fraction=_stats(moved),
+            calibration=dict(
+                core_relative_delta=_stats([
+                    sample["permutation"][arm]["calibration"]["core_relative_delta"]
+                    for sample in rows]),
+                graft_relative_delta=_stats([
+                    sample["permutation"][arm]["calibration"]["graft_relative_delta"]
+                    for sample in rows])))
+    return dict(
+        definition=("inference-time only: the trained V13 module, its weights, the window "
+                    "and the self-calibration branch are unchanged; the precomputed "
+                    "cross-block context rows are shuffled inside (source_block, "
+                    "slot_type) groups, so every slot draws from the same batch of "
+                    "contexts as before and only WHICH row it receives changes"),
+        seeds=[int(seed) for seed in seeds], arms=arms,
+        original=dict(arm=V11_EVICT,
+                      correct=int(sum(1 for sample in paired if correct(sample, V11_EVICT))),
+                      rescued_by_v13=len(rescued), damage=ef._damage(
+                          paired, V11_EVICT, threshold)),
+        plain=dict(arm=V11,
+                   correct=int(sum(1 for sample in paired if correct(sample, V11)))),
+        reading=("a stable drop of 4-6 questions means the exact pairing carries "
+                 "information; 0-2 means this run has no evidence that it does. Neither "
+                 "is a significance test, and neither shows that the model performs "
+                 "cross-block multi-hop reasoning"))
+
+
 def joint_compare(samples, threshold):
     graded = [sample for sample in samples if sample.get("status") == "graded"]
     located = [sample for sample in graded if sample.get("evidence", {}).get("located")]
     dropped = [sample for sample in located if _evidence_in_dropped(sample)]
     kept = [sample for sample in located if not _evidence_in_dropped(sample)]
     present = [arm for arm in ARMS if arm in graded[0]["arms"]]
+    # The permutation arms are named after their seed, so they are not in the static
+    # ARMS tuple; they must still be summarised, damaged and paired like every other arm.
+    extra = sorted({arm for sample in graded for arm in sample["arms"]} - set(ARMS))
+    present += [arm for arm in extra if arm in graded[0]["arms"]]
     controls = [arm for arm in (V11_DONOR, V11_EVICT, V11_EVICT_DONOR, V14, V14_DONOR,
-                                GRAFT)
+                                GRAFT) + tuple(extra)
                 if arm in present]
 
     def block(rows):
@@ -655,6 +798,11 @@ def joint_compare(samples, threshold):
         total=block(graded), dropped_evidence_group=block(dropped),
         kept_evidence_group=block(kept),
         damage={arm: ef._damage(graded, arm, threshold) for arm in present},
+        permutation=permutation_report(
+            graded, threshold,
+            [int(arm[len(PERMUTE_PREFIX):]) for arm in present
+             if arm.startswith(PERMUTE_PREFIX)]) if any(
+                arm.startswith(PERMUTE_PREFIX) for arm in present) else None,
         neighbour_composition=dict(
             topk=_neighbour_composition(graded, "evict"),
             complement=_neighbour_composition(graded, "v14"),
@@ -684,7 +832,7 @@ def joint_compare(samples, threshold):
 # driver
 # ---------------------------------------------------------------------------
 def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
-                   v14_geometry=None):
+                   v14_geometry=None, permute_seeds=None):
     return dict(
         experiment="10 (V14): does the SOURCE of the cross-block neighbours buy anything? "
                    "Same window, same budget, same training as V13; only the rule that "
@@ -709,6 +857,16 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
                       anchor_config=anchor_config),
         v11=dict(arm=V11, path=args.v11, sha256=sha(args.v11), geometry=v11_geometry,
                  core_total=CORE_TOTAL, graft_total=GRAFT_TOTAL),
+        permutation=dict(
+            arms=[permute_arm(seed) for seed in (permute_seeds or [])],
+            seeds=list(permute_seeds or []),
+            treatment=("inference time only, no retraining: V13's precomputed "
+                       "cross-block context rows are shuffled inside (source_block, "
+                       "slot_type) groups, so each slot draws from the same batch of "
+                       "neighbours it could draw from before and only the slot -> row "
+                       "pairing changes"),
+            not_done=("random top-4 neighbours, which would change the marginal "
+                      "distribution of the context as well as the pairing")),
         controls=dict(
             donor=dict(arm=V11_DONOR,
                        definition="the plain calibration's window with the 684 graft "
@@ -754,7 +912,12 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
             neighbour_source="--v14 must be complement mode and --v11-evict top-k mode "
                              "with the same k, so the two arms differ in the neighbour "
                              "source alone; V14's calibrated window must differ from "
-                             "V13's"),
+                             "V13's",
+            permutation="the permuted arms must change the cross-block context (a "
+                        "permutation that moves nothing is refused), must differ from "
+                        "V13 in answers or the arm is refused, and must still hold the "
+                        "2,304-slot budget; the self-calibration branch and every weight "
+                        "stay untouched"),
         thresholds=dict(
             total="V11 >= 62/158 against 56", dropped_evidence="V11 >= 19/40 against 15",
             kept_evidence="V11 >= 12/34 against 13",
@@ -819,9 +982,10 @@ def evaluate(args):
         print(json.dumps(dict(
             dry_run=True, out=args.out,
             counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
-            arms=list(ARMS), readouts_per_sample=len(ARMS),
-            v11=args.v11, v11_evict=args.v11_evict, v14=args.v14), indent=2,
-            ensure_ascii=False))
+            arms=list(ARMS) + [permute_arm(seed) for seed in args.permute_seeds],
+            readouts_per_sample=len(ARMS) + len(args.permute_seeds),
+            v11=args.v11, v11_evict=args.v11_evict, v14=args.v14,
+            permute_seeds=args.permute_seeds), indent=2, ensure_ascii=False))
         return None
     for flag, value, what in (("--checkpoint", args.checkpoint, "the frozen operator"),
                               ("--anchor", args.anchor, "the AnchorOnly module"),
@@ -864,6 +1028,15 @@ def evaluate(args):
                          config=evict_config,
                          joint=joint_for(evict_geometry, scorer, probe_cache,
                                          manager.hidden))
+    args.permute_seeds = parse_seeds(args.v13_permute_seeds)
+    if args.permute_seeds:
+        if v11_evict is None:
+            raise ValueError("--v13-permute-seeds needs --v11-evict: the correspondence "
+                             "that is being permuted belongs to the V13 checkpoint")
+        if v11_evict["module"].neighbor_mode != "topk":
+            raise ValueError("the permutation test is defined on V13's kind-blind top-k "
+                             "context; this checkpoint carries neighbour mode "
+                             f"{v11_evict['module'].neighbor_mode!r}")
     v14 = None
     if args.v14:
         if v11_evict is None:
@@ -898,7 +1071,8 @@ def evaluate(args):
         counts=dict(rows=len(rows), eligible=len(prepared), excluded=len(excluded)),
         protocol=build_protocol(args, args.task, anchor_config, v11_geometry,
                                 v11_evict["geometry"] if v11_evict else None,
-                                v14["geometry"] if v14 else None),
+                                v14["geometry"] if v14 else None,
+                                permute_seeds=args.permute_seeds),
         identity=dict(
             model_path=args.model_path, checkpoint=args.checkpoint,
             checkpoint_sha256=sha(args.checkpoint),
@@ -992,7 +1166,8 @@ def evaluate(args):
     print(json.dumps(dict(
         status="complete", out=str(output),
         elapsed_seconds=round(report["elapsed_seconds"], 1),
-        arms={arm: round(report["summary"]["arms"][arm]["accuracy"], 2) for arm in ARMS},
+        arms={arm: round(summary["accuracy"], 2)
+              for arm, summary in report["summary"]["arms"].items()},
         net={name: value.get("net") for name, value in
              dict(**report["summary"]["total"]["versus_anchor_only"],
                   **report["summary"]["total"]["versus_v11"],
@@ -1021,6 +1196,12 @@ def build_parser():
     p.add_argument("--v11-evict", dest="v11_evict", default=None,
                    help="the cross-block conditioned checkpoint (trained with --cross "
                         "on --neighbor-mode topk): the V13 arm")
+    p.add_argument("--v13-permute-seeds", dest="v13_permute_seeds", default=None,
+                   help="inference-time attribution test for V13's cross-block "
+                        "correspondence: a comma separated seed list (e.g. 0,1,2) builds "
+                        "one arm per seed that calibrates V13's window with the "
+                        "precomputed context rows shuffled inside (source_block, "
+                        "slot_type). Nothing is retrained")
     p.add_argument("--v14", default=None,
                    help="the complement-mode checkpoint (trained with --cross on "
                         "--neighbor-mode complement --k-same 2 --k-cross 2): the V14 arm, "

@@ -450,6 +450,53 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
     return torch.cat(pieces, dim=0), info
 
 
+@torch.no_grad()
+def permute_context(context, meta, seed=0):
+    """Shuffle the ALREADY COMPUTED context rows inside (source_block, slot_type) groups.
+
+    This is the attribution test for V13's correspondence, not a second mechanism: the
+    module, the window and the self-calibration branch are untouched, and every row that
+    moves keeps the distribution it came from -- same source block, same core/graft kind,
+    so the batch of contexts a slot can draw from has the same size, the same neighbours,
+    the same RMS and the same block structure as the original. What is destroyed is only
+    WHICH slot receives WHICH row.
+
+    Permuting the finished context is the point: drawing random top-4 neighbours instead
+    would also change the marginal distribution (unrelated slots, other blocks, another
+    similarity range), and then a drop would not be attributable to the correspondence.
+
+    Groups with a single member cannot move and are left in place; the returned report
+    counts how many slots actually received a different row, because a permutation that
+    moved nothing is a bug that looks exactly like "the correspondence does not matter".
+    """
+    slots = int(context.shape[0])
+    block = meta["source_block"].to(torch.long)
+    if int(block.numel()) != slots:
+        raise ValueError("one source block per context row")
+    kind = (meta["slot_type"] > 0.5).to(torch.long)
+    group = block * 2 + kind
+    generator = torch.Generator().manual_seed(int(seed))
+    permuted = context.clone()
+    mobile = 0
+    for value in torch.unique(group).tolist():
+        index = torch.nonzero(group == int(value), as_tuple=False).flatten()
+        count = int(index.numel())
+        if count < 2:
+            continue
+        order = torch.randperm(count, generator=generator)
+        target = index.to(context.device)
+        permuted[target] = context.index_select(0, target[order.to(context.device)])
+        mobile += count
+    changed = int((permuted != context).any(dim=-1).sum())
+    report = dict(seed=int(seed), groups=int(torch.unique(group).numel()),
+                  slots_in_multi_slot_groups=mobile, slots_moved=changed,
+                  moved_fraction=changed / max(slots, 1),
+                  context_rms=float(permuted.square().mean().sqrt()),
+                  note="rows rearranged inside (source_block, slot_type); the set of "
+                       "contexts a slot can receive is unchanged, only the pairing is")
+    return permuted, report
+
+
 def load_cross(path, hidden_size, rank=None, max_ratio=None):
     """Rebuild a `CrossBlockResidual` from its checkpoint, refusing a mismatch."""
     payload = torch.load(path, map_location="cpu", weights_only=True)
