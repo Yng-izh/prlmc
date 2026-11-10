@@ -178,7 +178,10 @@ def build_module(args, hidden, anchor_state, anchor_config):
                               kv_dim=args.kv_dim,
                               max_ratio_core=args.max_ratio_core,
                               core_weight=args.core_weight,
-                              graft_weight=args.graft_weight)
+                              graft_weight=args.graft_weight,
+                              span_value=(args.span_value == "on"),
+                              context_diffusion=(args.context_diffusion == "on"),
+                              csls=(args.csls == "on"))
     module.load_anchor_only(anchor_state, anchor_config)
     return module, rank
 
@@ -810,6 +813,7 @@ def train(args):
     started = time.monotonic()
     update = 0
     qualified = 0
+    best = None
     while update < args.updates:
         optimizer.zero_grad(set_to_none=True)
         recorded = []
@@ -906,6 +910,14 @@ def train(args):
                                                       for record, _ in scores]))
                 summary["cost"] = summary["full_logp"] - summary["reference_logp"]
             report["validation"].append(summary)
+            # Keep the module at its best validation CE: 384 updates on a few hundred
+            # documents is long enough that the last step is not the best one, and the
+            # selected state costs one 10 MiB copy held in host memory.
+            if (args.select_best == "val_ce" and "ce" in summary
+                    and (best is None or summary["ce"] < best["ce"])):
+                best = dict(update=update, ce=float(summary["ce"]),
+                            state_dict={name: tensor.detach().cpu().clone()
+                                        for name, tensor in module.state_dict().items()})
             report["peak_allocated_bytes"] = int(torch.cuda.max_memory_allocated())
             if args.report:
                 atomic_json(args.report, report)
@@ -959,6 +971,21 @@ def train(args):
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, args.out)
     report["checkpoint"] = dict(path=args.out, sha256=sha(args.out))
+    if best is not None:
+        selected = str(Path(args.out).with_name(Path(args.out).stem + "_best.pt"))
+        selected_payload = dict(payload)
+        selected_payload["state_dict"] = best["state_dict"]
+        selected_payload["training"] = dict(payload["training"],
+                                            selected_update=best["update"],
+                                            selected_validation_ce=best["ce"],
+                                            selected_of_updates=args.updates)
+        torch.save(selected_payload, selected)
+        report["selection"] = dict(metric="val_ce", best_update=best["update"],
+                                   best_validation_ce=best["ce"], path=selected,
+                                   sha256=sha(selected),
+                                   note="same architecture; pick this file when the last "
+                                        "update is not the best one")
+        print(json.dumps({"selection": report["selection"]}), flush=True)
     if args.report:
         atomic_json(args.report, report)
     print(json.dumps(dict(status="complete", out=args.out, report=args.report,
@@ -990,7 +1017,27 @@ def build_parser():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--rank", type=int, default=None,
                    help="default: the AnchorOnly checkpoint's rank (64)")
-    p.add_argument("--max-ratio", dest="max_ratio", type=float, default=0.5)
+    # Option 3: the graft ceiling is what the CF hinge spends, and 0.50 x rms is 3.3x the
+    # carrier ceiling -- that gap is where the "graft slots hijack attention away from
+    # rows the carriers already answer" story lives (damage has been pinned at 12-13 in
+    # every arm). The historical V13 run used 0.5; the checkpoint records whatever it
+    # was built with, so old checkpoints keep loading unchanged.
+    p.add_argument("--max-ratio", dest="max_ratio", type=float, default=0.34)
+    p.add_argument("--span-value", dest="span_value", default="on",
+                   choices=("on", "off"),
+                   help="smooth each neighbour's VALUE over its own micro-span before "
+                        "aggregation (0.5 centre + 0.25 either side, same block only)")
+    p.add_argument("--context-diffusion", dest="context_diffusion", default="on",
+                   choices=("on", "off"),
+                   help="smooth the finished context over same-block neighbours "
+                        "(0.70 centre + 0.15 either side)")
+    p.add_argument("--csls", default="on", choices=("on", "off"),
+                   help="CSLS background subtraction before the top-k, so slots that are "
+                        "similar to everything lose their seat")
+    p.add_argument("--select-best", dest="select_best", default="val_ce",
+                   choices=("val_ce", "none"),
+                   help="write a second checkpoint holding the module at the best "
+                        "validation CE instead of blindly taking the last update")
     p.add_argument("--gate-init", dest="gate_init", type=float, default=0.0)
     p.add_argument("--cond-rank", dest="cond_rank", type=int, default=32)
     p.add_argument("--protect-weight", dest="protect_weight", type=float, default=1.0)
@@ -1005,8 +1052,10 @@ def build_parser():
     p.add_argument("--cf-gate-margin", dest="cf_gate_margin", type=float, default=1.0)
     p.add_argument("--first-token-weight", dest="first_token_weight", type=float,
                    default=2.0)
-    p.add_argument("--max-docs", dest="max_docs", type=int, default=None)
-    p.add_argument("--val-docs", dest="val_docs", type=int, default=2)
+    p.add_argument("--max-docs", dest="max_docs", type=int, default=640,
+                   help="training documents to load; the historical runs used 188+8")
+    p.add_argument("--val-docs", dest="val_docs", type=int, default=64,
+                   help="held-out documents for validation; the historical runs used 2")
     p.add_argument("--val-every", dest="val_every", type=int, default=48)
     p.add_argument("--cross", default="on", choices=("on", "off"),
                    help="'on' trains the cross-block conditioned calibrator (V13); "

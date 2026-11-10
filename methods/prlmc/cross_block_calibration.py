@@ -89,6 +89,12 @@ DEFAULT_KV_DIM = 5 * 8 * 128  # 5 utility layers x 8 kv heads x 128
 # "topk"       V13: the k most associated cross-block slots, kind-blind
 # "complement" V14: k_same of the query's own kind + k_cross from the other kind
 NEIGHBOUR_MODES = ("topk", "complement")
+# HOW the cross-block neighbours are picked, independently of how they are weighted:
+#   topk    the k most similar (V13's design)
+#   random  k uniformly random legal cross-block slots -- same count, same value pool,
+#           same projection, so a drop cannot be blamed on the branch being bigger
+#   bottom  the k LEAST similar legal cross-block slots -- the mirror image of topk
+NEIGHBOUR_SELECTION = ("topk", "random", "bottom")
 
 
 def conditions(meta, window_slots):
@@ -131,9 +137,32 @@ def _neighbour_groups(mode, k, k_same, k_cross, slots):
     return limited, [count / total for _, count in limited]
 
 
+def _span_smooth(values, block, mid=0.5, side=0.25):
+    """Local span smoothing along the slot axis, never across a source-block border.
+
+    `v~_j = mid*v_j + side*v_{j-1} + side*v_{j+1}`, where a neighbour that falls in a
+    DIFFERENT source block is dropped and its weight redistributed to the centre, so the
+    row always sums to one. Zero parameters.
+    """
+    if values.shape[0] < 2:
+        return values
+    same = block[1:] == block[:-1]
+    zero = torch.zeros(1, dtype=torch.bool, device=values.device)
+    prev_ok = torch.cat([zero, same]).to(values.dtype)
+    next_ok = torch.cat([same, zero]).to(values.dtype)
+    prev = torch.cat([torch.zeros_like(values[:1]), values[:-1]])
+    nxt = torch.cat([values[1:], torch.zeros_like(values[:1])])
+    numerator = (mid * values
+                 + side * prev * prev_ok.unsqueeze(-1)
+                 + side * nxt * next_ok.unsqueeze(-1))
+    denominator = mid + side * prev_ok + side * next_ok
+    return numerator / denominator.unsqueeze(-1)
+
+
 @torch.no_grad()
 def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
-                        mode="topk", k_same=2, k_cross=2):
+                        mode="topk", k_same=2, k_cross=2, selection="topk", seed=0,
+                        span_value=False, context_diffusion=False, csls=False):
     """Sparse cross-block neighbours of every slot, `[slots, key_dim]` float32.
 
     Keys and values come from the reader's own projections on the window it will read
@@ -147,10 +176,37 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     separately and the group masses are equal, so the complement side cannot be starved
     by the systematically higher own-kind similarities.
 
+    `selection` picks WHICH k cross-block slots become the neighbours, independently of
+    how they are weighted: `topk` the most similar (V13), `random` k uniformly random
+    legal cross-block slots, `bottom` the k least similar. The last two are the
+    attribution test for "the gain comes from finding the RIGHT neighbours": the count,
+    the value pool, the projection and the window are identical, only the choice changes.
+
+    Three optional, parameter-free refinements of the SAME machinery:
+
+    `span_value`       before aggregation, smooth each neighbour's VALUE over its own
+                       micro-span (v~ = 0.5 v_j + 0.25 v_{j-1} + 0.25 v_{j+1}, same block
+                       only). A neighbour slot matched through a bridging entity usually
+                       sits next to the predicate/object slots that carry the answer, and
+                       those neighbours' keys do not look like the query -- so the top-4
+                       can never reach them directly. This pulls them in through the
+                       one neighbour that did match.
+    `context_diffusion` after aggregation, smooth the CONTEXT over same-block neighbours
+                       (c = 0.70 c_i + 0.15 c_{i-1} + 0.15 c_{i+1}), so the slots around
+                       a bridging entity share the cross-block alignment it established.
+    `csls`             before selection, subtract the bidirectional background
+                       (`S_hat = S - 0.5 (mean_i_cross + mean_j_cross)`). Hub slots that
+                       are similar to everything lose their Top-4 seat; a mutual, unique
+                       match survives. The means are taken over LEGAL cross-block slots
+                       only, so the -2.0 mask never enters the statistic.
+
     Nothing is averaged into the slot: the returned context is an extra input to the
     residual. Same-block neighbours are masked, so every context row is built from
     other blocks by construction -- that mask is what makes this cross-block at all.
     """
+    if selection not in NEIGHBOUR_SELECTION:
+        raise ValueError(f"unknown neighbour selection {selection!r}: expected one of "
+                         f"{NEIGHBOUR_SELECTION}")
     groups, masses = _neighbour_groups(mode, k, k_same, k_cross, int(window.shape[1]))
     scorer = meta.get("scorer")
     if scorer is None:
@@ -163,11 +219,44 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     kind = (meta["slot_type"] > 0.5).to(torch.bool)  # True carries new content (graft)
     rows, used_similarity, distinct = [], [], []
     similarity_out, weight_cross, graft_neighbour, query_graft = [], [], [], []
-    for start in range(0, slots, chunk):
-        stop = min(start + chunk, slots)
-        similarity = key[start:stop] @ key.t()
-        same = block[start:stop].unsqueeze(1) == block.unsqueeze(0)
-        similarity = similarity.masked_fill(same, -2.0)
+    values = _span_smooth(value, block, 0.5, 0.25) if span_value else value
+    csls_report = None
+
+    def similarity_chunks():
+        for start in range(0, slots, chunk):
+            stop = min(start + chunk, slots)
+            raw = key[start:stop] @ key.t()
+            same = block[start:stop].unsqueeze(1) == block.unsqueeze(0)
+            yield start, stop, raw.masked_fill(same, -2.0), same
+
+    if csls:
+        # Two passes, but the similarity of a 2,304-slot window is 21 MiB -- keeping it
+        # is cheaper than recomputing, and the column statistic must see every row.
+        materialised = list(similarity_chunks())
+        col_sum = torch.zeros(slots, device=window.device)
+        col_count = torch.zeros(slots, device=window.device)
+        for _, _, similarity, same in materialised:
+            legal = ~same
+            col_sum += torch.where(legal, similarity,
+                                   torch.zeros_like(similarity)).sum(dim=0)
+            col_count += legal.sum(dim=0)
+        col_mean = col_sum / col_count.clamp_min(1.0)
+        source = iter(materialised)
+        csls_report = dict(column_mean_mean=float(col_mean.mean()),
+                           column_mean_std=float(col_mean.std()))
+    else:
+        source = similarity_chunks()
+    for start, stop, similarity, same in source:
+        row_mean = None
+        if csls:
+            legal = similarity > -1.5
+            row_mean = (torch.where(legal, similarity, torch.zeros_like(similarity))
+                        .sum(dim=-1) / legal.sum(dim=-1).clamp_min(1.0))
+            similarity = (similarity - 0.5 * (row_mean.unsqueeze(-1)
+                                              + col_mean.unsqueeze(0)))
+            similarity = similarity.masked_fill(~legal, -2.0)
+            csls_report.setdefault("row_mean_mean", [])
+            csls_report["row_mean_mean"].append(float(row_mean.mean()))
         same_kind = kind[start:stop].unsqueeze(1) == kind.unsqueeze(0)
         picks, scales = [], []
         for (name, count), mass in zip(groups, masses):
@@ -176,13 +265,27 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
                 masked = similarity.masked_fill(~same_kind, -2.0)
             elif name == "cross":
                 masked = similarity.masked_fill(same_kind, -2.0)
-            best = masked.topk(count, dim=-1)
-            picks.append(best.indices)
-            scales.append(torch.softmax(best.values, dim=-1) * mass)
-            used_similarity.append(best.values.mean(dim=-1))
+            if selection == "topk":
+                index_k = masked.topk(count, dim=-1).indices
+            elif selection == "bottom":
+                # `masked` carries -2.0 on same-block slots, which the smallest-first
+                # sort would happily return; the pool is rebuilt with +inf there.
+                index_k = (masked.masked_fill(masked <= -1.5, float("inf"))
+                           .topk(count, dim=-1, largest=False).indices)
+            else:
+                generator = torch.Generator(device="cpu").manual_seed(
+                    int(seed) * 1000 + int(start) + count)
+                draw = torch.rand(masked.shape, generator=generator).to(masked.device)
+                index_k = draw.masked_fill(masked <= -1.5, -1.0).topk(count, dim=-1).indices
+            # The weights always come from the TRUE similarity of the slots actually
+            # chosen, so a random neighbour is weighted like the weak neighbour it is.
+            picked_values = masked.gather(1, index_k)
+            picks.append(index_k)
+            scales.append(torch.softmax(picked_values, dim=-1) * mass)
+            used_similarity.append(picked_values.mean(dim=-1))
         index = torch.cat(picks, dim=-1)                # [rows, K]
         weights = torch.cat(scales, dim=-1)             # [rows, K], one softmax per group
-        gathered = value.index_select(0, index.reshape(-1)).reshape(
+        gathered = values.index_select(0, index.reshape(-1)).reshape(
             stop - start, index.shape[-1], -1)
         rows.append((gathered * weights.unsqueeze(-1)).sum(dim=1))
         distinct.append(block.index_select(0, index.reshape(-1))
@@ -197,6 +300,9 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
         weight_cross.append((weights * cross).sum(dim=-1))
         del similarity, same, same_kind, picks, scales, masked, index, weights, gathered
     context = torch.cat(rows, dim=0)
+    context_raw_rms = float(context.square().mean().sqrt())
+    if context_diffusion:
+        context = _span_smooth(context, block, 0.70, 0.15)
     if not return_report:
         return context
     used = torch.cat(used_similarity, dim=0)
@@ -208,7 +314,14 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     def _mean(values):
         return float(values.mean()) if int(values.numel()) else None
 
-    report = dict(mode=mode, k=sum(count for _, count in groups), key_dim=int(key.shape[-1]),
+    if isinstance(csls_report, dict) and isinstance(csls_report.get("row_mean_mean"), list):
+        csls_report["row_mean_mean"] = float(sum(csls_report["row_mean_mean"])
+                                             / max(len(csls_report["row_mean_mean"]), 1))
+    report = dict(mode=mode, selection=selection, seed=int(seed),
+                  span_value=bool(span_value), context_diffusion=bool(context_diffusion),
+                  csls=bool(csls), csls_statistics=csls_report,
+                  context_rms_before_diffusion=context_raw_rms,
+                  k=sum(count for _, count in groups), key_dim=int(key.shape[-1]),
                   k_same=groups[0][1] if mode == "complement" else None,
                   k_cross=groups[-1][1] if mode == "complement" else None,
                   neighbour_similarity_mean=_mean(used),
@@ -240,7 +353,7 @@ class CrossBlockResidual(nn.Module):
                  cond_size=3, cond_rank=32, use_cross=True, k_neighbors=4,
                  neighbor_mode="topk", k_same=2, k_cross=2,
                  kv_dim=DEFAULT_KV_DIM, max_ratio_core=0.15, core_weight=2.0,
-                 graft_weight=0.5):
+                 graft_weight=0.5, span_value=False, context_diffusion=False, csls=False):
         super().__init__()
         if rank <= 0 or hidden_size <= 0:
             raise ValueError("rank and hidden_size must be positive")
@@ -263,6 +376,11 @@ class CrossBlockResidual(nn.Module):
         self.neighbor_mode = str(neighbor_mode)
         self.k_same = int(k_same)
         self.k_cross = int(k_cross)
+        # Parameter-free refinements of the neighbour aggregation: recorded in the
+        # checkpoint config so an evaluation rebuilds the same context rule.
+        self.span_value = bool(span_value)
+        self.context_diffusion = bool(context_diffusion)
+        self.csls = bool(csls)
         self.kv_dim = int(kv_dim)
         self.core_weight = float(core_weight)
         self.graft_weight = float(graft_weight)
@@ -289,7 +407,8 @@ class CrossBlockResidual(nn.Module):
                     k_neighbors=self.k_neighbors, neighbor_mode=self.neighbor_mode,
                     k_same=self.k_same, k_cross=self.k_cross, kv_dim=self.kv_dim,
                     max_ratio_core=self.max_ratio_core, core_weight=self.core_weight,
-                    graft_weight=self.graft_weight)
+                    graft_weight=self.graft_weight, span_value=self.span_value,
+                    context_diffusion=self.context_diffusion, csls=self.csls)
 
     def neighbours(self, window, meta, return_report=False):
         """This module's own neighbour rule -- the one place that knows it.
@@ -304,7 +423,9 @@ class CrossBlockResidual(nn.Module):
             return None
         return cross_block_context(
             window, meta, k=self.k_neighbors, return_report=return_report,
-            mode=self.neighbor_mode, k_same=self.k_same, k_cross=self.k_cross)
+            mode=self.neighbor_mode, k_same=self.k_same, k_cross=self.k_cross,
+            span_value=self.span_value, context_diffusion=self.context_diffusion,
+            csls=self.csls)
 
     def anchor_view(self):
         """`AnchorResidual` carrying this module's graft parameters.

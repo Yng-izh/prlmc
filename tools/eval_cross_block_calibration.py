@@ -122,7 +122,8 @@ from methods.prlmc.anchor_residual import (               # noqa: E402
 from methods.prlmc import band_relation as br             # noqa: E402
 from methods.prlmc import hierarchical_relation as hr       # noqa: E402
 from methods.prlmc.cross_block_calibration import (       # noqa: E402
-    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, calibrate, permute_context)
+    SCHEMA as CALIB_SCHEMA, CrossBlockResidual, calibrate, cross_block_context,
+    permute_context)
 from methods.prlmc.evict_window import (                  # noqa: E402
     SCHEMA as JOINT_SCHEMA, JointConsolidation)
 
@@ -161,6 +162,9 @@ ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, V11, V11_DONOR, V11_EVICT, V11_EVIC
 # module, same self-calibration branch, context rows shuffled inside (source_block,
 # slot_type). They are named after their seed and appended to `ARMS` at run time.
 PERMUTE_PREFIX = "V13Permuted"
+# Attribution arms for the neighbour CHOICE: V13's weights, window, projection and
+# neighbour count are untouched; only the rule that picks the four slots changes.
+NEIGHBOR_ARMS = {"random": "V13RandNeighbor", "bottom": "V13BottomNeighbor"}
 
 
 def permute_arm(seed):
@@ -522,6 +526,37 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                                       band_donor, built["E"]["window"],
                                       built["D"]["meta"], band_donor_info, V16_DONOR))
                 windows[V16_DONOR] = built["K"]["calibrated"]
+        # Neighbour-choice arms: V13's window, weights and projection with the four
+        # neighbours picked at random / from the least similar end instead of the top.
+        neighbor_arms = {}
+        modes = [str(mode) for mode in (getattr(args, "v13_neighbor_modes", None) or [])]
+        if modes:
+            if "D" not in built or v11_evict is None:
+                raise ValueError("the neighbour arms need the V13 window and module")
+            for mode in modes:
+                if mode not in NEIGHBOR_ARMS:
+                    raise ValueError(f"unknown neighbour mode {mode!r}")
+                arm = NEIGHBOR_ARMS[mode]
+                swapped, swap_report = cross_block_context(
+                    built["D"]["window"], built["D"]["meta"],
+                    k=v11_evict["module"].k_neighbors, return_report=True,
+                    selection=mode, seed=args.seed,
+                    span_value=v11_evict["module"].span_value,
+                    context_diffusion=v11_evict["module"].context_diffusion,
+                    csls=v11_evict["module"].csls)
+                swapped_window, swapped_info = calibrate(
+                    built["D"]["window"], built["D"]["meta"], v11_evict["module"],
+                    context=swapped)
+                swapped_info["neighbour_swap"] = swap_report
+                built[arm] = dict(window=built["D"]["window"],
+                                  calibrated=swapped_window,
+                                  check=built["D"]["check"],
+                                  calibration=check_calibration(
+                                      swapped_window, built["D"]["window"],
+                                      built["D"]["meta"], swapped_info, arm))
+                neighbor_arms[arm] = swap_report
+                windows[arm] = built[arm]["calibrated"]
+                del swapped, swapped_window
         # Permutation arms: the SAME window, the SAME trained module and the SAME
         # self-calibration branch as arm D; only the mapping slot -> context row is
         # shuffled, inside (source_block, slot_type) groups so the batch a slot draws
@@ -651,6 +686,10 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
     if len(prepared) > 1 and V15 in windows and V15_DONOR not in windows:
         raise ValueError("V15's donor arm was not built: its content causality cannot be "
                          "answered by V13's donor")
+    for arm in neighbor_arms:
+        if fingerprints[V11_EVICT] == fingerprints[arm]:
+            raise ValueError(f"{arm} reads the same pool as V13: the neighbour swap "
+                             f"changed nothing")
     for arm in permuted_arms:
         if fingerprints[V11_EVICT] == fingerprints[arm]:
             raise ValueError(f"{arm} reads the same pool as V13: the permutation changed "
@@ -680,6 +719,9 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                   calibration=built["J"]["calibration"]) if "J" in built else None),
         v16_donor=(dict(calibration=built["K"]["calibration"], source_id=donor_id)
                    if "K" in built else None),
+        neighbor_swap={arm: dict(calibration=built[arm]["calibration"],
+                                 report=report)
+                       for arm, report in neighbor_arms.items()} or None,
         permutation={arm: dict(calibration=built[arm]["calibration"],
                                moved_fraction=moved)
                      for arm, moved in permuted_arms.items()} or None,
@@ -1262,6 +1304,16 @@ def evaluate(args):
                          config=evict_config,
                          joint=joint_for(evict_geometry, scorer, probe_cache,
                                          manager.hidden))
+    args.v13_neighbor_modes = [mode.strip() for mode
+                               in str(args.v13_neighbor_modes or "").split(",")
+                               if mode.strip()]
+    for mode in args.v13_neighbor_modes:
+        if mode not in NEIGHBOR_ARMS:
+            raise ValueError(f"--v13-neighbor-modes takes {sorted(NEIGHBOR_ARMS)}, "
+                             f"got {mode!r}")
+        if v11_evict is None:
+            raise ValueError("--v13-neighbor-modes needs --v11-evict: the neighbours "
+                             "belong to the V13 checkpoint")
     args.permute_seeds = parse_seeds(args.v13_permute_seeds)
     if args.permute_seeds:
         if v11_evict is None:
@@ -1471,6 +1523,13 @@ def build_parser():
     p.add_argument("--v15", default=None,
                    help="the layered sink-gated relation module (trained with "
                         "--architecture v15): calibrates the SAME window as --v11-evict")
+    p.add_argument("--v13-neighbor-modes", dest="v13_neighbor_modes", default=None,
+                   help="attribution arms for V13's neighbour choice, comma separated "
+                        "from {random,bottom}: same weights, same window, same projection, "
+                        "same number of neighbours, only WHICH cross-block slots are "
+                        "picked changes (random = uniform over legal cross-block slots, "
+                        "bottom = the least similar). Builds V13RandNeighbor / "
+                        "V13BottomNeighbor")
     p.add_argument("--v13-permute-seeds", dest="v13_permute_seeds", default=None,
                    help="inference-time attribution test for V13's cross-block "
                         "correspondence: a comma separated seed list (e.g. 0,1,2) builds "
