@@ -277,6 +277,11 @@ class BandAlignedRelationResidual(nn.Module):
         self.gate_tau = nn.Parameter(tau)
         self.eta_logit = nn.Parameter(
             torch.full((2, NUM_MEMORY_LAYERS), float(eta_init)))
+        # The constructor's values, kept so `config()` describes how the module was BUILT
+        # rather than what the gates drifted to; the state dict carries the trained ones.
+        self.init_gate = dict(core_margin=float(core_margin),
+                              graft_margin=float(graft_margin),
+                              gate_kappa=float(gate_kappa), eta_init=float(eta_init))
 
     # -- configuration ----------------------------------------------------------
     def config(self):
@@ -285,9 +290,10 @@ class BandAlignedRelationResidual(nn.Module):
                     gate_init=0.0, cond_size=self.cond_size, cond_rank=self.cond_rank,
                     kv_layers=self.kv_layers, kv_layer_dim=self.kv_layer_dim,
                     k_neighbors=self.k_neighbors, shallow_cutoff=self.shallow_cutoff,
-                    core_margin=float(self.gate_tau[0, 0]), graft_margin=float(self.gate_tau[1, 0]),
-                    gate_kappa=float(F.softplus(self.gate_kappa[0, 0])),
-                    eta_init=float(self.eta_logit[0, 0]),
+                    core_margin=self.init_gate["core_margin"],
+                    graft_margin=self.init_gate["graft_margin"],
+                    gate_kappa=self.init_gate["gate_kappa"],
+                    eta_init=self.init_gate["eta_init"],
                     core_weight=self.core_weight, graft_weight=self.graft_weight)
 
     def anchor_view(self):

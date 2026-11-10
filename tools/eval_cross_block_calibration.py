@@ -337,7 +337,15 @@ def check_calibration(calibrated, window, meta, info, name):
                 k_neighbors=info.get("k_neighbors"),
                 cross_proj_norm=info.get("cross_proj_norm"),
                 cross_context=info.get("cross_context"),
-                relation=info.get("relation"), check=True)
+                relation=info.get("relation"),
+                # V16's band diagnostics. Without these `_band_gate` finds no rows and
+                # reports {n: 0} for every band -- an empty table that looks like "no
+                # gate" rather than "the number was never carried out of the module".
+                gate_bands=info.get("gate_bands"),
+                band_proj_norm=info.get("band_proj_norm"),
+                layer_proj_norm=info.get("layer_proj_norm"),
+                cross_injection_rms=info.get("cross_injection_rms"),
+                shallow_cross_leak=info.get("shallow_cross_leak"), check=True)
 
 
 def check_anchor(output, parts, anchor_window, name):

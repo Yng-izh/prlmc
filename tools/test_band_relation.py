@@ -13,6 +13,7 @@ import sys, tempfile, os
 from pathlib import Path
 
 import torch, types
+import torch.utils.checkpoint  # noqa: F401  (not an attribute of torch.utils by default)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -209,4 +210,24 @@ report("9 report fields present", all(k in info_cal for k in need),
        str([k for k in need if k not in info_cal]))
 report("9 every band reported", len(info_cal["gate_bands"]) == KVL,
        str(sorted(info_cal["gate_bands"])))
+# ---- 10. the GPU training path wraps the module in torch.utils.checkpoint with a
+#            TUPLE payload for V16 (bands, margins), which the CPU tests above never do.
+#            If that were unsupported the run would die on its first update.
+m = make_module()
+chunk = fake_window(list(range(10, 13)))
+chunk.requires_grad_(True)
+torch.manual_seed(3)
+for proj in m.band_proj: proj.weight.data.normal_()
+for proj in m.layer_proj: proj.weight.data.normal_()
+m.up_graft.data.normal_()
+
+def step(slots, conditioning, relation, layer_ids):
+    return m(slots, conditioning, relation, layer_ids)
+
+out = torch.utils.checkpoint.checkpoint(step, chunk, cond_g, (bands, margins),
+                                       torch.arange(10, 13), use_reentrant=False)
+out.float().sum().backward()
+grad = float(sum(p.weight.grad.abs().sum() for p in m.band_proj if p.weight.grad is not None))
+report("10 checkpoint accepts the tuple payload and keeps the graph", grad > 0.0, f"{grad:.3e}")
+
 print("ALL CHECKS PASSED")
