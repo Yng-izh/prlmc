@@ -91,6 +91,7 @@ from methods.prlmc.cross_block_calibration import (       # noqa: E402
     SCHEMA as CALIB_SCHEMA, CrossBlockResidual, conditions)
 from methods.prlmc.evict_window import (                  # noqa: E402
     SCHEMA as JOINT_SCHEMA, QUOTA, JointConsolidation)
+from methods.prlmc import band_relation as br             # noqa: E402
 from methods.prlmc import hierarchical_relation as hr     # noqa: E402
 
 # V13 keeps the V11 driver shape: the calibration module changed, the window did not.
@@ -117,6 +118,14 @@ STAGE2 = ("down", "up_graft", "up_core", "gate_logit", "type_gate_logit",
 # gradient there is a wiring fault, not a result.
 V15_STAGE1 = ("mod_scale.weight", "mod_shift.weight")
 V15_STAGE2 = tuple(f"cross_proj.{index}.weight" for index in range(hr.KV_LAYERS))
+# V16 only. The gate multiplies a ZERO projection at update 0, so gate parameters cannot
+# have a gradient on step 1 -- asking for one would be asking for the impossible. The
+# projections can (dL/dW = dL/du * gate * ctx, with gate != 0), and they move on step 1;
+# from step 2 the gates follow.
+V16_STAGE1 = tuple([f"band_proj.{index}.weight" for index in range(br.KV_LAYERS)]
+                   + [f"layer_proj.{index}.weight"
+                      for index in range(br.NUM_MEMORY_LAYERS - br.SHALLOW_CUTOFF)])
+V16_STAGE2 = V16_STAGE1 + ("gate_kappa", "gate_tau", "eta_logit")
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +146,17 @@ def load_anchor_state(path, hidden):
 def build_module(args, hidden, anchor_state, anchor_config):
     """The one trainable module: graft half from AnchorOnly, core half at zero."""
     rank = int(args.rank or anchor_config.get("rank"))
+    if args.architecture == "v16":
+        module = br.BandAlignedRelationResidual(
+            hidden_size=hidden, rank=rank, max_ratio=args.max_ratio,
+            max_ratio_core=args.max_ratio_core, gate_init=args.gate_init,
+            cond_rank=args.cond_rank, k_neighbors=args.k_neighbors,
+            shallow_cutoff=args.shallow_cutoff, core_margin=args.core_margin,
+            graft_margin=args.graft_margin, gate_kappa=args.gate_kappa,
+            eta_init=args.eta_init, core_weight=args.core_weight,
+            graft_weight=args.graft_weight)
+        module.load_anchor_only(anchor_state, anchor_config)
+        return module, rank
     if args.architecture == "v15":
         module = hr.HierarchicalRelationResidual(
             hidden_size=hidden, rank=rank, max_ratio=args.max_ratio,
@@ -186,6 +206,42 @@ def context_of(module, window, meta, return_report=False):
     if getattr(module, "use_cross", False):
         return module.neighbours(window, meta, return_report=return_report)
     return (None, None) if return_report else None
+
+
+def v16_stats(module, cond, relation, window):
+    """Per-band gate distribution, projection norms and the injected RMS (V16 only).
+
+    Cheap and computed once per window: the projections are 1024 -> 64, so the whole
+    22-layer cross term is far smaller than one reader forward. These numbers exist so a
+    run can be read back -- a gate that never opens must not look like a mechanism.
+    """
+    if not hasattr(module, "gate") or relation is None:
+        return None
+    bands, margins = relation
+    with torch.no_grad():
+        graft = cond[:, 2].float() > 0.5
+        gate_core, gate_graft = [], []
+        for band in range(bands.shape[1]):
+            values = torch.stack([module.gate(graft, margins[:, band].float(), layer).float()
+                                  for layer in br.band_members(band)], dim=0)
+            gate_core.append(float(values[:, ~graft].mean()))
+            gate_graft.append(float(values[:, graft].mean()))
+        active = torch.as_tensor([br.band_of_layer(layer) is not None
+                                  for layer in range(window.shape[0])])
+        cross = module.cross_term(bands, margins, cond,
+                                  torch.arange(window.shape[0], device=window.device))
+        injected = cross[active].float()
+        return dict(gate_core=[round(value, 5) for value in gate_core],
+                    gate_graft=[round(value, 5) for value in gate_graft],
+                    band_proj_norm=[round(float(projection.weight.detach().float().norm()), 3)
+                                    for projection in module.band_proj],
+                    layer_proj_norm=round(float(torch.stack([
+                        projection.weight.detach().float().norm()
+                        for projection in module.layer_proj]).mean()), 3),
+                    injection_rms=round(float(injected.square().mean().sqrt()), 6),
+                    injection_max=round(float(injected.abs().max()), 5),
+                    shallow_leak=round(float(cross[~active].abs().max()), 8)
+                    if bool((~active).any()) else 0.0)
 
 
 def calibrate_with_reg(window, meta, module, layer_chunk=4):
@@ -249,6 +305,9 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
                 gate=float(torch.sigmoid(module.gate_logit.detach().float())))
     if relation_report is not None:
         info["relation"] = relation_report
+    stats = v16_stats(module, cond, context, window)
+    if stats is not None:
+        info["v16"] = stats
     return calibrated_all, regulariser, info
 
 
@@ -349,7 +408,7 @@ def document_step(model, manager, merge, scorer, joint, module, reference, initi
                   folded_slots=info["folded_slots"], module_gate=info["gate"],
                   relation_mass=relation.get("retained_mass_mean"),
                   relation_sink=relation.get("sink_mass_mean"),
-                  **evidence)
+                  v16=info.get("v16"), **evidence)
     if train and args.cf_weight > 0 and evidence["qualifies"] and donor_graft is not None:
         graft_offsets = torch.nonzero(meta["slot_type"] == 1, as_tuple=False).flatten()
         donor_window = window.clone()
@@ -388,6 +447,37 @@ def critical_manifest():
 
 
 def module_report(args, rank, hidden, anchor_path, anchor_config):
+    if args.architecture == "v16":
+        return dict(
+            schema=br.SCHEMA, hidden=hidden, rank=rank, architecture="v16",
+            max_ratio=args.max_ratio, max_ratio_core=args.max_ratio_core,
+            shallow_cutoff=args.shallow_cutoff, k_neighbors=args.k_neighbors,
+            conditions=["delta_position", "log_cluster_size", "is_graft"],
+            relation=dict(
+                candidates="one cross-block top-4 chosen from the five-layer CONSENSUS "
+                           "similarity (keys centred over slots, L2-normalised)",
+                bands="each band softmaxes its own similarity over those four candidates "
+                      "and aggregates its own raw values -- the bands are never summed",
+                margin="top-4 weighted similarity minus the mean over legal cross-block "
+                       "slots (same-block positions excluded from the mean)",
+                layer_to_band={str(layer): band
+                               for layer, band in br.LAYER_TO_BAND.items()},
+                band_layers=[list(pair) for pair in br.BAND_LAYERS]),
+            gate=dict(
+                definition="z = z_self + omega * eta * u, applied AFTER the projection",
+                omega="sigmoid(kappa[type,band] * (margin - tau[type,band]))",
+                eta="sigmoid(eta_logit[type,layer])",
+                core_margin=args.core_margin, graft_margin=args.graft_margin,
+                kappa_init=args.gate_kappa, eta_init=args.eta_init,
+                note="no normalisation follows the product; the only bound afterwards is "
+                     "the per-type residual ceiling and apply_delta"),
+            initialisation=dict(
+                self_branch="copied from the AnchorOnly checkpoint; core half at identity",
+                cross_projection="zero, so the injection is exactly zero at update 0",
+                anchor_checkpoint=anchor_path, anchor_sha256=sha(anchor_path),
+                anchor_rank=anchor_config.get("rank")),
+            applies_to="all 2,304 slots (1,620 core + 684 graft); cross injection only on "
+                       "memory layers 10..31")
     if args.architecture == "v15":
         return dict(
             schema=hr.SCHEMA, hidden=hidden, rank=rank, architecture="v15",
@@ -485,6 +575,15 @@ def train(args):
                              f"{args.k_same} + {args.k_cross} != {args.k_neighbors}")
     elif args.cross == "on" and (int(args.k_same), int(args.k_cross)) != (2, 2):
         raise SystemExit("--k-same/--k-cross only apply to --neighbor-mode complement")
+    if args.architecture == "v16":
+        if args.cross != "on":
+            raise SystemExit("--architecture v16 is the cross-block mechanism: pass "
+                             "--cross on")
+        if args.neighbor_mode != "topk":
+            raise SystemExit("--neighbor-mode only applies to V13; V16 picks its "
+                             "candidates from the five-layer consensus")
+        if not 0 <= int(args.shallow_cutoff) < br.NUM_MEMORY_LAYERS:
+            raise SystemExit(f"--shallow-cutoff must be in [0, {br.NUM_MEMORY_LAYERS})")
     if args.architecture == "v15":
         if args.cross != "on":
             raise SystemExit("--architecture v15 is the cross-block mechanism: pass "
@@ -577,14 +676,16 @@ def train(args):
     # The cross/relation channel is zero- or small-started and cannot reach a useful
     # scale at the shared learning rate (V13 needed 30x). V15 gives the five per-layer
     # projections and the two modulation matrices their own, larger step.
-    relation_names = ("cross_proj", "mod_scale", "mod_shift", "cross_norm")
+    relation_names = ("cross_proj", "mod_scale", "mod_shift", "cross_norm",
+                      "band_proj", "layer_proj", "gate_kappa", "gate_tau", "eta_logit")
     cross_proj = [p for name, p in module.named_parameters()
                   if p.requires_grad and name.startswith(relation_names)]
     shared = [p for name, p in module.named_parameters()
               if p.requires_grad and not name.startswith(relation_names)]
     groups = [dict(params=shared, lr=args.lr)]
     if cross_proj:
-        relation_lr = (args.relation_lr if args.architecture == "v15" else args.cross_lr)
+        relation_lr = (args.relation_lr
+                       if args.architecture in ("v15", "v16") else args.cross_lr)
         groups.append(dict(params=cross_proj, lr=relation_lr))
     optimizer = torch.optim.AdamW(groups, weight_decay=args.weight_decay)
     trainable = int(sum(p.numel() for p in module.parameters() if p.requires_grad))
@@ -613,7 +714,8 @@ def train(args):
                         "test question and no reference answer enters the score"),
         objective=objective_report(args),
         optimizer=dict(name="AdamW", lr=args.lr, cross_lr=args.cross_lr,
-                       relation_lr=(args.relation_lr if args.architecture == "v15"
+                       relation_lr=(args.relation_lr
+                                    if args.architecture in ("v15", "v16")
                                     else args.cross_lr),
                        weight_decay=args.weight_decay,
                        grad_clip=args.grad_clip, updates=args.updates,
@@ -733,6 +835,10 @@ def train(args):
         required = STAGE1 if update == 1 else STAGE2
         if args.architecture == "v15":
             required = (STAGE1 + V15_STAGE1) if update == 1 else (STAGE2 + V15_STAGE2)
+        elif args.architecture == "v16":
+            # Step 1: the zero projections must start learning. Step 2 on: the gates,
+            # which cannot see a gradient while the projections are exactly zero.
+            required = (STAGE1 + V16_STAGE1) if update == 1 else (STAGE2 + V16_STAGE2)
         missing = [name for name in required
                    if name not in gradients or not torch.isfinite(gradients[name]).all()
                    or float(gradients[name].abs().max()) == 0.0]
@@ -755,7 +861,18 @@ def train(args):
                    grad_relation=(float(sum(
                        gradients[name].norm() for name in V15_STAGE2 + V15_STAGE1
                        if name in gradients))
-                       if args.architecture == "v15" else None),
+                       if args.architecture == "v15" else (
+                           float(sum(gradients[name].norm()
+                                     for name in ("band_proj.0.weight",
+                                                  "layer_proj.0.weight",
+                                                  "gate_kappa", "gate_tau", "eta_logit")
+                                     if name in gradients))
+                           if args.architecture == "v16" else None)),
+                   v16_gate_core=(measured.get("v16") or {}).get("gate_core"),
+                   v16_gate_graft=(measured.get("v16") or {}).get("gate_graft"),
+                   v16_band_proj=(measured.get("v16") or {}).get("band_proj_norm"),
+                   v16_injection_rms=(measured.get("v16") or {}).get("injection_rms"),
+                   v16_shallow_leak=(measured.get("v16") or {}).get("shallow_leak"),
                    relation_mass=measured.get("relation_mass"),
                    relation_sink=measured.get("relation_sink"),
                    seconds=time.monotonic() - started)
@@ -800,9 +917,10 @@ def train(args):
     report["peak_allocated_bytes"] = int(torch.cuda.max_memory_allocated())
     report["status"] = "complete"
     payload = dict(
-        schema=(hr.SCHEMA if args.architecture == "v15" else FULL_POOL_SCHEMA)
+        schema=(br.SCHEMA if args.architecture == "v16" else
+                hr.SCHEMA if args.architecture == "v15" else FULL_POOL_SCHEMA)
         + "/checkpoint",
-        config=(module.config() if args.architecture == "v15" else
+        config=(module.config() if args.architecture in ("v15", "v16") else
                 dict(hidden_size=manager.hidden, rank=rank, max_ratio=args.max_ratio,
                     gate_init=args.gate_init, cond_size=3, cond_rank=args.cond_rank,
                     # recorded so the checkpoint can be rebuilt: without these the
@@ -816,7 +934,12 @@ def train(args):
         geometry=dict(cross=(args.cross == "on"), neighbor_mode=args.neighbor_mode,
                       architecture=args.architecture,
                       shallow_cutoff=(args.shallow_cutoff
-                                      if args.architecture == "v15" else None),
+                                      if args.architecture in ("v15", "v16") else None),
+                      layer_to_band=({str(layer): band
+                                      for layer, band in br.LAYER_TO_BAND.items()}
+                                     if args.architecture == "v16" else None),
+                      band_layers=([list(pair) for pair in br.BAND_LAYERS]
+                                   if args.architecture == "v16" else None),
                       core_per_block=args.core_per_block,
                       graft_per_block=args.graft_per_block,
                       key_threshold=args.key_threshold,
@@ -903,13 +1026,26 @@ def build_parser():
                         "query's own core/graft kind plus k_cross from the other side, "
                         "with equal per-group weight mass. Nothing else differs between "
                         "the two arms")
-    p.add_argument("--architecture", default="v13", choices=("v13", "v15"),
+    p.add_argument("--architecture", default="v13", choices=("v13", "v15", "v16"),
                    help="v13 = one kind-blind top-k context added into the bottleneck; "
                         "v15 = five per-layer sink-gated relations delivered as a FiLM "
-                        "modulation")
-    p.add_argument("--relation-lr", dest="relation_lr", type=float, default=5e-4,
-                   help="learning rate for V15's five per-layer projections and its two "
-                        "modulation matrices")
+                        "modulation; v16 = consensus top-4 candidates, per-band relations "
+                        "injected into their own memory layers, margin gate after the "
+                        "projection")
+    p.add_argument("--relation-lr", dest="relation_lr", type=float, default=3e-3,
+                   help="learning rate for the new cross-block projections and gates "
+                        "(V16 default 3e-3; the published V15 run used 5e-4)")
+    p.add_argument("--core-margin", dest="core_margin", type=float,
+                   default=br.CORE_MARGIN,
+                   help="V16 core-slot margin threshold tau in the confidence gate")
+    p.add_argument("--graft-margin", dest="graft_margin", type=float,
+                   default=br.GRAFT_MARGIN,
+                   help="V16 graft-slot margin threshold tau in the confidence gate")
+    p.add_argument("--gate-kappa", dest="gate_kappa", type=float,
+                   default=br.GATE_KAPPA,
+                   help="V16 gate slope (stored through softplus, so always positive)")
+    p.add_argument("--eta-init", dest="eta_init", type=float, default=br.ETA_INIT,
+                   help="V16 initial layer-acceptance logit")
     p.add_argument("--shallow-cutoff", dest="shallow_cutoff", type=int,
                    default=hr.SHALLOW_CUTOFF,
                    help="memory layers below this index keep the self branch only")

@@ -15,6 +15,8 @@
 
     V15               the layered sink-gated relation module on the SAME window as V13
     V15Donor          V15 on the donor window
+    V16               the band-aligned, margin-gated module on the SAME window as V13
+    V16Donor          V16 on the donor window
     V13Permuted<seed> inference-time attribution arm (one per `--v13-permute-seeds`
                       seed): V13's own window, weights and self-calibration branch, with
                       the precomputed cross-block context rows shuffled inside
@@ -117,6 +119,7 @@ from runtime import load_runtime, reset                   # noqa: E402
 from methods.prlmc.anchor_residual import (               # noqa: E402
     SCHEMA as ANCHOR_SCHEMA, AnchorResidual,
     compact_window as compact_window_anchor)
+from methods.prlmc import band_relation as br             # noqa: E402
 from methods.prlmc import hierarchical_relation as hr       # noqa: E402
 from methods.prlmc.cross_block_calibration import (       # noqa: E402
     SCHEMA as CALIB_SCHEMA, CrossBlockResidual, calibrate, permute_context)
@@ -149,8 +152,11 @@ V14_DONOR = "V14Donor"
 # V15: the same window again, calibrated by the layered sink-gated relation module.
 V15 = "V15"
 V15_DONOR = "V15Donor"
+# V16: band-aligned injection + post-projection margin gate, on V13's window again.
+V16 = "V16"
+V16_DONOR = "V16Donor"
 ARMS = (FULL, SELECTION, GRAFT, ANCHOR_ONLY, V11, V11_DONOR, V11_EVICT, V11_EVICT_DONOR,
-        V14, V14_DONOR, V15, V15_DONOR)
+        V14, V14_DONOR, V15, V15_DONOR, V16, V16_DONOR)
 # Inference-time attribution arms for V13's cross-block correspondence: same window, same
 # module, same self-calibration branch, context rows shuffled inside (source_block,
 # slot_type). They are named after their seed and appended to `ARMS` at run time.
@@ -367,7 +373,7 @@ def _chunks(prepared, window_blocks):
 
 def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                prepared, donor_graft, donor_graft_evict, donor_id, args, v14=None,
-               v15=None):
+               v15=None, v16=None):
     """One write; the baseline window and both V11 windows; then every arm's answer."""
     chunks = _chunks(prepared, args.window_blocks)
     answers = prepared["answers"]
@@ -484,6 +490,30 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                                       built["D"]["meta"], relation_donor_info,
                                       V15_DONOR))
                 windows[V15_DONOR] = built["I"]["calibrated"]
+        # Arms J and K: V16 on the SAME window as V13 and V15. Band routing and the
+        # margin gate are the only things that differ.
+        if v16 is not None:
+            if "D" not in built:
+                raise ValueError("--v16 needs the cross-block window it has to share")
+            band_calibrated, band_info = br.calibrate(built["D"]["window"],
+                                                      built["D"]["meta"],
+                                                      v16["module"])
+            built["J"] = dict(window=built["D"]["window"], calibrated=band_calibrated,
+                              check=built["D"]["check"],
+                              calibration=check_calibration(
+                                  band_calibrated, built["D"]["window"],
+                                  built["D"]["meta"], band_info, V16))
+            windows[V16] = built["J"]["calibrated"]
+            if "E" in built:
+                band_donor, band_donor_info = br.calibrate(built["E"]["window"],
+                                                           built["D"]["meta"],
+                                                           v16["module"])
+                built["K"] = dict(window=built["E"]["window"], calibrated=band_donor,
+                                  check=built["D"]["check"],
+                                  calibration=check_calibration(
+                                      band_donor, built["E"]["window"],
+                                      built["D"]["meta"], band_donor_info, V16_DONOR))
+                windows[V16_DONOR] = built["K"]["calibrated"]
         # Permutation arms: the SAME window, the SAME trained module and the SAME
         # self-calibration branch as arm D; only the mapping slot -> context row is
         # shuffled, inside (source_block, slot_type) groups so the batch a slot draws
@@ -566,7 +596,7 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
         if arm in (FULL, SELECTION):
             continue
         if arm not in windows:
-            if (arm in (V11_DONOR, V14, V14_DONOR, V15, V15_DONOR)
+            if (arm in (V11_DONOR, V14, V14_DONOR, V15, V15_DONOR, V16, V16_DONOR)
                     or arm.startswith(PERMUTE_PREFIX)):
                 # A run without the donor document (or without --v14) has no such arm;
                 # it is simply not answered, and `arms_present` records that.
@@ -601,6 +631,12 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
     if V14_DONOR in windows and fingerprints[V14] == fingerprints[V14_DONOR]:
         raise ValueError("V14's donor arm reads the same pool as V14: the swap did not "
                          "reach the memory")
+    if V16 in windows and fingerprints[V16] == fingerprints[V11_EVICT]:
+        raise ValueError("V16 reads the same pool as V13: the band injection changed "
+                         "nothing, so this run cannot speak about it")
+    if len(prepared) > 1 and V16 in windows and V16_DONOR not in windows:
+        raise ValueError("V16's donor arm was not built: its content causality cannot be "
+                         "answered by V13's donor")
     if V15 in windows and fingerprints[V15] == fingerprints[V11_EVICT]:
         raise ValueError("V15 reads the same pool as V13: the relation module changed "
                          "nothing, so this run cannot speak about it")
@@ -632,6 +668,10 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                   calibration=built["H"]["calibration"]) if "H" in built else None),
         v15_donor=(dict(calibration=built["I"]["calibration"], source_id=donor_id)
                    if "I" in built else None),
+        v16=(dict(window_check=built["J"]["check"],
+                  calibration=built["J"]["calibration"]) if "J" in built else None),
+        v16_donor=(dict(calibration=built["K"]["calibration"], source_id=donor_id)
+                   if "K" in built else None),
         permutation={arm: dict(calibration=built[arm]["calibration"],
                                moved_fraction=moved)
                      for arm, moved in permuted_arms.items()} or None,
@@ -755,6 +795,41 @@ def permutation_report(graded, threshold, seeds):
                  "cross-block multi-hop reasoning"))
 
 
+def _band_gate(samples):
+    """V16's per-band gate distribution and the injected RMS, aggregated over rows."""
+    rows = [((sample.get("v16") or {}).get("calibration") or {}) for sample in samples]
+    rows = [row for row in rows if row]
+    if not rows:
+        return None
+    bands = sorted({band for row in rows for band in (row.get("gate_bands") or {})})
+    summary = {}
+    for band in bands:
+        entry = {}
+        for field in ("gate_core_mean", "gate_core_std", "gate_graft_mean",
+                      "gate_graft_std"):
+            entry[field] = _stats([row["gate_bands"][band][field] for row in rows
+                                   if band in row.get("gate_bands", {})
+                                   and field in row["gate_bands"][band]])
+        summary[band] = entry
+    return dict(
+        n=len(rows), bands=summary,
+        band_proj_norm={band: _stats([row["band_proj_norm"][band] for row in rows
+                                      if row.get("band_proj_norm")])
+                        for band in range(len(rows[0].get("band_proj_norm") or []))},
+        layer_proj_norm=_stats([row["layer_proj_norm"] for row in rows
+                                if row.get("layer_proj_norm") is not None]),
+        cross_injection_rms=_stats([row["cross_injection_rms"] for row in rows
+                                    if row.get("cross_injection_rms") is not None]),
+        shallow_cross_leak=_stats([row["shallow_cross_leak"] for row in rows
+                                   if row.get("shallow_cross_leak") is not None]),
+        core_relative_delta=_stats([row["core_relative_delta"] for row in rows
+                                    if row.get("core_relative_delta") is not None]),
+        graft_relative_delta=_stats([row["graft_relative_delta"] for row in rows
+                                     if row.get("graft_relative_delta") is not None]),
+        note="gate is omega*eta applied after the projection; shallow_cross_leak is the "
+             "largest cross-term value on memory layers 0..9 and must be exactly 0")
+
+
 def _relation_gate(samples):
     """Per-layer sink occupancy and retained mass of V15, aggregated over rows.
 
@@ -797,7 +872,7 @@ def joint_compare(samples, threshold):
     extra = sorted({arm for sample in graded for arm in sample["arms"]} - set(ARMS))
     present += [arm for arm in extra if arm in graded[0]["arms"]]
     controls = [arm for arm in (V11_DONOR, V11_EVICT, V11_EVICT_DONOR, V14, V14_DONOR,
-                                V15, V15_DONOR, GRAFT) + tuple(extra)
+                                V15, V15_DONOR, V16, V16_DONOR, GRAFT) + tuple(extra)
                 if arm in present]
 
     def block(rows):
@@ -814,11 +889,13 @@ def joint_compare(samples, threshold):
             # The one comparison this round exists for: the same window, the same
             # modules' training budget, only the neighbour source differs.
             versus_v13={arm: er.pair_summary(rows, arm, V11_EVICT, threshold)
-                        for arm in (V14, V15) if arm in present},
+                        for arm in (V14, V15, V16) if arm in present},
             versus_v14={V14_DONOR: er.pair_summary(rows, V14_DONOR, V14, threshold)}
             if V14_DONOR in present else {},
             versus_v15={V15_DONOR: er.pair_summary(rows, V15_DONOR, V15, threshold)}
-            if V15_DONOR in present else {})
+            if V15_DONOR in present else {},
+            versus_v16={V16_DONOR: er.pair_summary(rows, V16_DONOR, V16, threshold)}
+            if V16_DONOR in present else {})
 
     merge_rows = [sample["v11"] for sample in graded]
     thresholds = dict(
@@ -877,7 +954,21 @@ def joint_compare(samples, threshold):
         v15_damage=dict(
             target=8,
             achieved=(ef._damage(graded, V15, threshold).get("lost")
-                      if V15 in present else None)))
+                      if V15 in present else None)),
+        # V16's targets, stated before the run: +5 questions over V13 (72/158), damage
+        # down to 8-9 of Full's 47, and content causality kept.
+        v16_over_v13=dict(
+            target=5,
+            achieved=er.pair_summary(graded, V16, V11_EVICT, threshold).get("net")
+            if V16 in present else None),
+        v16_content_causality=dict(
+            target=5,
+            achieved=er.pair_summary(graded, V16, V16_DONOR, threshold).get("net")
+            if V16_DONOR in present else None),
+        v16_damage=dict(
+            target=9,
+            achieved=(ef._damage(graded, V16, threshold).get("lost")
+                      if V16 in present else None)))
 
     return dict(
         definition=("the same 19-block window, the same nine carriers, the same 2,304 "
@@ -896,6 +987,7 @@ def joint_compare(samples, threshold):
              if arm.startswith(PERMUTE_PREFIX)]) if any(
                 arm.startswith(PERMUTE_PREFIX) for arm in present) else None,
         relation_gate=_relation_gate(graded),
+        band_gate=_band_gate(graded),
         neighbour_composition=dict(
             topk=_neighbour_composition(graded, "evict"),
             complement=_neighbour_composition(graded, "v14"),
@@ -925,7 +1017,8 @@ def joint_compare(samples, threshold):
 # driver
 # ---------------------------------------------------------------------------
 def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
-                   v14_geometry=None, permute_seeds=None, v15_geometry=None):
+                   v14_geometry=None, permute_seeds=None, v15_geometry=None,
+                   v16_geometry=None):
     return dict(
         experiment="10 (V14): does the SOURCE of the cross-block neighbours buy anything? "
                    "Same window, same budget, same training as V13; only the rule that "
@@ -950,6 +1043,23 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
                       anchor_config=anchor_config),
         v11=dict(arm=V11, path=args.v11, sha256=sha(args.v11), geometry=v11_geometry,
                  core_total=CORE_TOTAL, graft_total=GRAFT_TOTAL),
+        band_relation=dict(
+            arm=V16, path=args.v16, sha256=sha(args.v16) if args.v16 else None,
+            geometry=v16_geometry,
+            treatment=("one cross-block top-4 candidate set chosen from the five-layer "
+                       "CONSENSUS similarity (keys centred over slots, L2-normalised); "
+                       "each band then softmaxes its own similarity over those four and "
+                       "aggregates its own raw values; memory layer l reads band "
+                       "BAND_OF_LAYER[l] only (L12->L10-14, L16->L15-18, L20->L19-22, "
+                       "L24->L23-26, L28->L27-31, L0-9 self branch only), through "
+                       "band_proj[band] + layer_proj[layer], both zero-initialised; the "
+                       "injection is gated AFTER the projection by "
+                       "omega = sigmoid(kappa[type,band]*(margin - tau[type,band])) and "
+                       "eta = sigmoid(eta_logit[type,layer]), with nothing normalising "
+                       "the product afterwards"),
+            targets=dict(questions="V16 >= 72/158 (+5 over V13)",
+                         damage="8-9 of Full's 47 lost",
+                         content="V16 - V16Donor keeps a clear margin")),
         relation=dict(
             arm=V15, path=args.v15, sha256=sha(args.v15) if args.v15 else None,
             geometry=v15_geometry,
@@ -1036,6 +1146,16 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
         reader_utility_schema=JOINT_SCHEMA)
 
 
+def _net_summary(total):
+    """Every paired comparison of the run as `arm -> net`, duplicates collapsed."""
+    net = {}
+    for name in ("versus_anchor_only", "versus_v11", "versus_v11evict", "versus_v13",
+                 "versus_v14", "versus_v15", "versus_v16"):
+        for arm, value in (total.get(name) or {}).items():
+            net[arm] = value.get("net")
+    return net
+
+
 REFERENCE_ARMS = ((FULL, FULL), (SELECTION, SELECTION), (GRAFT, GRAFT),
                   (ANCHOR_ONLY, ANCHOR_ONLY))
 
@@ -1090,7 +1210,8 @@ def evaluate(args):
             arms=list(ARMS) + [permute_arm(seed) for seed in args.permute_seeds],
             readouts_per_sample=len(ARMS) + len(args.permute_seeds),
             v11=args.v11, v11_evict=args.v11_evict, v14=args.v14, v15=args.v15,
-            permute_seeds=args.permute_seeds), indent=2, ensure_ascii=False))
+            v16=args.v16, permute_seeds=args.permute_seeds), indent=2,
+            ensure_ascii=False))
         return None
     for flag, value, what in (("--checkpoint", args.checkpoint, "the frozen operator"),
                               ("--anchor", args.anchor, "the AnchorOnly module"),
@@ -1142,6 +1263,20 @@ def evaluate(args):
             raise ValueError("the permutation test is defined on V13's kind-blind top-k "
                              "context; this checkpoint carries neighbour mode "
                              f"{v11_evict['module'].neighbor_mode!r}")
+    v16 = None
+    if args.v16:
+        if v11_evict is None:
+            raise ValueError("--v16 needs --v11-evict: V13 is the arm V16 has to beat")
+        v16_module, v16_config, v16_geometry = br.load_band(args.v16, manager.hidden)
+        v16_module = v16_module.to(model.memory.device).float().eval()
+        v16_module.requires_grad_(False)
+        for field in ("core_per_block", "graft_per_block"):
+            if v16_geometry.get(field) != v11_evict["geometry"].get(field):
+                raise ValueError(f"--v16 and --v11-evict record different {field}: they "
+                                 f"cannot share one window")
+        if int(v16_config.get("rank", -1)) != int(v11_evict["config"].get("rank", -1)):
+            raise ValueError("--v16 and --v11-evict were built with different ranks")
+        v16 = dict(module=v16_module, config=v16_config, geometry=v16_geometry)
     v15 = None
     if args.v15:
         if v11_evict is None:
@@ -1194,7 +1329,8 @@ def evaluate(args):
                                 v11_evict["geometry"] if v11_evict else None,
                                 v14["geometry"] if v14 else None,
                                 permute_seeds=args.permute_seeds,
-                                v15_geometry=(v15["geometry"] if v15 else None)),
+                                v15_geometry=(v15["geometry"] if v15 else None),
+                                v16_geometry=(v16["geometry"] if v16 else None)),
         identity=dict(
             model_path=args.model_path, checkpoint=args.checkpoint,
             checkpoint_sha256=sha(args.checkpoint),
@@ -1207,6 +1343,8 @@ def evaluate(args):
             v14_sha256=sha(args.v14) if args.v14 else None,
             v15=args.v15,
             v15_sha256=sha(args.v15) if args.v15 else None,
+            v16=args.v16,
+            v16_sha256=sha(args.v16) if args.v16 else None,
             data_dir=args.data_dir,
             data_sha256=sha(Path(args.data_dir) / (args.task + ".jsonl")),
             supporting_facts_glob=args.supporting_facts_glob,
@@ -1258,7 +1396,7 @@ def evaluate(args):
         reset(manager, initial)
         result, carried = run_sample(model, tokenizer, manager, merge, anchor_module,
                                      v11, v11_evict, sample, donor_graft,
-                                     donor_graft_evict, donor_id, args, v14, v15)
+                                     donor_graft_evict, donor_id, args, v14, v15, v16)
         # `donor_id` is the row whose graft slots this sample read; `carried["id"]` is
         # this sample. Comparing the carried id with the sample id compared a row with
         # itself and fired on every row.
@@ -1292,12 +1430,11 @@ def evaluate(args):
         elapsed_seconds=round(report["elapsed_seconds"], 1),
         arms={arm: round(summary["accuracy"], 2)
               for arm, summary in report["summary"]["arms"].items()},
-        net={name: value.get("net") for name, value in
-             dict(**report["summary"]["total"]["versus_anchor_only"],
-                  **report["summary"]["total"]["versus_v11"],
-                  **report["summary"]["total"]["versus_v11evict"],
-                  **report["summary"]["total"]["versus_v13"],
-                  **report["summary"]["total"]["versus_v14"]).items()},
+        # Merging these with `dict(**a, **b)` crashed on V15's run: an arm that appears
+        # in two comparison blocks (V11EvictDonor is in both versus_anchor_only and
+        # versus_v11evict) is a duplicate keyword, and the whole run died AFTER writing
+        # status=complete. Update the dict instead of unpacking it.
+        net=_net_summary(report["summary"]["total"]),
         thresholds=report["summary"]["thresholds"]),
         indent=1, ensure_ascii=False))
     return report
@@ -1320,6 +1457,9 @@ def build_parser():
     p.add_argument("--v11-evict", dest="v11_evict", default=None,
                    help="the cross-block conditioned checkpoint (trained with --cross "
                         "on --neighbor-mode topk): the V13 arm")
+    p.add_argument("--v16", default=None,
+                   help="the band-aligned, margin-gated module (trained with "
+                        "--architecture v16): calibrates the SAME window as --v11-evict")
     p.add_argument("--v15", default=None,
                    help="the layered sink-gated relation module (trained with "
                         "--architecture v15): calibrates the SAME window as --v11-evict")
