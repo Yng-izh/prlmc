@@ -337,6 +337,125 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     return context, report
 
 
+def evicted_positions(meta, source_slots):
+    """Source positions that did NOT make it into the 2,304-slot window."""
+    kept = meta["source_position"].to(torch.long)
+    mask = torch.ones(int(source_slots), dtype=torch.bool, device=kept.device)
+    mask[kept] = False
+    return torch.nonzero(mask, as_tuple=False).flatten()
+
+
+@torch.no_grad()
+def evicted_pool_context(window, meta, source, k=4, chunk=256, return_report=False):
+    """Second cross-block path: the neighbours of each kept slot inside the EVICTED pool.
+
+    The window keeps 2,304 of the 4,864 source slots, so 2,560 are dropped -- 76 per
+    carrier block and the ~188 unselected slots of every dropped block. MMR keeps the
+    FIRST slot of a repeated span, which is why the predicate/object slots immediately
+    next to a kept one are routinely in the pool that was thrown away. This path reaches
+    them with the same statistic the in-pool path uses (Reader 5-layer key cosine, top-4,
+    their Reader values), with one deliberate difference: **no same-block mask**. The
+    slots we want are usually the kept slot's own block neighbours, and masking them out
+    is exactly what lost them.
+
+    Cost: two extra reader readings (the window for the query side, the evicted pool for
+    the candidate side). The in-pool context is untouched -- it is still V13's.
+    """
+    scorer = meta.get("scorer")
+    if scorer is None:
+        raise ValueError("the metadata carries no reader scorer")
+    slots = int(window.shape[1])
+    positions = evicted_positions(meta, int(source.shape[1]))
+    if int(positions.numel()) < 2:
+        raise ValueError("the evicted pool is empty: nothing to recover")
+    evicted = source.index_select(1, positions)
+    query_reading, _ = scorer.reading(window, torch.arange(slots, device=window.device),
+                                      None)
+    pool_reading, _ = scorer.reading(evicted, torch.arange(evicted.shape[1],
+                                                          device=evicted.device), None)
+    query_key = query_reading.key.float()
+    pool_key = pool_reading.key.float()
+    pool_value = pool_reading.value.float()
+    if int(query_key.shape[-1]) != int(pool_key.shape[-1]):
+        raise ValueError("the kept and evicted readings have different widths")
+    keep = min(int(k), int(evicted.shape[1]) - 1)
+    rows, similarity_rows, same_block_rows = [], [], []
+    source_block = meta["source_block"]
+    # Block id of a pool slot from its source position: the written source is
+    # `num_blocks` contiguous blocks of equal size, and the window's own slots give us
+    # `source_block` and `source_position` together, so the size is recoverable.
+    block_size = int(source.shape[1]) // (int(source_block.max()) + 1)
+    for start in range(0, slots, chunk):
+        stop = min(start + chunk, slots)
+        similarity = query_key[start:stop] @ pool_key.t()
+        best = similarity.topk(keep, dim=-1)
+        weights = torch.softmax(best.values, dim=-1)
+        gathered = pool_value.index_select(0, best.indices.reshape(-1)).reshape(
+            stop - start, keep, -1)
+        rows.append((gathered * weights.unsqueeze(-1)).sum(dim=1))
+        similarity_rows.append(best.values.mean(dim=-1))
+        pool_blocks = torch.div(positions, block_size, rounding_mode="floor")
+        same = (pool_blocks.index_select(0, best.indices.reshape(-1)).reshape(
+            stop - start, keep) == source_block[start:stop].unsqueeze(1))
+        same_block_rows.append(same.float().mean(dim=-1))
+        del similarity, best, gathered, weights
+    context = torch.cat(rows, dim=0)
+    if not return_report:
+        return context
+    report = dict(k=int(keep), pool_slots=int(positions.numel()),
+                  neighbour_similarity_mean=float(torch.cat(similarity_rows).mean()),
+                  same_block_fraction=float(torch.cat(same_block_rows).mean()),
+                  context_rms=float(context.square().mean().sqrt()),
+                  note="unmasked pool: the point of this path is its own-block neighbours")
+    return context, report
+
+
+@torch.no_grad()
+def slot_relevance(window, meta, k=4, chunk=256):
+    """Mean cosine similarity of every slot to its own cross-block Top-4 neighbours.
+
+    Exactly the statistic the calibration uses to pick those neighbours (same keys, same
+    same-block mask, same top-k), returned per slot so an inference-time cap can be made
+    proportional to it. No parameters, no extra state.
+    """
+    scorer = meta.get("scorer")
+    if scorer is None:
+        raise ValueError("the metadata carries no reader scorer")
+    slots = int(window.shape[1])
+    reading, _ = scorer.reading(window, torch.arange(slots, device=window.device), None)
+    key = reading.key.float()
+    block = meta["source_block"]
+    keep = min(int(k), slots - 1)
+    out = []
+    for start in range(0, slots, chunk):
+        stop = min(start + chunk, slots)
+        similarity = key[start:stop] @ key.t()
+        same = block[start:stop].unsqueeze(1) == block.unsqueeze(0)
+        similarity = similarity.masked_fill(same, -2.0)
+        out.append(similarity.topk(keep, dim=-1).values.mean(dim=-1))
+        del similarity, same
+    return torch.cat(out, dim=0)
+
+
+def relevance_graft_caps(relevance, slot_type, low=0.25, high=0.50):
+    """`cap_i = low + (high - low) * rank_norm(s_i)` for the graft slots, `[slots]`.
+
+    Rank-proportional, not value-proportional: the ranking is what says "this graft slot
+    is a real bridge" versus "this one came along to fill the quota", and it is scale
+    free. Carrier slots carry the carrier ceiling and are passed through untouched.
+    """
+    caps = torch.full_like(relevance, float(high))
+    graft = slot_type > 0.5
+    count = int(graft.sum())
+    if count == 0:
+        return caps
+    values = relevance[graft].float()
+    order = values.argsort().argsort().float()
+    normalised = (order + 0.5) / float(count)
+    caps[graft] = (float(low) + (float(high) - float(low)) * normalised).to(caps.dtype)
+    return caps
+
+
 class CrossBlockResidual(nn.Module):
     """Bounded low-rank residual for every slot, conditioned on its cross-block context.
 
@@ -353,7 +472,8 @@ class CrossBlockResidual(nn.Module):
                  cond_size=3, cond_rank=32, use_cross=True, k_neighbors=4,
                  neighbor_mode="topk", k_same=2, k_cross=2,
                  kv_dim=DEFAULT_KV_DIM, max_ratio_core=0.15, core_weight=2.0,
-                 graft_weight=0.5, span_value=False, context_diffusion=False, csls=False):
+                 graft_weight=0.5, span_value=False, context_diffusion=False, csls=False,
+                 use_evicted=False):
         super().__init__()
         if rank <= 0 or hidden_size <= 0:
             raise ValueError("rank and hidden_size must be positive")
@@ -378,9 +498,13 @@ class CrossBlockResidual(nn.Module):
         self.k_cross = int(k_cross)
         # Parameter-free refinements of the neighbour aggregation: recorded in the
         # checkpoint config so an evaluation rebuilds the same context rule.
+        # Inference-time override of the graft ceiling, set by `set_graft_cap`; None
+        # keeps the scalar `max_ratio` the module was built with.
+        self.graft_cap = None
         self.span_value = bool(span_value)
         self.context_diffusion = bool(context_diffusion)
         self.csls = bool(csls)
+        self.use_evicted = bool(use_evicted)
         self.kv_dim = int(kv_dim)
         self.core_weight = float(core_weight)
         self.graft_weight = float(graft_weight)
@@ -398,6 +522,11 @@ class CrossBlockResidual(nn.Module):
         if self.use_cross:
             self.cross_proj = nn.Linear(self.kv_dim, self.rank, bias=False)
             nn.init.zeros_(self.cross_proj.weight)
+        if self.use_evicted:
+            # Second cross-block path, same width and same zero init: at update 0 the
+            # module is still exactly V11's calibrator.
+            self.evict_proj = nn.Linear(self.kv_dim, self.rank, bias=False)
+            nn.init.zeros_(self.evict_proj.weight)
 
     def config(self):
         """Constructor kwargs, so a reference copy cannot drift from the trained one."""
@@ -408,7 +537,17 @@ class CrossBlockResidual(nn.Module):
                     k_same=self.k_same, k_cross=self.k_cross, kv_dim=self.kv_dim,
                     max_ratio_core=self.max_ratio_core, core_weight=self.core_weight,
                     graft_weight=self.graft_weight, span_value=self.span_value,
-                    context_diffusion=self.context_diffusion, csls=self.csls)
+                    context_diffusion=self.context_diffusion, csls=self.csls,
+                    use_evicted=self.use_evicted)
+
+    def evicted(self, window, meta, source, return_report=False):
+        """This module's evicted-pool rule -- the second relation path, if enabled."""
+        if not self.use_evicted:
+            if return_report:
+                return None, None
+            return None
+        return evicted_pool_context(window, meta, source, k=self.k_neighbors,
+                                    return_report=return_report)
 
     def neighbours(self, window, meta, return_report=False):
         """This module's own neighbour rule -- the one place that knows it.
@@ -426,6 +565,27 @@ class CrossBlockResidual(nn.Module):
             mode=self.neighbor_mode, k_same=self.k_same, k_cross=self.k_cross,
             span_value=self.span_value, context_diffusion=self.context_diffusion,
             csls=self.csls)
+
+    def set_graft_cap(self, cap):
+        """Override the graft residual ceiling at inference time; no parameter changes.
+
+        `cap` is a scalar (uniform cap, e.g. 0.38 x rms) or one value per slot (the
+        relevance-proportional cap). The carrier ceiling is untouched.
+        """
+        if cap is None:
+            self.graft_cap = None
+            return self
+        values = torch.as_tensor(cap, dtype=torch.float32).reshape(-1)
+        if not torch.isfinite(values).all():
+            raise ValueError("the graft cap must be finite")
+        if bool((values <= 0).any()):
+            # A non-positive ceiling would flip the sign of the residual instead of
+            # shrinking it, which is never what this override is for.
+            raise ValueError("the graft cap must be strictly positive")
+        # Length is checked in `forward`, where the slot count is known: one value means
+        # "uniform cap", anything else must match the window exactly.
+        self.graft_cap = values
+        return self
 
     def anchor_view(self):
         """`AnchorResidual` carrying this module's graft parameters.
@@ -475,13 +635,22 @@ class CrossBlockResidual(nn.Module):
         if cond.shape != (slots.shape[1], self.cond_size):
             raise ValueError(f"expected conditions {tuple((slots.shape[1], self.cond_size))},"
                              f" got {tuple(cond.shape)}")
+        in_pool, evicted = (context if isinstance(context, tuple)
+                           else (context, None))
         if self.use_cross:
-            if context is None:
+            if in_pool is None:
                 raise ValueError("this module is cross-block conditioned: it needs a "
                                  "context, and got None")
-            if context.shape[0] != slots.shape[1]:
+            if in_pool.shape[0] != slots.shape[1]:
                 raise ValueError("one context row per slot")
+        if self.use_evicted:
+            if evicted is None:
+                raise ValueError("this module carries the evicted-pool path: pass "
+                                 "(in_pool_context, evicted_context)")
+            if evicted.shape[0] != slots.shape[1]:
+                raise ValueError("one evicted-context row per slot")
         dtype = slots.dtype
+        slots_count = int(slots.shape[1])
         x = slots.float()
         bottleneck = F.gelu(F.linear(x, self.down.float()))
         film = F.linear(F.gelu(F.linear(cond.float(), self.cond_down.float())),
@@ -492,13 +661,28 @@ class CrossBlockResidual(nn.Module):
         if self.use_cross:
             # Zero-initialised: the first update sees V11's calibrator exactly.
             bottleneck = bottleneck + self.cross_proj(
-                context.float().to(bottleneck.device)).unsqueeze(0)
+                in_pool.float().to(bottleneck.device)).unsqueeze(0)
+        if self.use_evicted:
+            # The dropped 2,560 slots, through their own zero-initialised map.
+            bottleneck = bottleneck + self.evict_proj(
+                evicted.float().to(bottleneck.device)).unsqueeze(0)
         rms = x.square().mean(dim=-1, keepdim=True).clamp_min(1e-12).sqrt()
         graft = F.linear(bottleneck, self.up_graft.float())
         core = F.linear(bottleneck, self.up_core.float())
         mask = cond[:, 2].float().view(1, -1, 1)
         raw = mask * graft + (1.0 - mask) * core
-        ceiling = mask * self.max_ratio + (1.0 - mask) * self.max_ratio_core
+        if self.graft_cap is None:
+            graft_ceiling = self.max_ratio
+        else:
+            cap = self.graft_cap.to(x.device)
+            if cap.numel() == 1:
+                graft_ceiling = cap
+            else:
+                if cap.numel() != slots_count:
+                    raise ValueError(f"the graft cap has {cap.numel()} values for "
+                                     f"{slots_count} slots")
+                graft_ceiling = cap.view(1, -1, 1)
+        ceiling = mask * graft_ceiling + (1.0 - mask) * self.max_ratio_core
         gate = torch.sigmoid(self.gate_logit.float()
                              + mask * self.type_gate_logit.float()) * ceiling
         return (gate * rms * torch.tanh(raw / rms)).to(dtype)
@@ -521,17 +705,28 @@ def _apply(chunk, delta):
 
 
 @torch.no_grad()
-def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=False):
+def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=False,
+              source=None):
     """Module over ALL 2,304 slots: bounded residual, RMS restored, context supplied.
 
     Layer-chunked because the module is shared across layers: the chunk size cannot
     change the result, it only bounds the float32 working set.
     """
     cond = conditions(meta, window.shape[1])
+    context_report = None
+    evicted_report = None
     if module.use_cross and context is None:
         context, context_report = module.neighbours(window, meta, return_report=True)
-    else:
-        context_report = None
+        if getattr(module, "use_evicted", False):
+            if source is None:
+                raise ValueError("this checkpoint carries the evicted-pool path: the "
+                                 "calibration needs the source pool it was evicted from")
+            evicted, evicted_report = module.evicted(window, meta, source,
+                                                    return_report=True)
+            context = (context, evicted)
+            del evicted
+    elif getattr(module, "use_evicted", False) and not isinstance(context, tuple):
+        raise ValueError("the evicted-pool module needs (in_pool, evicted) contexts")
     pieces = []
     delta_sq = slot_sq = 0.0
     per_type = {0: [0.0, 0.0], 1: [0.0, 0.0]}
@@ -566,6 +761,8 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
         gate=float(torch.sigmoid(module.gate_logit.detach().float())))
     if context_report is not None:
         info["cross_context"] = context_report
+    if evicted_report is not None:
+        info["evicted_context"] = evicted_report
     if return_report:
         return torch.cat(pieces, dim=0), info, context
     return torch.cat(pieces, dim=0), info

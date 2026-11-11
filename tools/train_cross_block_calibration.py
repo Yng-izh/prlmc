@@ -181,7 +181,8 @@ def build_module(args, hidden, anchor_state, anchor_config):
                               graft_weight=args.graft_weight,
                               span_value=(args.span_value == "on"),
                               context_diffusion=(args.context_diffusion == "on"),
-                              csls=(args.csls == "on"))
+                              csls=(args.csls == "on"),
+                              use_evicted=(args.evicted_context == "on"))
     module.load_anchor_only(anchor_state, anchor_config)
     return module, rank
 
@@ -202,13 +203,24 @@ def build_probes(args, tokenizer, documents):
 # ---------------------------------------------------------------------------
 # one document
 # ---------------------------------------------------------------------------
-def context_of(module, window, meta, return_report=False):
+def context_of(module, window, meta, return_report=False, source=None):
     """The module's own relation rule. V13 owns `neighbours`, V15 owns `relations`;
-    the loop must not know which one it is talking to."""
+    the loop must not know which one it is talking to. Modules that also read the
+    evicted pool return `(in_pool, evicted)` as one payload."""
     if hasattr(module, "relations"):
         return module.relations(window, meta, return_report=return_report)
     if getattr(module, "use_cross", False):
-        return module.neighbours(window, meta, return_report=return_report)
+        context, report = module.neighbours(window, meta, return_report=True)
+        if getattr(module, "use_evicted", False):
+            if source is None:
+                raise ValueError("this module reads the evicted pool: the training loop "
+                                 "has to pass the source it was evicted from")
+            evicted, evicted_report = module.evicted(window, meta, source,
+                                                     return_report=True)
+            context = (context, evicted)
+            report = dict(report or {}, evicted=evicted_report)
+            del evicted
+        return (context, report) if return_report else context
     return (None, None) if return_report else None
 
 
@@ -248,7 +260,7 @@ def v16_stats(module, cond, relation, window):
                     if bool((~active).any()) else 0.0)
 
 
-def calibrate_with_reg(window, meta, module, layer_chunk=4):
+def calibrate_with_reg(window, meta, module, layer_chunk=4, source=None):
     """Module 3 with the residual regulariser kept inside the graph.
 
     Each layer chunk is a `torch.utils.checkpoint` region: the module is 0.52 M
@@ -263,7 +275,8 @@ def calibrate_with_reg(window, meta, module, layer_chunk=4):
     # The module owns its relation rule: V13 (topk) and V14 (complement) differ in
     # nothing else, so this call site must not hard-code k or the mode. The report is
     # kept because the sink mass is the only evidence that V15's gate is doing anything.
-    context, relation_report = context_of(module, window, meta, return_report=True)
+    context, relation_report = context_of(module, window, meta, return_report=True,
+                                          source=source)
     # Preallocated and filled slice by slice. `torch.cat(pieces)` needs the whole
     # 32-layer output twice alive at once (the list and the concatenation), which at
     # 2,304 slots is 576 MiB of pure transient; writing into a buffer that already
@@ -362,7 +375,8 @@ def document_step(model, manager, merge, scorer, joint, module, reference, initi
         window, meta, telemetry = joint.build(source, picked, manager.block)
         reference_payload = cache["reference"].get(key)
         if reference_payload is None:
-            reference_window, _, _ = calibrate_with_reg(window, meta, reference)
+            reference_window, _, _ = calibrate_with_reg(window, meta, reference,
+                                                        source=source)
             with read_window(model, manager, window, reference_window):
                 logits, gold = answer_logits(model, qa, device)
             per_token = -F.cross_entropy(logits, gold, reduction="none")
@@ -396,7 +410,8 @@ def document_step(model, manager, merge, scorer, joint, module, reference, initi
                     full_logp=(full["logp"] if full is not None else None),
                     cost=cost, qualifies=qualifies)
 
-    calibrated, regulariser, info = calibrate_with_reg(window, meta, module)
+    calibrated, regulariser, info = calibrate_with_reg(window, meta, module,
+                                                       source=source)
     with read_window(model, manager, window, calibrated):
         logits, gold = answer_logits(model, qa, device)
     per_token = F.cross_entropy(logits, gold, reduction="none")
@@ -418,7 +433,8 @@ def document_step(model, manager, merge, scorer, joint, module, reference, initi
         donor_window = window.clone()
         donor_window[:, graft_offsets] = donor_graft.to(window.dtype)
         with torch.no_grad():
-            donor_calibrated, _, _ = calibrate_with_reg(donor_window, meta, module)
+            donor_calibrated, _, _ = calibrate_with_reg(donor_window, meta, module,
+                                                        source=source)
             with read_window(model, manager, donor_window, donor_calibrated):
                 donor_logits, _ = answer_logits(model, qa, device)
             donor_logp = float(answer_logp(donor_logits, gold))
@@ -680,7 +696,7 @@ def train(args):
     # The cross/relation channel is zero- or small-started and cannot reach a useful
     # scale at the shared learning rate (V13 needed 30x). V15 gives the five per-layer
     # projections and the two modulation matrices their own, larger step.
-    relation_names = ("cross_proj", "mod_scale", "mod_shift", "cross_norm",
+    relation_names = ("cross_proj", "evict_proj", "mod_scale", "mod_shift", "cross_norm",
                       "band_proj", "layer_proj", "gate_kappa", "gate_tau", "eta_logit")
     cross_proj = [p for name, p in module.named_parameters()
                   if p.requires_grad and name.startswith(relation_names)]
@@ -736,7 +752,8 @@ def train(args):
         write_blocks(manager, merge, chunks_of(training[0]))
         source, ages, picked = gr.select_carriers(manager, WINDOW_BLOCKS, TARGET_BLOCKS)
         window, meta, telemetry = joint.build(source, picked, manager.block)
-        calibrated, regulariser, info = calibrate_with_reg(window, meta, module)
+        calibrated, regulariser, info = calibrate_with_reg(window, meta, module,
+                                                           source=source)
         core = meta["slot_type"] == 0
         graft = meta["slot_type"] == 1
         core_identical = bool(torch.equal(calibrated[:, core], window[:, core]))
@@ -1031,6 +1048,11 @@ def build_parser():
                    choices=("on", "off"),
                    help="smooth the finished context over same-block neighbours "
                         "(0.70 centre + 0.15 either side)")
+    p.add_argument("--evicted-context", dest="evicted_context", default="off",
+                   choices=("on", "off"),
+                   help="second cross-block path: for every kept slot, take a Top-4 over "
+                        "the 2,560 EVICTED slots (no same-block mask) and add it through "
+                        "its own zero-initialised projection")
     p.add_argument("--csls", default="on", choices=("on", "off"),
                    help="CSLS background subtraction before the top-k, so slots that are "
                         "similar to everything lose their seat")
