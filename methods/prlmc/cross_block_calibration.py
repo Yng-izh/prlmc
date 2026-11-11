@@ -379,12 +379,7 @@ def evicted_pool_context(window, meta, source, k=4, chunk=256, return_report=Fal
     if int(query_key.shape[-1]) != int(pool_key.shape[-1]):
         raise ValueError("the kept and evicted readings have different widths")
     keep = min(int(k), int(evicted.shape[1]) - 1)
-    rows, similarity_rows, same_block_rows = [], [], []
-    source_block = meta["source_block"]
-    # Block id of a pool slot from its source position: the written source is
-    # `num_blocks` contiguous blocks of equal size, and the window's own slots give us
-    # `source_block` and `source_position` together, so the size is recoverable.
-    block_size = int(source.shape[1]) // (int(source_block.max()) + 1)
+    rows, similarity_rows = [], []
     for start in range(0, slots, chunk):
         stop = min(start + chunk, slots)
         similarity = query_key[start:stop] @ pool_key.t()
@@ -394,19 +389,18 @@ def evicted_pool_context(window, meta, source, k=4, chunk=256, return_report=Fal
             stop - start, keep, -1)
         rows.append((gathered * weights.unsqueeze(-1)).sum(dim=1))
         similarity_rows.append(best.values.mean(dim=-1))
-        pool_blocks = torch.div(positions, block_size, rounding_mode="floor")
-        same = (pool_blocks.index_select(0, best.indices.reshape(-1)).reshape(
-            stop - start, keep) == source_block[start:stop].unsqueeze(1))
-        same_block_rows.append(same.float().mean(dim=-1))
         del similarity, best, gathered, weights
     context = torch.cat(rows, dim=0)
     if not return_report:
         return context
     report = dict(k=int(keep), pool_slots=int(positions.numel()),
                   neighbour_similarity_mean=float(torch.cat(similarity_rows).mean()),
-                  same_block_fraction=float(torch.cat(same_block_rows).mean()),
                   context_rms=float(context.square().mean().sqrt()),
-                  note="unmasked pool: the point of this path is its own-block neighbours")
+                  note="unmasked pool: the point of this path is its own-block neighbours. "
+                       "The block identity of a pool slot is NOT reported: `source` is not "
+                       "ordered by block (select_carriers concatenates the carriers "
+                       "first), so the position -> block map would have to come from the "
+                       "window builder, not from arithmetic on source_position.")
     return context, report
 
 
