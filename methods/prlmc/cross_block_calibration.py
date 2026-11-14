@@ -83,6 +83,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from methods.prlmc.core_fusion import apply_delta
+from methods.prlmc.reader_utility import UTILITY_LAYERS
 
 SCHEMA = "cross_block_residual/1"
 DEFAULT_KV_DIM = 5 * 8 * 128  # 5 utility layers x 8 kv heads x 128
@@ -162,7 +163,8 @@ def _span_smooth(values, block, mid=0.5, side=0.25):
 @torch.no_grad()
 def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
                         mode="topk", k_same=2, k_cross=2, selection="topk", seed=0,
-                        span_value=False, context_diffusion=False, csls=False):
+                        span_value=False, context_diffusion=False, csls=False,
+                        sim_floor=0.0):
     """Sparse cross-block neighbours of every slot, `[slots, key_dim]` float32.
 
     Keys and values come from the reader's own projections on the window it will read
@@ -200,6 +202,18 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
                        match survives. The means are taken over LEGAL cross-block slots
                        only, so the -2.0 mask never enters the statistic.
 
+    `sim_floor` (V17) is an ABSOLUTE lower bound a candidate must reach to be allowed
+    into the Top-k. Below it, a neighbour is not a neighbour: it is the best of a bad
+    set, and averaging it into `c_i` dilutes the row with unrelated content at full
+    softmax weight. Below-floor candidates are pushed to `-inf` before the sort, so they
+    can only be selected when the row has nothing better and then contribute exactly
+    zero weight. A row whose ENTIRE legal pool is below the floor keeps its unfloored
+    scores -- otherwise it would pick `-inf` slots and the softmax would be NaN, which
+    is the one failure this fallback exists to prevent; the report counts how often that
+    happened. The floor is only defined for `selection="topk"`: it chooses among
+    candidates, it does not reorder a random or bottom draw, and accepting it there
+    while ignoring it would look exactly like a floor that fires and does nothing.
+
     Nothing is averaged into the slot: the returned context is an extra input to the
     residual. Same-block neighbours are masked, so every context row is built from
     other blocks by construction -- that mask is what makes this cross-block at all.
@@ -207,6 +221,19 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     if selection not in NEIGHBOUR_SELECTION:
         raise ValueError(f"unknown neighbour selection {selection!r}: expected one of "
                          f"{NEIGHBOUR_SELECTION}")
+    sim_floor = float(sim_floor)
+    if not math.isfinite(sim_floor):
+        raise ValueError("the neighbour similarity floor must be finite")
+    if sim_floor > 0.0:
+        if selection != "topk":
+            raise ValueError(f"the similarity floor selects among candidates and only "
+                             f"applies to selection='topk', not {selection!r}")
+        if csls:
+            # The floor is an absolute similarity; csls re-centres the similarity per
+            # row, so the same number would mean a different thing per row.
+            raise ValueError("the similarity floor is absolute and csls re-centres the "
+                             "similarity: enabling both would threshold different "
+                             "quantities under one name")
     groups, masses = _neighbour_groups(mode, k, k_same, k_cross, int(window.shape[1]))
     scorer = meta.get("scorer")
     if scorer is None:
@@ -221,6 +248,9 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
     similarity_out, weight_cross, graft_neighbour, query_graft = [], [], [], []
     values = _span_smooth(value, block, 0.5, 0.25) if span_value else value
     csls_report = None
+    floor_below = 0.0      # legal candidates that failed the floor, over all rows
+    floor_legal = 0.0      # legal candidates, the denominator of the fraction above
+    floor_fallback = 0     # rows whose whole legal pool was below the floor
 
     def similarity_chunks():
         for start in range(0, slots, chunk):
@@ -265,6 +295,17 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
                 masked = similarity.masked_fill(~same_kind, -2.0)
             elif name == "cross":
                 masked = similarity.masked_fill(same_kind, -2.0)
+            if sim_floor > 0.0:
+                # `-2.0` is the same-block/kind mask and never a real similarity, so
+                # legality is read off it with the threshold the other selections use.
+                legal = masked > -1.5
+                below = legal & (masked < sim_floor)
+                cleaned = masked.masked_fill(below, float("-inf"))
+                survives = (cleaned > float("-inf")).any(dim=-1, keepdim=True)
+                masked = torch.where(survives, cleaned, masked)
+                floor_below += float(below.sum())
+                floor_legal += float(legal.sum())
+                floor_fallback += int((~survives).sum())
             if selection == "topk":
                 index_k = masked.topk(count, dim=-1).indices
             elif selection == "bottom":
@@ -282,7 +323,16 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
             picked_values = masked.gather(1, index_k)
             picks.append(index_k)
             scales.append(torch.softmax(picked_values, dim=-1) * mass)
-            used_similarity.append(picked_values.mean(dim=-1))
+            if sim_floor > 0.0:
+                # A floored seat carries -inf and weight 0. Reporting its raw value
+                # would turn the "how similar were the neighbours" statistic into -inf,
+                # so the mean is taken over the seats that actually contributed.
+                finite = torch.isfinite(picked_values)
+                used_similarity.append(
+                    torch.where(finite, picked_values, torch.zeros_like(picked_values))
+                    .sum(dim=-1) / finite.sum(dim=-1).clamp_min(1))
+            else:
+                used_similarity.append(picked_values.mean(dim=-1))
         index = torch.cat(picks, dim=-1)                # [rows, K]
         weights = torch.cat(scales, dim=-1)             # [rows, K], one softmax per group
         gathered = values.index_select(0, index.reshape(-1)).reshape(
@@ -333,7 +383,24 @@ def cross_block_context(window, meta, k=4, chunk=256, return_report=False,
                   core_to_graft_neighbour_fraction=_mean(cross_each[~is_graft]),
                   graft_to_core_neighbour_fraction=_mean(cross_each[is_graft]),
                   cross_weight_mass_mean=_mean(cross_mass),
-                  own_kind_weight_mass_mean=_mean(1.0 - cross_mass))
+                  own_kind_weight_mass_mean=_mean(1.0 - cross_mass),
+                  # The distribution `sim_floor` is a point on. A floor chosen without
+                  # it is a guess: with a mean of 0.66 a floor of 0.30 removes almost
+                  # nothing, and the arm would look like "the filter does not help"
+                  # when in fact it never filtered. Quantiles over the SELECTED
+                  # (top-k) similarities, which is the population a floor can act on.
+                  neighbour_similarity_quantiles=dict(
+                      p01=float(torch.quantile(used, 0.01)),
+                      p10=float(torch.quantile(used, 0.10)),
+                      p50=float(torch.quantile(used, 0.50)),
+                      p90=float(torch.quantile(used, 0.90))))
+    if sim_floor > 0.0:
+        # Added exactly when the floor is on, so a V13 report is the same dict it was:
+        # a `below_floor_fraction` of 0.0 at a floor of 0.0 would read as "the floor was
+        # checked and nothing fell through", which is a different claim.
+        report["sim_floor"] = sim_floor
+        report["below_floor_fraction"] = floor_below / max(floor_legal, 1.0)
+        report["floor_fallback_rows"] = int(floor_fallback)
     return context, report
 
 
@@ -467,7 +534,7 @@ class CrossBlockResidual(nn.Module):
                  neighbor_mode="topk", k_same=2, k_cross=2,
                  kv_dim=DEFAULT_KV_DIM, max_ratio_core=0.15, core_weight=2.0,
                  graft_weight=0.5, span_value=False, context_diffusion=False, csls=False,
-                 use_evicted=False):
+                 use_evicted=False, sim_floor=0.0):
         super().__init__()
         if rank <= 0 or hidden_size <= 0:
             raise ValueError("rank and hidden_size must be positive")
@@ -479,6 +546,14 @@ class CrossBlockResidual(nn.Module):
         if neighbor_mode == "complement" and int(k_same) + int(k_cross) != int(k_neighbors):
             raise ValueError(f"complement neighbours read k = k_same + k_cross, but "
                              f"{k_same} + {k_cross} != {k_neighbors}")
+        sim_floor = float(sim_floor)
+        if not math.isfinite(sim_floor):
+            raise ValueError("the neighbour similarity floor must be finite")
+        if sim_floor > 0.0 and not bool(use_cross):
+            # Without the cross path there is no neighbour rule for the floor to act on,
+            # and a checkpoint that records one would look like it had been applied.
+            raise ValueError("sim_floor needs use_cross=True: there is no neighbour rule "
+                             "to floor otherwise")
         self.hidden_size = int(hidden_size)
         self.rank = int(rank)
         self.max_ratio = float(max_ratio)
@@ -490,6 +565,7 @@ class CrossBlockResidual(nn.Module):
         self.neighbor_mode = str(neighbor_mode)
         self.k_same = int(k_same)
         self.k_cross = int(k_cross)
+        self.sim_floor = sim_floor
         # Parameter-free refinements of the neighbour aggregation: recorded in the
         # checkpoint config so an evaluation rebuilds the same context rule.
         # Inference-time override of the graft ceiling, set by `set_graft_cap`; None
@@ -521,6 +597,15 @@ class CrossBlockResidual(nn.Module):
             # module is still exactly V11's calibrator.
             self.evict_proj = nn.Linear(self.kv_dim, self.rank, bias=False)
             nn.init.zeros_(self.evict_proj.weight)
+        # Per-layer weights for the residual regulariser (V17). Non-persistent on
+        # purpose: this is not part of the calibrator's numerics, and a PERSISTENT buffer
+        # would make every existing V13 checkpoint fail a strict load for a key it was
+        # never trained with. All ones is the neutral value, so the accumulation in
+        # `calibrate` stays bit-identical to the unweighted sum until a caller writes
+        # something else here.
+        self.register_buffer("layer_norm_weights",
+                             torch.ones(len(UTILITY_LAYERS), dtype=torch.float32),
+                             persistent=False)
 
     def config(self):
         """Constructor kwargs, so a reference copy cannot drift from the trained one."""
@@ -532,7 +617,7 @@ class CrossBlockResidual(nn.Module):
                     max_ratio_core=self.max_ratio_core, core_weight=self.core_weight,
                     graft_weight=self.graft_weight, span_value=self.span_value,
                     context_diffusion=self.context_diffusion, csls=self.csls,
-                    use_evicted=self.use_evicted)
+                    use_evicted=self.use_evicted, sim_floor=self.sim_floor)
 
     def evicted(self, window, meta, source, return_report=False):
         """This module's evicted-pool rule -- the second relation path, if enabled."""
@@ -558,7 +643,7 @@ class CrossBlockResidual(nn.Module):
             window, meta, k=self.k_neighbors, return_report=return_report,
             mode=self.neighbor_mode, k_same=self.k_same, k_cross=self.k_cross,
             span_value=self.span_value, context_diffusion=self.context_diffusion,
-            csls=self.csls)
+            csls=self.csls, sim_floor=self.sim_floor)
 
     def set_graft_cap(self, cap):
         """Override the graft residual ceiling at inference time; no parameter changes.
@@ -705,8 +790,31 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
 
     Layer-chunked because the module is shared across layers: the chunk size cannot
     change the result, it only bounds the float32 working set.
+
+    Two report quantities were added for V17, and neither moves a number V13 reports:
+
+    `per_layer_relative_delta`  `sqrt(sum delta^2 / sum slot^2)` per layer. The global
+                                figure cannot say whether a residual is spread evenly or
+                                carried by one loud layer, and every layer-weighted
+                                decision downstream (the regulariser weights, an
+                                inference-time per-layer cap) needs the split to exist.
+    `regulariser`               present only when the module carries
+                                `layer_norm_weights`: the per-layer residual energy
+                                accumulated with those weights instead of summed flat.
+                                V13's own `relative_delta` stays the UNWEIGHTED ratio on
+                                purpose -- it is the number arms are compared on, and it
+                                must mean the same thing in every arm.
     """
     cond = conditions(meta, window.shape[1])
+    layers = int(window.shape[0])
+    layer_weights = getattr(module, "layer_norm_weights", None)
+    if layer_weights is not None:
+        layer_weights = layer_weights.detach().float().reshape(-1)
+        if int(layer_weights.numel()) != layers:
+            raise ValueError(f"the module carries {layer_weights.numel()} layer weights "
+                             f"for a {layers}-layer window: one weight per layer")
+        if not bool(torch.isfinite(layer_weights).all()):
+            raise ValueError("layer_norm_weights must be finite")
     context_report = None
     evicted_report = None
     if module.use_cross and context is None:
@@ -724,27 +832,46 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
     pieces = []
     delta_sq = slot_sq = 0.0
     per_type = {0: [0.0, 0.0], 1: [0.0, 0.0]}
+    layer_delta_sq = [0.0] * layers
+    layer_slot_sq = [0.0] * layers
+    weighted_delta_sq = 0.0
     for start in range(0, window.shape[0], layer_chunk):
         stop = min(start + layer_chunk, window.shape[0])
         chunk = window[start:stop]
-        delta = module(chunk, cond, None if context is None else context)
+        delta = (module(chunk, cond, None if context is None else context,
+                        torch.arange(start, stop, device=window.device))
+                 if getattr(module, "uses_layers", False)
+                 else module(chunk, cond, None if context is None else context))
         calibrated = _apply(chunk, delta)
         pieces.append(calibrated)
         weight = delta.detach().float().square()
+        # The global sums keep their original expressions: recomputing them as sums of
+        # per-layer sums would change the last bits of a float32 reduction, and V13's
+        # numbers are the reference every arm is measured against.
         delta_sq += float(weight.sum())
         slot_sq += float(chunk.detach().float().square().sum())
+        layer_delta = weight.sum(dim=(1, 2))
+        layer_slot = chunk.detach().float().square().sum(dim=(1, 2))
+        for offset in range(int(chunk.shape[0])):
+            layer_delta_sq[start + offset] += float(layer_delta[offset])
+            layer_slot_sq[start + offset] += float(layer_slot[offset])
+        if layer_weights is not None:
+            weighted_delta_sq += float((layer_delta * layer_weights[start:stop]).sum())
         for kind in (0, 1):
             mask = (meta["slot_type"] == kind)
             if bool(mask.any()):
                 per_type[kind][0] += float(weight[:, mask].sum())
                 per_type[kind][1] += float(chunk.detach().float()[:, mask].square().sum())
         del delta
+    per_layer = [(layer_delta_sq[index] / max(layer_slot_sq[index], 1e-24)) ** 0.5
+                 for index in range(layers)]
     info = dict(
         slots=int(window.shape[1]),
         core_slots=int((meta["slot_type"] == 0).sum()),
         graft_slots=int((meta["slot_type"] == 1).sum()),
         folded_slots=0,
         relative_delta=(delta_sq / max(slot_sq, 1e-24)) ** 0.5,
+        per_layer_relative_delta=per_layer,
         core_relative_delta=(per_type[0][0] / max(per_type[0][1], 1e-24)) ** 0.5,
         graft_relative_delta=(per_type[1][0] / max(per_type[1][1], 1e-24)) ** 0.5,
         use_cross=bool(module.use_cross),
@@ -757,6 +884,13 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
         info["cross_context"] = context_report
     if evicted_report is not None:
         info["evicted_context"] = evicted_report
+    if layer_weights is not None:
+        # Mean over layers, so a module whose weights are all 1 reports the same mean
+        # residual energy the unweighted arms report; the weights decide WHICH layer's
+        # energy counts, not how much of it there is.
+        info["layer_norm_weights"] = [float(value) for value in layer_weights]
+        info["regulariser"] = float(weighted_delta_sq / max(layers, 1)
+                                    / max(slot_sq, 1e-24))
     if return_report:
         return torch.cat(pieces, dim=0), info, context
     return torch.cat(pieces, dim=0), info
