@@ -1,0 +1,75 @@
+warning: --total-tokens 128000 is outside the validated (8192, 16384) range; smoke only
+budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly
+/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py:289: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  checkpoint_training = (torch.load(args.checkpoint, map_location="cpu").get("training")
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  6.20it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  5.87it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:00,  5.49it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:00<00:00,  5.27it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:00<00:00,  5.22it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  5.19it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  5.18it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.53it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:01<00:00,  5.43it/s]
+We detected that you are passing `past_key_values` as a tuple and this is deprecated and will be removed in v4.43. Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)
+/data/zhangjiayang/yyz/env/lib/python3.10/site-packages/transformers/generation/configuration_utils.py:612: UserWarning: `do_sample` is set to `False`. However, `top_k` is set to `0` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `top_k`.
+  warnings.warn(
+{"sample": 1, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 20, "seconds": 48.86062922049314}
+{"sample": 2, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 2, "seconds": 22.841209534555674}
+{"sample": 3, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 20, "seconds": 49.38241617474705}
+{"sample": 4, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 20, "seconds": 48.19509021844715}
+{"sample": 5, "total": 20, "letter": null, "answer": "B", "correct": 0, "compressions": 0, "seconds": 19.65847143623978}
+{"sample": 6, "total": 20, "letter": "C", "answer": "D", "correct": 0, "compressions": 20, "seconds": 48.42308327369392}
+{"sample": 7, "total": 20, "letter": null, "answer": "B", "correct": 0, "compressions": 3, "seconds": 25.34005858004093}
+{"sample": 8, "total": 20, "letter": null, "answer": "B", "correct": 0, "compressions": 20, "seconds": 51.19597644172609}
+{"sample": 9, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 8, "seconds": 31.783320227637887}
+{"sample": 10, "total": 20, "letter": null, "answer": "C", "correct": 0, "compressions": 12, "seconds": 37.46266935672611}
+{"sample": 11, "total": 20, "letter": null, "answer": "C", "correct": 0, "compressions": 20, "seconds": 52.99852900765836}
+{"sample": 12, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 14, "seconds": 40.5296140704304}
+{"sample": 13, "total": 20, "letter": null, "answer": "A", "correct": 0, "compressions": 20, "seconds": 50.60294480342418}
+{"sample": 14, "total": 20, "letter": null, "answer": "A", "correct": 0, "compressions": 13, "seconds": 39.78463271446526}
+{"sample": 15, "total": 20, "letter": null, "answer": "B", "correct": 0, "compressions": 20, "seconds": 49.66577652655542}
+{"sample": 16, "total": 20, "letter": null, "answer": "A", "correct": 0, "compressions": 7, "seconds": 31.12874977942556}
+{"sample": 17, "total": 20, "letter": null, "answer": "C", "correct": 0, "compressions": 20, "seconds": 49.56358904391527}
+{"sample": 18, "total": 20, "letter": null, "answer": "A", "correct": 0, "compressions": 20, "seconds": 49.968928875401616}
+{"sample": 19, "total": 20, "letter": null, "answer": "D", "correct": 0, "compressions": 20, "seconds": 50.07845122180879}
+{"sample": 20, "total": 20, "letter": null, "answer": "B", "correct": 0, "compressions": 20, "seconds": 49.744062448851764}
+{
+ "longbench_v2": {
+  "n": 20,
+  "accuracy": 0.0,
+  "compression_samples": 19,
+  "mean_active_slots": 11686.4,
+  "empty_count": 0,
+  "empty_rate": 0.0,
+  "first_token_eos_rate": 0.0,
+  "template_echo_count": 0,
+  "template_echo_rate": 0.0,
+  "effective_count": 20,
+  "effective_answer_rate": 1.0,
+  "effective_accuracy": 0.0,
+  "cue_accuracy": 20.0,
+  "cue_extraction_rate": 0.85,
+  "official_extraction_rate": 0.05,
+  "option_count": 20,
+  "option_accuracy": 20.0
+ },
+ "longbench_v2_short": {
+  "n": 3,
+  "accuracy": 0.0,
+  "cue_accuracy": 0.0
+ },
+ "longbench_v2_medium": {
+  "n": 9,
+  "accuracy": 0.0,
+  "cue_accuracy": 33.33333333333333
+ },
+ "longbench_v2_long": {
+  "n": 8,
+  "accuracy": 0.0,
+  "cue_accuracy": 12.5
+ },
+ "write_cache": {
+  "hits": 0,
+  "misses": 20,
+  "slots": 1,
+  "dir": null
+ }
+}

@@ -1,0 +1,129 @@
+{
+  "schema": "longbench_v2_prlmc_results/1",
+  "status": "complete",
+  "protocol": {
+    "benchmark": "LongBench v2",
+    "data_json": "/data/zhangjiayang/yyz/datasets/LongBench-v2/data.json",
+    "length_group": "medium",
+    "prompt": "official gpt4 template (tools/longbench_v2_eval.py build_prompt)",
+    "total_input_tokens": 8192,
+    "tail_tokens": 2048,
+    "doc_truncation": "middle",
+    "merge_arm": "SharedMerge",
+    "budget_blocks": 50,
+    "geometry": [
+      19,
+      9
+    ],
+    "fusion_mode": "sealed",
+    "do_sample": false,
+    "num_beams": 1,
+    "seed": 0,
+    "max_new_tokens": 128,
+    "scoring": "official four-choice extraction, accuracy",
+    "write_cache_dir": null,
+    "group_by_context": false,
+    "shard": [
+      1,
+      2
+    ],
+    "caveat": "budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly"
+  },
+  "identity": {
+    "checkpoint": "runs/natural_merge_v9/DnativeV9.50block.joint.pt",
+    "checkpoint_sha256": "4f47ebc35c6b329ae2e12fa16a96a5d917d9dace0e17db839b0cb2a5e386216b",
+    "model_path": "/dev/shm/s1d_reader_fp16",
+    "data_json_sha256": "15d61c22d92c96900b3c4948b6aeea218d3214b676a65df48e7b8555604c7fe2",
+    "entrypoint_sha256": "28e1e4e5e9ed3092c528451ddd5b0b118bf9c1a34e04d12312d6f5975b1145a7"
+  },
+  "samples": [
+    {
+      "task": "longbench_v2",
+      "sample_index": 0,
+      "id": "66ec0c4c821e116aacb1994a",
+      "length": "medium",
+      "difficulty": "easy",
+      "domain": "Multi-Document QA",
+      "arm": "SharedMerge",
+      "source_row_sha256": "b00e4e0d5c974edf67f9a0854e8cd971c6ce4391e1e21db421edf9b4fd84b4ff",
+      "context_sha256": "6ee83d92c3c3543b643780febe69d1892639e1fc65a8dc57876d20fd71bb5029",
+      "original_prompt_tokens": 64743,
+      "input_tokens": 8192,
+      "prefix_tokens": 6144,
+      "query_tokens": 2048,
+      "write_count": 12,
+      "compression_count": 0,
+      "peak_active_slots": 3072,
+      "final_active_slots": 3072,
+      "write_cache_hit": 0,
+      "write_cache_source": null,
+      "write_cache_key": "53802a0bfc78b079b62cee07a0768491f1eaccc8aa0dfaf656c07625b8ca72d1",
+      "seconds": 5.897500466555357,
+      "prediction": "",
+      "output_tokens": [
+        128001
+      ],
+      "extracted_letter": null,
+      "answer": "D",
+      "correct": 0
+    },
+    {
+      "task": "longbench_v2",
+      "sample_index": 1,
+      "id": "66f920d8bb02136c067c4b81",
+      "length": "medium",
+      "difficulty": "hard",
+      "domain": "Single-Document QA",
+      "arm": "SharedMerge",
+      "source_row_sha256": "434554abe543511ae565b1a264efb2b66fbc5930e063a8de23b398ec0d5d5027",
+      "context_sha256": "84bff16e32d2670c1242ca4f013ef130976d954495108e55832c6cfb18edd0ba",
+      "original_prompt_tokens": 85295,
+      "input_tokens": 8192,
+      "prefix_tokens": 6144,
+      "query_tokens": 2048,
+      "write_count": 12,
+      "compression_count": 0,
+      "peak_active_slots": 3072,
+      "final_active_slots": 3072,
+      "write_cache_hit": 0,
+      "write_cache_source": null,
+      "write_cache_key": "90d3693397af6512494491e384ce4fc5b9b7d314ebed9c6550af7d6083e0e3c3",
+      "seconds": 5.66600051894784,
+      "prediction": "",
+      "output_tokens": [
+        128001
+      ],
+      "extracted_letter": null,
+      "answer": "C",
+      "correct": 0
+    }
+  ],
+  "training_performed": false,
+  "optimizer_created": false,
+  "full_test_split": false,
+  "max_samples": 4,
+  "progress": {
+    "sample": 2,
+    "total": 2
+  },
+  "elapsed_seconds": 11.57458938844502,
+  "summary": {
+    "longbench_v2": {
+      "n": 2,
+      "accuracy": 0.0,
+      "compression_samples": 0,
+      "mean_active_slots": 3072.0
+    },
+    "longbench_v2_medium": {
+      "n": 2,
+      "accuracy": 0.0
+    },
+    "write_cache": {
+      "hits": 0,
+      "misses": 2,
+      "slots": 1,
+      "dir": null
+    }
+  },
+  "peak_allocated_bytes": 23654369792
+}

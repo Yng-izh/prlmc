@@ -638,7 +638,7 @@ def joint_for(geometry, scorer, probe_cache, hidden):
 
 
 def joint_density_for(geometry, scorer, probe_cache, hidden, absorb_cos=0.0,
-                      min_core=140, max_core=256):
+                      min_core=140, max_core=256, quota_mode="density"):
     """The SAME builder, but the 1,620 core slots are allocated by block redundancy.
 
     `quota_mode="density"` and `absorb_cos` are the second owner's additions to
@@ -656,7 +656,13 @@ def joint_density_for(geometry, scorer, probe_cache, hidden, absorb_cos=0.0,
         raise ValueError("--v17-window-density needs JointConsolidation to accept "
                          f"{missing}; methods/prlmc/evict_window.py does not have them "
                          f"yet, so the fixed-quota window cannot be re-quotaed here")
-    optional = dict(quota_mode="density", min_core=int(min_core), max_core=int(max_core),
+    quota_mode = str(quota_mode)
+    if quota_mode not in ("density", "fixed"):
+        raise ValueError(f"--v17-window-quota is density or fixed, got {quota_mode!r}")
+    if quota_mode == "fixed" and float(absorb_cos) <= 0.0:
+        raise ValueError("--v17-window-quota fixed without --v17-merge-cos rebuilds the "
+                         "V13 window itself: there is no mechanism to measure")
+    optional = dict(quota_mode=quota_mode, min_core=int(min_core), max_core=int(max_core),
                     absorb_cos=float(absorb_cos))
     if "density_sample" in accepted:
         optional["density_sample"] = 64
@@ -667,8 +673,8 @@ def joint_density_for(geometry, scorer, probe_cache, hidden, absorb_cos=0.0,
         graft_per_block=int(geometry["graft_per_block"]), policy="evict",
         mmr_penalty=float(geometry.get("mmr_penalty", 0.5)),
         novelty_weight=float(geometry.get("novelty_weight", 0.5)), **optional)
-    if str(getattr(density_joint, "quota_mode", "fixed")) != "density":
-        raise ValueError("the operator did not take quota_mode='density'")
+    if str(getattr(density_joint, "quota_mode", "fixed")) != quota_mode:
+        raise ValueError(f"the operator did not take quota_mode={quota_mode!r}")
     return density_joint
 
 
@@ -730,7 +736,9 @@ def check_v11(window, meta, telemetry, source, name, allow_absorbed=False):
         if not allow_absorbed:
             raise ValueError(f"{name}: an unfolded slot is not a verbatim copy of its "
                              f"source")
-        differs = (window[:, unfolded] != copied[:, unfolded]).any(dim=0)
+        # One flag per SLOT: reduce over hidden and layers. Reducing over layers only
+        # counted every differing (slot, hidden) element and overstated drift 4096-fold.
+        differs = (window[:, unfolded] != copied[:, unfolded]).any(dim=-1).any(dim=0)
         absorbed_slots = int(differs.sum())
         merge = telemetry.get("merge") or {}
         recorded = int(telemetry.get("absorbed_pairs")
@@ -1019,7 +1027,29 @@ def calibrate_deep(v17, window, meta, name, source=None, extra=None):
     module = v17["module"]
     basis = v17.get("basis")
     calibrated, info = df.calibrate(window, meta, module, source=source, basis=basis)
-    calibration = check_calibration(calibrated, window, meta, info, name)
+    reference = window
+    if (info.get("v17") or {}).get("applied"):
+        # Graft-key damping deliberately shrinks the graft slots BEFORE the residual is
+        # applied, so the RMS restore is checked against the damped window the module
+        # actually calibrated. The damping is deterministic; recomputing it costs one
+        # scorer read and keeps the [layers, slots, hidden] tensor out of `info`.
+        ids = (tuple(range(int(window.shape[0]))) if getattr(module, "layer_ids", None)
+               is None else tuple(int(layer) for layer in module.layer_ids))
+        reference = df.graft_attention_calibration(
+            window, meta, basis if basis is not None else module.key_basis,
+            tau=float(module.graft_tau), bias=float(module.graft_bias),
+            norm_quantile=float(module.graft_norm_quantile), layer_ids=ids)
+    calibration = check_calibration(calibrated, reference, meta, info, name)
+    if reference is not window:
+        # What the damping alone did to the slots, against the undamped window.
+        core = meta["slot_type"] == 0
+        rms_ratio = (reference.float().square().mean(dim=-1).sqrt()
+                     / window.float().square().mean(dim=-1).sqrt().clamp_min(1e-6))
+        calibration["damping_rms_ratio"] = dict(
+            graft_mean=float(rms_ratio[:, ~core].mean()),
+            graft_min=float(rms_ratio[:, ~core].min()),
+            core_unchanged=bool(torch.equal(reference[:, core], window[:, core])))
+        del reference
     calibration["deep"] = dict(
         key_channel=(None if getattr(module, "key_channel", None) is None
                      else str(module.key_channel)),
@@ -1576,7 +1606,15 @@ def run_sample(model, tokenizer, manager, merge, anchor_module, v11, v11_evict,
                                                   density["absorb_cos"]) > 0.0))
             quota = _per_block_quota(density_meta, density_telemetry,
                                      density_telemetry["carrier_blocks"])
-            if quota and max(quota) == min(quota):
+            if density.get("quota_mode") == "fixed":
+                if quota and (max(quota) != min(quota) or quota[0] != int(
+                        v11_evict["geometry"]["core_per_block"])):
+                    raise ValueError(f"--v17-window-quota fixed produced quota {quota}: "
+                                     f"the absorb-only arm must keep V13's per-block split")
+                if int((density_telemetry or {}).get("absorbed_pairs", 0)) == 0:
+                    print("WARNING: absorb-only window absorbed no pair on this row: it "
+                          "is V13's window under another name.", file=sys.stderr)
+            elif quota and max(quota) == min(quota):
                 print(f"WARNING: --v17-window-density returned a uniform quota "
                       f"({quota[0]} core slots in every carrier block): the window is "
                       f"the fixed-quota one under another name.", file=sys.stderr)
@@ -2511,8 +2549,8 @@ def build_protocol(args, task, anchor_config, v11_geometry, evict_geometry,
             enabled=bool(getattr(args, "v17_window_density", False)),
             arms=([V13_DENSITY] + ([V17_DENSITY] if getattr(args, "v17", None) else [])
                   if getattr(args, "v17_window_density", False) else []),
-            quota_mode=("density" if getattr(args, "v17_window_density", False)
-                        else "fixed"),
+            quota_mode=(str(getattr(args, "v17_window_quota", "density"))
+                        if getattr(args, "v17_window_density", False) else "fixed"),
             min_core=140, max_core=256, absorb_cos=float(
                 getattr(args, "v17_merge_cos", 0.0) or 0.0),
             treatment=("the same 2,304 slots and the same 1,620 core slots; only the "
@@ -2931,9 +2969,11 @@ def evaluate(args):
     density = None
     if args.v17_window_density:
         density = dict(absorb_cos=float(args.v17_merge_cos or 0.0),
+                       quota_mode=str(args.v17_window_quota),
                        joint=joint_density_for(v11_evict["geometry"], scorer, probe_cache,
                                                manager.hidden,
-                                               absorb_cos=float(args.v17_merge_cos or 0.0)))
+                                               absorb_cos=float(args.v17_merge_cos or 0.0),
+                                               quota_mode=str(args.v17_window_quota)))
 
     rows, prepared, excluded = gr.prepare_rows(args, tokenizer, facts)
     report = dict(
@@ -2982,6 +3022,7 @@ def evaluate(args):
                 attention_skipped=bool(attention_decision["requested"]
                                        and not attention_decision["built"]),
                 window_density=bool(args.v17_window_density),
+                window_quota=str(args.v17_window_quota),
                 merge_cos=float(args.v17_merge_cos or 0.0)),
             v17_checkpoint=v17_meta,
             v17_attention_arm=attention_decision,
@@ -3168,6 +3209,12 @@ def build_parser():
                    help="rebuild the window with quota_mode='density' (the same 1,620 "
                         "core slots, allocated per block by redundancy) and answer "
                         "V13Density and, with --v17, V17Density on it")
+    p.add_argument("--v17-window-quota", dest="v17_window_quota", default="density",
+                   choices=("density", "fixed"),
+                   help="with --v17-window-density: how the rebuilt window splits its 1,620 "
+                        "core slots. 'fixed' keeps V13's 180 per block and needs "
+                        "--v17-merge-cos, so the V13Density arm then isolates absorption "
+                        "alone (its report records quota_mode='fixed')")
     p.add_argument("--v17-merge-cos", dest="v17_merge_cos", type=float, default=0.0,
                    help="with --v17-window-density: evicted slots within this cosine of a "
                         "retained one are absorbed into it (0 = off)")

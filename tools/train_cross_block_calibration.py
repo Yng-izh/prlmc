@@ -592,23 +592,18 @@ def calibrate_with_reg(window, meta, module, layer_chunk=1, source=None,
         return (calibrated, penalty, magnitude,
                 delta.detach().float().square().sum(dim=(1, 2)))
 
-    # Whether a chunk needs checkpointing is a property of the MODULE, not of the slot
-    # tensor: the window comes from a frozen reader, so `chunk.requires_grad` is False even
-    # while the residual module is being trained. Testing the tensor disabled the
-    # checkpoint on every training step and kept all 32 layers' activations alive -- that
-    # is the 36.97 GiB this path was measured at, not a shortage of GPU.
-    trainable_module = (torch.is_grad_enabled()
-                        and any(parameter.requires_grad for parameter in module.parameters()))
     for start in range(0, window.shape[0], layer_chunk):
         stop = min(start + layer_chunk, window.shape[0])
         chunk = window[start:stop]
         layer_ids = torch.arange(start, stop, device=window.device)
-        if trainable_module:
-            produced = torch.utils.checkpoint.checkpoint(
-                chunk_step, chunk, cond, context, layer_ids,
-                use_reentrant=False)
-        else:
-            produced = chunk_step(chunk, cond, context, layer_ids)
+        # No activation checkpoint here, deliberately. Non-reentrant checkpointing needs an
+        # input that requires grad to carry a backward edge and every input is a frozen-reader
+        # tensor; a zero-valued stub was tried and the module's parameters still came back
+        # with no gradient at update 1, because they reach the chunk through a closure and
+        # not as inputs. What actually keeps this path inside the ceiling is the one-layer
+        # chunk, plus removing the 576 MiB staging copy the restore path used to allocate on
+        # top of it (see train_source_compaction.installed).
+        produced = chunk_step(chunk, cond, context, layer_ids)
         calibrated, penalty, magnitude = produced[:3]
         calibrated_all[start:stop] = calibrated
         regulariser = regulariser + penalty

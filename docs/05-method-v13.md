@@ -1,7 +1,7 @@
 # V13：跨块条件化的潜空间校准（代码口径）
 
 本文只写**对当前代码有约束力**的内容。数字与结论见 [03-results.md](03-results.md)；
-本轮实验尚未运行，跑完回填。
+实验已跑完,结果见 [06-experiment-ledger.md](06-experiment-ledger.md)(V13 = 67/158)。
 
 ## 一句话
 

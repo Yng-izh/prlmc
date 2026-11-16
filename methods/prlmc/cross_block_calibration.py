@@ -810,6 +810,14 @@ def calibrate(window, meta, module, layer_chunk=8, context=None, return_report=F
     layer_weights = getattr(module, "layer_norm_weights", None)
     if layer_weights is not None:
         layer_weights = layer_weights.detach().float().reshape(-1)
+        if (int(layer_weights.numel()) != layers
+                and bool((layer_weights == 1.0).all())):
+            # The constructor's neutral all-ones buffer is sized for the five utility
+            # layers, but the window carries the reader's full stack. Neutral weights
+            # only feed the report, so a size mismatch there means "no weighting", not
+            # an error; trained (non-neutral) weights of the wrong length still fail.
+            layer_weights = None
+    if layer_weights is not None:
         if int(layer_weights.numel()) != layers:
             raise ValueError(f"the module carries {layer_weights.numel()} layer weights "
                              f"for a {layers}-layer window: one weight per layer")

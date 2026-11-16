@@ -1,44 +1,25 @@
 # 实验报告索引
 
-仓库里只保留**当前版本（V10）**的结果与证据：主表在 [main_table](main_table/)，
-定位实验（1A）在 [diagnostics](diagnostics/)，实验 2 及其反事实消融在
-[exp2_source_compaction](exp2_source_compaction/)，Anchor-Only 在 [anchor_only](anchor_only/)，
-最新一轮（冻结校准 + 稀疏候选分支）在 [anchor_fusion](anchor_fusion/)。所有数字的汇总表在
-[docs/03-results.md](../docs/03-results.md)。
+## 当前主线
 
-实验 2 的**训练版报告同时是反事实消融和 Anchor-Only 的 `--verify-against` 参考**，所以和 1A 一样
-留在仓库里。
-
-| 文件 | 内容 |
+| 目录 | 内容与证据范围 |
 | --- | --- |
-| [memoryllm8b_lbv2_all_128k.json](main_table/memoryllm8b_lbv2_all_128k.json) | MemoryLLM-8B 原生基线，LongBench v2 全 503 题，50 块池不压缩，官方 judge 18.7% |
-| [eval_v10_50b_n20.json](main_table/eval_v10_50b_n20.json) | V10，20 题，cue/option 口径 20.0% |
-| [eval_selection_50b_n20.json](main_table/eval_selection_50b_n20.json) | Selection（同载体），20 题，cue/option 口径 20.0% |
-| [full_v10.training.json](main_table/full_v10.training.json) | V10 训练记录（704 更新的逐更新标量 + 计划/模型/资源元数据） |
-| [logs/full_v10.log](main_table/logs/full_v10.log) | 训练日志 |
-| [diagnostics/graft_span_hotpotqa.json](diagnostics/graft_span_hotpotqa.json) | 实验 1A（HotpotQA 158 题配对，也是后续实验的 `--verify-against` 参考） |
-| [exp2_source_compaction/eval_trained_hotpotqa.json](exp2_source_compaction/eval_trained_hotpotqa.json) | **实验 2 主结果**：来源端浓缩 vs 原生嫁接，158 题四臂。`Fusion` 36.08 vs `Graft` 25.95（23 救 7 伤，p = 0.005） |
-| [exp2_source_compaction/eval_random_control_hotpotqa.json](exp2_source_compaction/eval_random_control_hotpotqa.json) | **随机对照**：同结构、同残差幅度、不训练。26.58 vs 25.95（1 救 0 伤，p = 1.00） |
-| [exp2_source_compaction/training_compaction.json](exp2_source_compaction/training_compaction.json) | 训练记录：384 更新逐更新标量 + 8 次验证（验证集 CE 消掉 20.5% 见顶） |
-| [exp2_source_compaction/training_random_control.json](exp2_source_compaction/training_random_control.json) | 随机对照的标定记录（目标 0.26362831 / 实际 0.26362832、缩放因子） |
-| [exp2_source_compaction/logs/train_compaction.log](exp2_source_compaction/logs/train_compaction.log) | 训练控制台日志 |
-| [exp2_source_compaction/eval_counterfactual_hotpotqa.json](exp2_source_compaction/eval_counterfactual_hotpotqa.json) | **实验 2 反事实消融**：候选槽位换成另一篇文档的，158 题五臂。反事实 57 vs 训练版 57（0 救 0 伤，p = 1.00），四臂与训练版报告逐题一致 |
-| [exp2_source_compaction/probe_candidate_sensitivity.json](exp2_source_compaction/probe_candidate_sensitivity.json) | **机制探针**：7 篇真实文档上把候选 → `context` → `raw` → 残差 → 窗口的衰减逐级量出来（130% → 19% → 16% → 5.0% → 1.5%） |
-| [anchor_only/eval_anchor_only_hotpotqa.json](anchor_only/eval_anchor_only_hotpotqa.json) | **Anchor-Only 主结果**：候选路径删掉后的 158 题五臂。`AnchorOnly` 56 vs `Fusion` 57（6 救 7 伤，p = 1.00），对 `Graft` +15（p = 0.011） |
-| [anchor_only/training_anchor_only.json](anchor_only/training_anchor_only.json) | Anchor-Only 训练记录：384 更新逐更新标量 + 8 次验证（峰值 19.3%，收在 17.2%） |
-| [anchor_only/logs/train_anchor_only.log](anchor_only/logs/train_anchor_only.log) | Anchor-Only 训练控制台日志 |
-| [anchor_fusion/eval_anchor_fusion_hotpotqa.json](anchor_fusion/eval_anchor_fusion_hotpotqa.json) | **实验 3 主结果**：冻结 `AnchorOnly` + 只读 Top-4 候选的分支，158 题六臂。`AnchorFusion` 50 vs `AnchorOnly` 56（10 救 16 伤，p = 0.33）；读**别人**候选的 `Donor` 反而 53（丢弃块证据 40 题上 40.0% vs 32.5%） |
-| [anchor_fusion/training_fusion_top4.json](anchor_fusion/training_fusion_top4.json) | 实验 3 训练记录：384 更新逐更新标量 + 8 次验证；含初始逐位一致、冻结 digest 前后比对、梯度到达检查 |
-| [anchor_fusion/logs/train_fusion_top4.log](anchor_fusion/logs/train_fusion_top4.log) | 实验 3 训练控制台日志 |
-| [anchor_fusion/eval_anchor_fusion_key_safe_projected_hotpotqa.json](anchor_fusion/eval_anchor_fusion_key_safe_projected_hotpotqa.json) | **实验 4**：实验 3 权重 + Key-Safe 投影（冻结 Reader 的 key 子空间，不重训），158 题六臂。key 变化 5.3e-4（原来 1.63e-1）；`AnchorFusion` 54 vs `AnchorOnly` 56（5 救 7 伤，p = 0.77），真候选与无关候选**完全等价**（0 救 0 伤，预测只差 3/158） |
-| [anchor_fusion/eval_anchor_fusion_crossover_hotpotqa.json](anchor_fusion/eval_anchor_fusion_crossover_hotpotqa.json) | **实验 5**：Key/Value 通道交换，158 题八臂。只换 key 复现 34/38 条预测变更、只换 value 22 条；p_gold 主效应 key:value ≈ 15:1。构造误差与恒等对照同为 1.9e-3（fp16 地板） |
-| [budget_reallocation/eval_budget_hotpotqa.json](budget_reallocation/eval_budget_hotpotqa.json) | **实验 6**：Core/Graft 配额扫描（1944/360 → 1440/864 → 1296/1008），158 题八臂。`AnchorOnly` 56 → 55 → 49（净 −1 / −7）；无空块、分配反而更均匀，p_gold 随配额单调下降 |
+| [natural_merge_v2_20261014](natural_merge_v2_20261014/results.md) | A/B/C 完整训练、训练内诊断、开发 E1、原始逐题报告、checkpoint、日志和失败记录；三组未通过开发推进门槛 |
+| [natural_merge_initial_20261013](natural_merge_initial_20261013/results.md) | 上一轮自然共享训练与开发 E1 原始预测、checkpoint、门槛失败裁决 |
+| [natural_merge_implementation_20261013](natural_merge_implementation_20261013/data_suite.json) | 自然 E1/E2/E3 suite 哈希、准备与原始数据校验证书 |
+| [public_retention_setup_20261013](public_retention_setup_20261013/preparation.json) | 公开原始数据与作者协议的准备记录 |
+| [public_retention_squad_interim_20261013](public_retention_squad_interim_20261013/analysis_snapshot.json) | 已观察 SQuAD author512 的中间分析快照，不是新正式测试 |
 
-更早的报告（v2 A/B/C、v4 8k/16k、v6/v7、S1d 系列、public retention、定位实验 1/2/3，以及实验
-1B 的全部原始文件）已从仓库移出，数字在 [docs/03-results.md](../docs/03-results.md)。
-定位实验用 `git show d366d91:reports/diagnostics/<name>_hotpotqa.json` 取回，1B 用
-`git show 32d970d:reports/exp1b_fusion/<name>` 取回。
+本轮服务器目录为 `runs/natural_merge_v2_abc_20261014_023355_r2/`，最终 launcher 与逐题报告现归档在 `natural_merge_v2_20261014/completed_run/`。早期启动快照原样保留，不覆盖为最终状态。
 
-报告里保留了当时的 `identity`（checkpoint sha256、数据 sha256、entrypoint sha256）与
-`protocol`（预算、几何、提示词、评分口径）。**评测结论只以报告内记录的口径为准**，
-跨报告的百分比不能直接相减。
+## 历史诊断
+
+| 目录 | 内容与限制 |
+| --- | --- |
+| [s1d_round_20261013](s1d_round_20261013/summary.json) | 开发窗口 C13、保护、扩维与生成结果；同一 context 的方法开发证据 |
+| [s1d_controlled_dev_20261013](s1d_controlled_dev_20261013/summary.json) | 人造受控开发 episode；不代表公开自然任务或跨任务泛化 |
+| [s1d_exp1_fact_v3](s1d_exp1_fact_v3/) | 早期事实目标实验原始归档 |
+
+历史原始 JSON、日志、源码快照和 SHA256 清单原样保留，包括负面结果和执行失败。旧报告内部的路径、文档链接及“未提交”等状态描述是当时快照，未随仓库整理重写；历史文档现集中于 [archive/experiments](../archive/experiments/)，旧执行产物可在清理前 Git 提交找到。
+
+论文主要结果应来自冻结模块在公开原始数据、相同有效预算和预定评分协议上的正式评测。训练内 fit、人造 episode、已观察开发集与 smoke 都需单独标注。

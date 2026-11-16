@@ -1,0 +1,64 @@
+LlamaForCausalLM has generative capabilities, as `prepare_inputs_for_generation` is explicitly overwritten. However, it doesn't directly inherit from `GenerationMixin`. From 👉v4.50👈 onwards, `PreTrainedModel` will NOT inherit from `GenerationMixin`, and this model will lose the ability to call `generate` and other related functions.
+  - If you're using `trust_remote_code=True`, you can get rid of this warning by loading the model with an auto class. See https://huggingface.co/docs/transformers/en/model_doc/auto#auto-classes
+  - If you are the owner of the model architecture code, please modify your model class such that it inherits from `GenerationMixin` (after `PreTrainedModel`, otherwise you'll get an exception).
+  - If you are not the owner of the model architecture class, please contact the model code owner to update it.
+Memory Pool Parameters: 1.6777 B
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:01,  4.18it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:00<00:01,  4.06it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:00<00:01,  3.93it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:01<00:01,  3.83it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:01<00:00,  3.79it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:01<00:00,  3.76it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:01<00:00,  3.78it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.98it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:02<00:00,  3.90it/s]
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+{"update": 1, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.5716455253331285, "weighted_gold_ce": 3.172627946245484, "teacher_kl": 1.0193520179018378, "token_protection": 0.0}
+{"update": 2, "stage": "single_merge", "stream": "train-0", "gold_ce": 3.7196907101100996, "weighted_gold_ce": 3.513633135240525, "teacher_kl": 0.5965396966785192, "token_protection": 0.0}
+{"update": 3, "stage": "single_merge", "stream": "train-1", "gold_ce": 2.679683525507387, "weighted_gold_ce": 3.024494014098309, "teacher_kl": 1.238510973751545, "token_protection": 0.0}
+{"update": 4, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.3972905564465021, "weighted_gold_ce": 2.423519094765652, "teacher_kl": 0.8261100834934041, "token_protection": 0.0}
+{"update": 5, "stage": "single_merge", "stream": "train-2", "gold_ce": 1.8723233146102805, "weighted_gold_ce": 2.710137545596808, "teacher_kl": 0.3768161397892982, "token_protection": 0.0}
+{"update": 6, "stage": "single_merge", "stream": "train-2", "gold_ce": 2.620825046967519, "weighted_gold_ce": 4.047510810079984, "teacher_kl": 1.7598038017749786, "token_protection": 0.0}
+{"update": 7, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.8152983863102763, "weighted_gold_ce": 1.997569122351706, "teacher_kl": 0.04973666020669043, "token_protection": 0.0}
+{"update": 8, "stage": "single_merge", "stream": "train-3", "gold_ce": 2.0207217755286315, "weighted_gold_ce": 3.0521457189461216, "teacher_kl": 1.1215014085173607, "token_protection": 0.0}
+{"update": 9, "stage": "single_merge", "stream": "train-4", "gold_ce": 2.3571516755772266, "weighted_gold_ce": 2.1615229080198333, "teacher_kl": 0.4042728254571557, "token_protection": 0.0}
+{"update": 10, "stage": "single_merge", "stream": "train-4", "gold_ce": 2.566428885648125, "weighted_gold_ce": 3.6040520891547203, "teacher_kl": 1.140135981142521, "token_protection": 0.0}
+{"update": 11, "stage": "single_merge", "stream": "train-5", "gold_ce": 2.144274571224263, "weighted_gold_ce": 3.342318076523952, "teacher_kl": 0.524760939180851, "token_protection": 0.0}
+{"update": 12, "stage": "single_merge", "stream": "train-5", "gold_ce": 2.2880489551707317, "weighted_gold_ce": 3.065818753791973, "teacher_kl": 1.2243908331729472, "token_protection": 0.0}
+{"update": 13, "stage": "single_merge", "stream": "train-6", "gold_ce": 2.398859502453553, "weighted_gold_ce": 2.760292056715116, "teacher_kl": 0.8827734412625432, "token_protection": 0.0}
+{"update": 14, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.9419934530007212, "weighted_gold_ce": 3.3207013038918376, "teacher_kl": 1.1102404249832034, "token_protection": 0.0}
+{"update": 15, "stage": "single_merge", "stream": "train-7", "gold_ce": 2.137881216249968, "weighted_gold_ce": 3.621754757827148, "teacher_kl": 1.443571505136788, "token_protection": 0.0}
+{"update": 16, "stage": "single_merge", "stream": "train-7", "gold_ce": 2.234485569753145, "weighted_gold_ce": 2.7575788125395775, "teacher_kl": 0.7409084439277649, "token_protection": 0.0}
+{"update": 17, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.057010802783464, "weighted_gold_ce": 3.4670823658816516, "teacher_kl": 0.3646839614957571, "token_protection": 0.0}
+{"update": 18, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.119089225209073, "weighted_gold_ce": 3.3793157901382074, "teacher_kl": 1.7497840821743011, "token_protection": 0.0}
+{"update": 19, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 1.7919927035507404, "weighted_gold_ce": 4.043976810527965, "teacher_kl": 1.522586926817894, "token_protection": 0.0}
+{"update": 20, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 2.475146257955777, "weighted_gold_ce": 3.102029574336484, "teacher_kl": 0.9780731499195099, "token_protection": 0.0}
+{"update": 21, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 2.6373980486471402, "weighted_gold_ce": 6.4149737714615185, "teacher_kl": 2.395093709230423, "token_protection": 0.0}
+{"update": 22, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 1.5342526312329268, "weighted_gold_ce": 3.0564909018576145, "teacher_kl": 1.2608075141906738, "token_protection": 0.0}
+{"update": 23, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.1749662197145976, "weighted_gold_ce": 2.1941679501906037, "teacher_kl": 0.3977720965631306, "token_protection": 0.0}
+{"update": 24, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 2.0163693269224545, "weighted_gold_ce": 3.17636258690618, "teacher_kl": 0.4271025061607361, "token_protection": 0.0}
+{"update": 25, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 2.008981820588049, "weighted_gold_ce": 3.3536629494046792, "teacher_kl": 1.2917345650494099, "token_protection": 0.0}
+{"update": 26, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 2.0790266535784068, "weighted_gold_ce": 4.295444820279954, "teacher_kl": 1.3071470372378826, "token_protection": 0.0}
+{"update": 27, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 2.3164879648309005, "weighted_gold_ce": 3.7345995740033686, "teacher_kl": 1.586883207783103, "token_protection": 0.0}
+{"update": 28, "stage": "single_merge", "stream": "hotpot-5", "gold_ce": 2.017216183049114, "weighted_gold_ce": 3.5474745799729135, "teacher_kl": 2.1759100407361984, "token_protection": 0.0}
+{"update": 29, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.3376645069373283, "weighted_gold_ce": 3.051488843280822, "teacher_kl": 1.664417713880539, "token_protection": 0.0}
+{"update": 30, "stage": "single_merge", "stream": "hotpot-6", "gold_ce": 2.360837545441954, "weighted_gold_ce": 2.7873364341794513, "teacher_kl": 0.753713808953762, "token_protection": 0.0}
+{"update": 31, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.7454596901018369, "weighted_gold_ce": 4.020607696264051, "teacher_kl": 0.8162330519407988, "token_protection": 0.0}
+{"update": 32, "stage": "single_merge", "stream": "hotpot-7", "gold_ce": 1.721282453325234, "weighted_gold_ce": 3.414325831923634, "teacher_kl": 0.5153348823077977, "token_protection": 0.0}
+{"update": 33, "stage": "single_merge", "stream": "train-0", "gold_ce": 1.6302879029198696, "weighted_gold_ce": 2.6678276100428775, "teacher_kl": 1.3783440068364143, "token_protection": 0.0}
+{"update": 34, "stage": "single_merge", "stream": "train-0", "gold_ce": 2.3856378511378638, "weighted_gold_ce": 2.4523902958026156, "teacher_kl": 0.9015580527484417, "token_protection": 0.0}
+{"update": 35, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.676745952744233, "weighted_gold_ce": 2.2171001490205526, "teacher_kl": 0.8801494650542736, "token_protection": 0.0}
+{"update": 36, "stage": "single_merge", "stream": "train-1", "gold_ce": 1.113142562343886, "weighted_gold_ce": 2.0372791015543044, "teacher_kl": 1.0564837697893381, "token_protection": 0.0}
+{"update": 37, "stage": "single_merge", "stream": "train-2", "gold_ce": 1.1077463859202046, "weighted_gold_ce": 1.0959363247966394, "teacher_kl": 0.6166914943605661, "token_protection": 0.0}
+{"update": 38, "stage": "single_merge", "stream": "train-2", "gold_ce": 2.0239277329099807, "weighted_gold_ce": 2.797968836966902, "teacher_kl": 1.4353103935718536, "token_protection": 0.0}
+{"update": 39, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.04147312358806, "weighted_gold_ce": 2.116652498487383, "teacher_kl": 0.21081655099987984, "token_protection": 0.0}
+{"update": 40, "stage": "single_merge", "stream": "train-3", "gold_ce": 1.6393274096281905, "weighted_gold_ce": 2.7136825823690742, "teacher_kl": 1.292624857276678, "token_protection": 0.0}
+{"update": 41, "stage": "single_merge", "stream": "train-4", "gold_ce": 1.5588854102319794, "weighted_gold_ce": 1.7322875449608546, "teacher_kl": 0.5249429028481245, "token_protection": 0.0}
+{"update": 42, "stage": "single_merge", "stream": "train-4", "gold_ce": 1.9904715669782538, "weighted_gold_ce": 2.701614130754024, "teacher_kl": 1.1726896986365318, "token_protection": 0.0}
+{"update": 43, "stage": "single_merge", "stream": "train-5", "gold_ce": 1.7827665096050815, "weighted_gold_ce": 2.742718889960088, "teacher_kl": 0.6908613312989473, "token_protection": 0.0}
+{"update": 44, "stage": "single_merge", "stream": "train-5", "gold_ce": 1.8021613818250204, "weighted_gold_ce": 2.5646823020651937, "teacher_kl": 1.391234915703535, "token_protection": 0.0}
+{"update": 45, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.5830300669921071, "weighted_gold_ce": 2.562477554078214, "teacher_kl": 0.9226827155798674, "token_protection": 0.0}
+{"update": 46, "stage": "single_merge", "stream": "train-6", "gold_ce": 1.6032199267494052, "weighted_gold_ce": 2.67248477274552, "teacher_kl": 0.8979404293932021, "token_protection": 0.0}
+{"update": 47, "stage": "single_merge", "stream": "train-7", "gold_ce": 1.6447129951495874, "weighted_gold_ce": 2.9585443681571633, "teacher_kl": 1.2443041130900383, "token_protection": 0.0}
+{"update": 48, "stage": "single_merge", "stream": "train-7", "gold_ce": 2.054768070578575, "weighted_gold_ce": 2.4502036813646555, "teacher_kl": 0.8493273910135031, "token_protection": 0.0}
+{"update": 49, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 1.6958077071528685, "weighted_gold_ce": 2.492548204958439, "teacher_kl": 0.4429309433326125, "token_protection": 0.0}
+{"update": 50, "stage": "single_merge", "stream": "hotpot-0", "gold_ce": 2.0310233165264915, "weighted_gold_ce": 3.2559642987907864, "teacher_kl": 1.4771277830004692, "token_protection": 0.0}
+{"update": 51, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 1.3988676757404679, "weighted_gold_ce": 3.5144533948623575, "teacher_kl": 1.1406771782785654, "token_protection": 0.0}
+{"update": 52, "stage": "single_merge", "stream": "hotpot-1", "gold_ce": 2.3113281232746026, "weighted_gold_ce": 2.644646036904305, "teacher_kl": 0.9431664496660233, "token_protection": 0.0}
+{"update": 53, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 2.4276045203993193, "weighted_gold_ce": 6.144716096430784, "teacher_kl": 1.9600346088409424, "token_protection": 0.0}
+{"update": 54, "stage": "single_merge", "stream": "hotpot-2", "gold_ce": 1.3244112359457894, "weighted_gold_ce": 2.633393526542932, "teacher_kl": 0.8946807086467743, "token_protection": 0.0}
+{"update": 55, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 1.0823101648374607, "weighted_gold_ce": 1.7757991398102604, "teacher_kl": 0.576787122990936, "token_protection": 0.0}
+{"update": 56, "stage": "single_merge", "stream": "hotpot-3", "gold_ce": 2.1004301015483704, "weighted_gold_ce": 3.375333890377078, "teacher_kl": 0.39485593140125275, "token_protection": 0.0}
+{"update": 57, "stage": "single_merge", "stream": "hotpot-4", "gold_ce": 2.2334568128479937, "weighted_gold_ce": 4.910095226718113, "teacher_kl": 1.233464077115059, "token_protection": 0.0}

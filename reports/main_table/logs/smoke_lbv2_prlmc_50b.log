@@ -1,0 +1,11 @@
+warning: --total-tokens 128000 is outside the validated (8192, 16384) range; smoke only
+budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly
+Traceback (most recent call last):
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 235, in <module>
+    main()
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 231, in main
+    evaluate(args)
+  File "/data/zhangjiayang/yyz/PRLM-C/tools/longbench_v2_prlmc_eval.py", line 76, in evaluate
+    raise ValueError("output exists; refuse overwrite")
+ValueError: output exists; refuse overwrite
+2026-10-31T01:01:13+08:00 EXIT=0

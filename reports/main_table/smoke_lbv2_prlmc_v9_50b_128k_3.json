@@ -1,0 +1,38 @@
+{
+  "schema": "longbench_v2_prlmc_results/1",
+  "status": "running",
+  "protocol": {
+    "benchmark": "LongBench v2",
+    "data_json": "/data/zhangjiayang/yyz/datasets/LongBench-v2/data.json",
+    "length_group": "medium",
+    "prompt": "official gpt4 template (tools/longbench_v2_eval.py build_prompt)",
+    "total_input_tokens": 128000,
+    "tail_tokens": 2048,
+    "doc_truncation": "middle",
+    "merge_arm": "SharedMerge",
+    "budget_blocks": 50,
+    "geometry": [
+      19,
+      9
+    ],
+    "fusion_mode": "sealed",
+    "do_sample": false,
+    "num_beams": 1,
+    "seed": 0,
+    "max_new_tokens": 32,
+    "scoring": "official four-choice extraction, accuracy",
+    "caveat": "budget caveat: this run uses the PRLM-C working budget (--budget-blocks), not the native 50-block pool of the main-table MemoryLLM-8B row; do not compare the two directly"
+  },
+  "identity": {
+    "checkpoint": "runs/natural_merge_v9/DnativeV9.train.pt",
+    "checkpoint_sha256": "85ad957864d34ff7a1d3ab109674168c0e1f0cffe5cd23e6b264d476e3d64c80",
+    "model_path": "/dev/shm/s1d_reader_fp16",
+    "data_json_sha256": "15d61c22d92c96900b3c4948b6aeea218d3214b676a65df48e7b8555604c7fe2",
+    "entrypoint_sha256": "252cb3213d8f21e0b514d499f6db491488ecc04c0d1c5eec8f42f1952a708523"
+  },
+  "samples": [],
+  "training_performed": false,
+  "optimizer_created": false,
+  "full_test_split": false,
+  "max_samples": 3
+}

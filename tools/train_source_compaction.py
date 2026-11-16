@@ -297,7 +297,10 @@ def installed(model, manager, output, anchors=None, anchor_offsets=None):
                 yield
     finally:
         with torch.no_grad():
-            base[:, start:start + TARGET_SLOTS, :] = saved.to(base.device)
+            # Slice copy from host memory instead of `saved.to(device)`: the round trip
+            # allocated a fresh 576 MiB staging tensor on a path that had 85 MiB of headroom,
+            # which is the allocation that ended the V17 run at 38.93 GB.
+            base[:, start:start + TARGET_SLOTS, :].copy_(saved)
 
 
 def reader_logits(model, manager, output, anchors, anchor_offsets, qa):

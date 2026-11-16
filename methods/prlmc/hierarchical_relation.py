@@ -180,8 +180,18 @@ def relation_feature(window, meta, tau, sink_similarity, k=4, chunk=256,
     if not return_report:
         return feature
 
+    def _flat(values):
+        """One tensor out of a list of per-layer lists of chunks (or of tensors)."""
+        items = []
+        for value in values:
+            if isinstance(value, (list, tuple)):
+                items.extend(value)
+            else:
+                items.append(value)
+        return torch.cat([torch.as_tensor(item).reshape(-1) for item in items], dim=0)
+
     def _mean(values):
-        flat = torch.cat(values, dim=0)
+        flat = _flat(values)
         return float(flat.mean()) if int(flat.numel()) else None
 
     per_layer = {}
